@@ -1,4 +1,5 @@
 // import moment from 'moment';
+import md5 from 'md5';
 import {
   createFilterparameters,
   convertDistanceToBin,
