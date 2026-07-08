@@ -12,7 +12,7 @@ import {
 } from '../../actions/service-areas';
 import { getPrettyProviderName, getProviderColorForProvider } from '../../helpers/providers';
 import { loadServiceAreas, loadServiceAreasHistory } from '../../helpers/service-areas';
-import { loadServiceAreaDeltas } from '../../helpers/service-areas';
+import { loadServiceAreaDeltas, downloadServiceAreasAsGeoJson } from '../../helpers/service-areas';
 import {
   renderServiceAreas,
   removeServiceAreasFromMap,
@@ -29,6 +29,7 @@ import { ServiceAreaDelta } from '../../types/ServiceAreaDelta';
 import LogoDashboardDeelmobiliteit from '../Logo/LogoDashboardDeelmobiliteit';
 import Fieldset from '../Fieldset/Fieldset';
 import { Checkbox } from "../ui/checkbox"
+import { Button } from "../ui/button"
 
 import {StateType} from '../../types/StateType';
 import { getAvailableOperators } from '../../api/service-areas';
@@ -131,8 +132,10 @@ function FilterbarServiceAreas({
 
   const municipality = useSelector((state: StateType) => state.filter ? state.filter.gebied : null);
   const visible_operators = useSelector((state: StateType) => state.service_areas ? state.service_areas.visible_operators : null);
+  const isLoggedIn = useSelector((state: StateType) => state.authentication.user_data ? true : false);
 
   const [availableOperators, setAvailableOperators] = useState([]);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
     if (!municipality) {
@@ -157,6 +160,23 @@ function FilterbarServiceAreas({
       }
     }
   }, [availableOperators, visible_operators, dispatch]);
+
+  const canDownloadServiceAreas = isLoggedIn && !! municipality && visible_operators && visible_operators.length > 0;
+
+  const handleDownloadServiceAreas = async () => {
+    setIsDownloading(true);
+
+    try {
+      const service_areas = await loadServiceAreas(municipality, visible_operators);
+      const success = downloadServiceAreasAsGeoJson(service_areas, municipality, visible_operators);
+
+      if (! success) {
+        window.alert('Er zijn geen servicegebieden gevonden om te downloaden.');
+      }
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   return (
     <div className="filter-bar-inner">
@@ -203,6 +223,16 @@ function FilterbarServiceAreas({
             {getPrettyProviderName(x)}
           </label>
         </div>)}
+
+        {canDownloadServiceAreas && <Button
+          variant="outline"
+          size="sm"
+          className="mt-2"
+          disabled={isDownloading}
+          onClick={handleDownloadServiceAreas}
+        >
+          {isDownloading ? 'Downloaden...' : 'Download gebieden (GeoJSON)'}
+        </Button>}
       </Fieldset>
 
       <Fieldset title="Historische servicegebieden">
