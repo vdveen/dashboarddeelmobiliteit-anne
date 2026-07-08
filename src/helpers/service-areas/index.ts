@@ -95,6 +95,56 @@ const fetchServiceAreaDelta = async (
   }
 };
 
+export const mergeServiceAreasToGeoJson = (
+  service_areas: ServiceArea[]
+): GeoJSON.FeatureCollection => {
+  const features = service_areas.flatMap((service_area) =>
+    (service_area.geometries?.features || []).map((feature) => ({
+      ...feature,
+      properties: {
+        ...feature.properties,
+        municipality: service_area.municipality,
+        operator: service_area.operator,
+        valid_from: service_area.valid_from,
+        service_area_version_id: service_area.service_area_version_id,
+      },
+    }))
+  );
+
+  return {
+    type: 'FeatureCollection',
+    features,
+  };
+};
+
+export const downloadServiceAreasAsGeoJson = (
+  service_areas: ServiceArea[],
+  gebied: string,
+  visible_operators: string[]
+): boolean => {
+  if (!service_areas || service_areas.length === 0) {
+    return false;
+  }
+
+  const geojson = mergeServiceAreasToGeoJson(service_areas);
+  const blob = new Blob([JSON.stringify(geojson)], { type: 'application/geo+json' });
+  const url = window.URL.createObjectURL(blob);
+
+  const operatorsPart = visible_operators.join('-');
+  const filename = `servicegebieden-${operatorsPart}-${gebied}-${moment().format('YYYY-MM-DD-HHmm')}.geojson`;
+
+  const a = document.createElement('a');
+  a.setAttribute('hidden', '');
+  a.setAttribute('href', url);
+  a.setAttribute('download', filename);
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+
+  return true;
+};
+
 const keepOneEventPerDay = (full_history: ServiceAreaHistoryEvent[]) => {
   const eventsByDay = new Map<string, ServiceAreaHistoryEvent>();
 
