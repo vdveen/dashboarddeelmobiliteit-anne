@@ -147,7 +147,7 @@ const processCsvRentalsResult = (state, csvData) => {
     if(markerVisible) {
       geoJson.features.push(feature);
     }
-  })
+  });
 
   // Fill both origins and destinations, so the imported data is visible
   // in every rentals layer (points, clusters, heat map), regardless of
