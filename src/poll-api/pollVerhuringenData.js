@@ -8,13 +8,16 @@ import {isLoggedIn, isAdmin} from '../helpers/authentication.js';
 import {shouldFetchVehicles} from './pollTools.js';
 
 import { DISPLAYMODE_RENTALS } from '../reducers/layers.js';
-const md5 = require('md5');
 
 var store_verhuringendata = undefined;
 var timerid_verhuringendata = undefined;
 
 // Variable that will prevent simultaneous loading of fetch requests
 let theFetch = null;
+
+// URL of the request currently in flight, so an identical request can reuse
+// it instead of aborting and starting over (see doApiCall)
+let theFetchUrl = null;
 
 // Variable to keep track of vehicles response
 // Only do a new fetch() if needed
@@ -25,6 +28,12 @@ let activeRentals;
 let existingFilter;
 
 const processRentalsResult = (state, type, rentals) => {
+  // Don't overwrite imported CSV data ('Ruwe data import') with API data
+  const currentState = store_verhuringendata.getState();
+  if(currentState.rentals && currentState.rentals.csv_data) {
+    return;
+  }
+
   activeRentals = rentals;
 
   let geoJson = {
@@ -46,7 +55,7 @@ const processRentalsResult = (state, type, rentals) => {
     let feature = {
      "type":"Feature",
      "properties":{
-        "id": md5(v.location.latitude+v.location.longitude),
+        "id": v.location.latitude+","+v.location.longitude,
         "system_id": v.system_id,
         "form_factor": v.form_factor || null,
         "arrival_time": v.arrival_time,
@@ -88,6 +97,72 @@ const processRentalsResult = (state, type, rentals) => {
   })
 }
 
+// Render imported CSV data ('Ruwe data import') instead of API data.
+// The CSV contains park_events without trip distance, so the afstand filter
+// does not apply; aanbieders- and voertuigtype-filters are applied client-side.
+const processCsvRentalsResult = (state, csvData) => {
+  let geoJson = {
+    "type":"FeatureCollection",
+    "features":[]
+  }
+
+  let operatorstats = {}
+  state.metadata.aanbieders.forEach(o => {
+    operatorstats[o.system_id || o.value]=0;
+  });
+
+  const aanbiedersexclude = state.filter.aanbiedersexclude.split(",") || [];
+  const voertuigtypesexclude = (state.filter.voertuigtypesexclude || '').split(",");
+
+  csvData.rows.forEach(v => {
+    let feature = {
+     "type":"Feature",
+     "properties":{
+        "id": md5(`${v.lat}${v.lon}`),
+        "system_id": v.system_id,
+        "form_factor": v.form_factor || null,
+        "arrival_time": v.start_time,
+        "departure_time": v.end_time,
+        "distance_bin": 0,
+        "distance_in_meters": null
+     },
+     "geometry":{
+        "type":"Point",
+        "coordinates": [
+           v.lon,
+           v.lat,
+           0.0
+        ]
+      }
+    }
+
+    if(operatorstats[v.system_id] === undefined) {
+      operatorstats[v.system_id] = 0;
+    }
+    operatorstats[v.system_id] += 1;
+
+    let markerVisible = aanbiedersexclude.includes(v.system_id) === false;
+    markerVisible = markerVisible && (!v.form_factor || voertuigtypesexclude.includes(v.form_factor) === false);
+    if(markerVisible) {
+      geoJson.features.push(feature);
+    }
+  })
+
+  // Fill both origins and destinations, so the imported data is visible
+  // in every rentals layer (points, clusters, heat map), regardless of
+  // the herkomst/bestemming setting
+  ['ORIGINS', 'DESTINATIONS'].forEach(type => {
+    store_verhuringendata.dispatch({
+      type: `SET_RENTALS_${type}`,
+      payload: geoJson
+    })
+    store_verhuringendata.dispatch({
+      type: `SET_RENTALS_${type}_OPERATORSTATS`,
+      payload: operatorstats
+    })
+  })
+}
+
 const doApiCall = (
   state,
   type,
@@ -117,35 +192,59 @@ const doApiCall = (
     };
   }
   
+  // If a request for this exact URL is already in flight, let it finish
+  // instead of aborting and re-issuing it: the response is processed with the
+  // then-current store state, so the result is the same either way.
+  if(theFetch && theFetchUrl === url) {
+    return;
+  }
+
   store_verhuringendata.dispatch({type: 'SHOW_LOADING', payload: true});
-  
+
   // Abort previous fetch
   if(theFetch) {
     theFetch.abort()
   }
   // Now do a new fetch
-  theFetch = abortableFetch(url, options);
-  theFetch.ready.then(function(response) {
-    // Set theFetch to null, so next request is not aborted
-    theFetch = null;
+  const thisFetch = abortableFetch(url, options);
+  theFetch = thisFetch;
+  theFetchUrl = url;
 
-    store_verhuringendata.dispatch({type: 'SHOW_LOADING', payload: false});
+  // Only clear the in-flight tracking if it still points at this request
+  // (a newer request may have replaced it in the meantime)
+  const clearFetchTracking = () => {
+    if(theFetch === thisFetch) {
+      theFetch = null;
+      theFetchUrl = null;
+    }
+  };
 
+  thisFetch.ready.then(function(response) {
     if(!response.ok) {
+      clearFetchTracking();
+      store_verhuringendata.dispatch({type: 'SHOW_LOADING', payload: false});
       console.error("unable to fetch: %o", response);
       return false
     }
 
     response.json().then(function(data) {
       const rentals = isLoggedIn ? data : [];
-      callback(state, type, rentals);
+      // Process with the *current* store state (not the state at request
+      // time), so client-side filters that changed while the request was in
+      // flight are applied to the result.
+      callback(store_verhuringendata.getState(), type, rentals);
     }).catch(ex=>{
       console.error("unable to decode JSON");
     }).finally(()=>{
+      clearFetchTracking();
       store_verhuringendata.dispatch({type: 'SHOW_LOADING', payload: false});
     })
-    
+
   }).catch(ex=>{
+    // If this request was aborted because a newer one replaced it, leave the
+    // loading state to the newer request
+    if(theFetch !== thisFetch) return;
+    clearFetchTracking();
     store_verhuringendata.dispatch({type: 'SHOW_LOADING', payload: false});
     console.error("fetch error - unable to fetch JSON from %s", url);
   });
@@ -164,6 +263,17 @@ const updateVerhuringenData = ()  => {
     const state = store_verhuringendata.getState();
     if(state.layers.displaymode!==DISPLAYMODE_RENTALS) {
       // console.log(`not viewing rentals data (viewing ${state.layers.displaymode}, need ${DISPLAYMODE_RENTALS}) - skip update`);
+      return true;
+    }
+
+    // If CSV data was imported ('Ruwe data import'): render that instead of API data
+    if(state.rentals && state.rentals.csv_data) {
+      // Abort any in-flight API fetch, so it can't overwrite the imported data
+      if(theFetch) {
+        theFetch.abort();
+        theFetch = null;
+      }
+      processCsvRentalsResult(state, state.rentals.csv_data);
       return true;
     }
 
@@ -186,12 +296,14 @@ const updateVerhuringenData = ()  => {
       existingFilter = state.filter;
 
       const theType = state.filter.herkomstbestemming === 'bestemming' ? 'destinations' : 'origins';
-      if(doFetchRentals || ! activeRentals) {
+      if(doFetchRentals || (! activeRentals && ! theFetch)) {
         doApiCall(state, theType, processRentalsResult);
-      } else {
+      } else if(activeRentals) {
         // Regenerate geoJson without querying API
-        processRentalsResult(state, theType, activeRentals); 
+        processRentalsResult(state, theType, activeRentals);
       }
+      // else: no rentals yet but a fetch is in flight; its callback processes
+      // the response with the store state at completion time
 
     }
   } catch(ex) {
