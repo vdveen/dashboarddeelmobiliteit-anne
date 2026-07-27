@@ -1,6 +1,7 @@
 const initialState = {
   data: [],
   operatorstats: [],
+  parkeerduurstats: null,
 }
 
 export default function vehicles(state = initialState, action) {
@@ -8,7 +9,8 @@ export default function vehicles(state = initialState, action) {
     case 'SET_VEHICLES': {
       return {
         data: action.payload,
-        operatorstats: []
+        operatorstats: [],
+        parkeerduurstats: null
       }
     }
     case 'SET_VEHICLES_OPERATORSTATS': {
@@ -16,10 +18,16 @@ export default function vehicles(state = initialState, action) {
         operatorstats: action.payload
       })
     }
+    case 'SET_VEHICLES_PARKEERDUURSTATS': {
+      return Object.assign({}, state, {
+        parkeerduurstats: action.payload
+      })
+    }
     case 'CLEAR_VEHICLES': {
       return {
         data: [],
-        operatorstats: []
+        operatorstats: [],
+        parkeerduurstats: null
       }
     }
     case 'LOGIN':

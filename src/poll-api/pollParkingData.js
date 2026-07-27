@@ -41,6 +41,11 @@ const processVehiclesResult = (state, vehicles) => {
     operatorstats[o.system_id || o.value]=0;
   });
 
+  // Number of vehicles per parkeerduur bin (= per marker color), used for the
+  // counts in the Parkeerduur legend. The parkeerduur filter itself is *not*
+  // applied here, so excluding a bin doesn't blank out its own count.
+  let parkeerduurstats = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0};
+
   var start_time = moment(state.filter.datum);
   const start_time_ms = start_time.valueOf();
 
@@ -87,11 +92,17 @@ const processVehiclesResult = (state, vehicles) => {
     operatorstats[v.system_id || v.value]+=1;
 
     // Filter markers
-    let markerVisible = ! loggedIn || !parkeerduurexclude.includes(duration_bin.toString());
-    markerVisible = markerVisible && (aanbiedersexclude.includes(v.system_id || v.value) === false)
+    let passesOtherFilters = aanbiedersexclude.includes(v.system_id || v.value) === false;
     if (showOnlyNonOperational) {
-      markerVisible = markerVisible && v.is_non_operational === true;
+      passesOtherFilters = passesOtherFilters && v.is_non_operational === true;
     }
+
+    if(passesOtherFilters && parkeerduurstats[duration_bin] !== undefined) {
+      parkeerduurstats[duration_bin]+=1;
+    }
+
+    let markerVisible = passesOtherFilters
+      && (! loggedIn || !parkeerduurexclude.includes(duration_bin.toString()));
     if(markerVisible) {
       geoJson.features.push(feature);
     }
@@ -108,6 +119,12 @@ const processVehiclesResult = (state, vehicles) => {
   store_parkingdata.dispatch({
     type: 'SET_VEHICLES_OPERATORSTATS',
     payload: operatorstats
+  })
+
+  // Update parkeerduur stats (= number of vehicles per parkeerduur bin) in store
+  store_parkingdata.dispatch({
+    type: 'SET_VEHICLES_PARKEERDUURSTATS',
+    payload: parkeerduurstats
   })
 }
 

@@ -5,16 +5,24 @@ import './css/FilteritemMarkers.css';
 import {StateType} from '../../types/StateType';
 
 export function FilteritemMarkersParkeerduur() {
-  const markers = useSelector((state: StateType) => {
-    return [
-      { id: 0, color: '#1FA024', fillcolor: '#1FA024', name: '< 2 dagen'},
-      { id: 1, color: '#48E248', fillcolor: '#48E248', name: '< 4 dagen'},
-      { id: 2, color: '#FFD837', fillcolor: '#FFD837', name: '< 7 dagen'},
-      { id: 3, color: '#FD3E48', fillcolor: '#FD3E48', name: '< 14 dagen'},
-      { id: 4, color: '#9158DE', fillcolor: '#9158DE', name: '>= 14 dagen'}
-    ];
+  // Number of vehicles per parkeerduur bin, as calculated in pollParkingData
+  const parkeerduurstats = useSelector((state: StateType) => {
+    return state.vehicles ? state.vehicles.parkeerduurstats : null;
   });
-  
+
+  const markers = [
+    { id: 0, color: '#1FA024', fillcolor: '#1FA024', name: '< 2 dagen'},
+    { id: 1, color: '#48E248', fillcolor: '#48E248', name: '< 4 dagen'},
+    { id: 2, color: '#FFD837', fillcolor: '#FFD837', name: '< 7 dagen'},
+    { id: 3, color: '#FD3E48', fillcolor: '#FD3E48', name: '< 14 dagen'},
+    { id: 4, color: '#9158DE', fillcolor: '#9158DE', name: '>= 14 dagen'}
+  ].map(marker => {
+    return parkeerduurstats && parkeerduurstats[marker.id] !== undefined ?
+      Object.assign({}, marker, { count: parkeerduurstats[marker.id] })
+      :
+      marker;
+  });
+
   return FilteritemMarkers({
     label: 'Parkeerduur',
     filtername: 'parkeerduurexclude',
@@ -88,6 +96,13 @@ function FilteritemMarkers({label, filtername, markers, addmarker, removemarker,
   }
   
   
+  // Total of all markers that have a vehicle count, used for the percentages.
+  // Markers excluded by this filter are counted as well, so the percentages
+  // always add up to 100% of the vehicles on the map.
+  const totalCount = markers.reduce((total, marker) => {
+    return marker.count !== undefined ? total + marker.count : total;
+  }, 0);
+
   return (
     <div className="filter-markers-container">
       {filterMarkersExclude!=='' ? <div className="filter-markers-title-row">
@@ -118,6 +133,11 @@ function FilteritemMarkers({label, filtername, markers, addmarker, removemarker,
                 <div className="filter-markers-itemlabel">
                   { marker.name }
                 </div>
+                {marker.count!==undefined && totalCount>0 &&
+                  <div className="filter-markers-itemcount">
+                    { marker.count } ({ Math.round(100 * marker.count / totalCount) }%)
+                  </div>
+                }
               </div>)
           })
         }
