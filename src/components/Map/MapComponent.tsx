@@ -16,6 +16,7 @@ import {StateType} from '../../types/StateType';
 import U from 'mapbox-gl-utils';
 import {getMapStyles, applyMapStyle} from './MapUtils/map';
 import {createSafeGeolocateControl} from './MapUtils/mapControls';
+import { whenMapStyleReady } from './MapUtils/mapGuards';
 import {initPopupLogic} from './MapUtils/popups.js';
 import {initClusters} from './MapUtils/clusters.js';
 import {
@@ -35,7 +36,12 @@ import {
   DISPLAYMODE_RENTALS,
   DISPLAYMODE_START,
   DISPLAYMODE_OTHER,
+  DISPLAYMODE_SERVICE_AREAS,
+  DISPLAYMODE_POLICY_HUBS,
 } from '../../reducers/layers.js';
+import { removeHubsFromMap } from './MapUtils/map.policy_hubs';
+import { removeServiceAreasFromMap } from './MapUtils/map.service_areas';
+import { removeServiceAreaDeltaFromMap } from './MapUtils/map.service_area_delta';
 
 import './MapComponent.css';
 
@@ -465,17 +471,48 @@ const MapComponent = (props): JSX.Element => {
   // Set active layers (now handled by MapPage based on active_data_layers)
   useEffect(() => {
     if(! didInitSourcesAndLayers) return;
+    if(! map.current) return;
 
     // Do not activate background layers
     // Get background layers from components/Map/MapUtils/backgroundLayerManager.js
     const backgroundLayers = getAvailableLayers();
     const layersToActivate = props.layers.filter(layer => !Object.values(backgroundLayers).some(backgroundLayer => backgroundLayer.layerId === layer));
 
-    activateLayers(map.current, layers, layersToActivate);
+    let cancelled = false;
+
+    const run = () => {
+      if (cancelled || !map.current) return;
+      activateLayers(map.current, layers, layersToActivate);
+    };
+
+    if (!map.current.isStyleLoaded()) {
+      whenMapStyleReady(map.current, run);
+      return () => { cancelled = true; };
+    }
+
+    run();
+    return () => { cancelled = true; };
   }, [
     didInitSourcesAndLayers,
     JSON.stringify(props.layers)
   ])
+
+  // Defensive cleanup: when the display mode changes away from a page that owns
+  // dynamic map layers, make sure those layers are removed. Child components
+  // normally clean up themselves, but if the map style was loading during their
+  // unmount their cleanup may have been deferred. This effect acts as a safety net.
+  useEffect(() => {
+    if(! map.current) return;
+    if(! didMapLoad) return;
+
+    if (displayMode !== DISPLAYMODE_POLICY_HUBS) {
+      removeHubsFromMap(map.current);
+    }
+    if (displayMode !== DISPLAYMODE_SERVICE_AREAS) {
+      removeServiceAreasFromMap(map.current);
+      removeServiceAreaDeltaFromMap(map.current);
+    }
+  }, [displayMode, didMapLoad]);
 
   // Set vehicles sources
   useEffect(() => {
@@ -725,6 +762,13 @@ const MapComponent = (props): JSX.Element => {
     return viewsToShowSearchBar.indexOf(stateLayers.displaymode) > -1;
   }
 
+  const shouldShowMapTopControls = () => {
+    if (isLoggedIn) {
+      return true;
+    }
+    return showSearchBar();
+  }
+
   return <>
     {/* The map container (HTML element) */}
     <div ref={mapContainer} className="map flex-1" />
@@ -742,7 +786,7 @@ const MapComponent = (props): JSX.Element => {
     {stateLayers.displaymode === 'displaymode-policy-hubs' && <>
       <DdPolicyHubsLayer map={map.current} />
     </>}
-    {isLoggedIn && showSearchBar && 
+    {shouldShowMapTopControls() &&
       <>
         <RightTop>
           <div className="flex gap-2">

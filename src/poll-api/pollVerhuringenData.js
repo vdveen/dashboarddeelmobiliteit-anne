@@ -48,6 +48,7 @@ const processRentalsResult = (state, type, rentals) => {
   });
 
   let aanbiedersexclude = state.filter.aanbiedersexclude.split(",") || []
+  let afstandexclude = state.filter.afstandexclude.split(",") || [];
 
   // Map data
   activeRentals[`trip_${type}`].forEach(v => {
@@ -78,7 +79,6 @@ const processRentalsResult = (state, type, rentals) => {
 
     operatorstats[v.system_id || v.value]+=1;
 
-    let afstandexclude = state.filter.afstandexclude.split(",") || [];
     let markerVisible = !afstandexclude.includes(distance_bin.toString());
     markerVisible = markerVisible && (aanbiedersexclude.includes(v.system_id || v.value) === false)
     if(markerVisible) {
@@ -229,11 +229,12 @@ const doApiCall = (
     }
 
     response.json().then(function(data) {
-      const rentals = isLoggedIn ? data : [];
+      const currentState = store_verhuringendata.getState();
+      const rentals = isLoggedIn(currentState) ? data : [];
       // Process with the *current* store state (not the state at request
       // time), so client-side filters that changed while the request was in
       // flight are applied to the result.
-      callback(store_verhuringendata.getState(), type, rentals);
+      callback(currentState, type, rentals);
     }).catch(ex=>{
       console.error("unable to decode JSON");
     }).finally(()=>{
@@ -287,7 +288,7 @@ const updateVerhuringenData = ()  => {
 
     if(!canfetchdata) {
       store_verhuringendata.dispatch({ type: 'CLEAR_RENTALS_ORIGINS'});
-      store_verhuringendata.dispatch({ type: 'CLEAR_RENTALS_DESTINATIOINS'});
+      store_verhuringendata.dispatch({ type: 'CLEAR_RENTALS_DESTINATIONS'});
     } else {
 
       // Should we (re)fetch vehicles?
