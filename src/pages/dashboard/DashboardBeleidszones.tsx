@@ -14,6 +14,7 @@ import VerhuringenChart from '../../components/Chart/VerhuringenChart';
 import BeschikbareVoertuigenChart from '../../components/Chart/BeschikbareVoertuigenChart';
 import VerhuringenPerVoertuigChart from '../../components/Chart/VerhuringenPerVoertuigChart';
 import TimeGridVehicleAvailability from '../../components/TimeGrid/TimeGrid_VehicleAvailability';
+import BeleidszonesAvailabilityKpi from '../../components/Chart/BeleidszonesAvailabilityKpi';
 import InfoTooltip from '../../components/InfoTooltip/InfoTooltip';
 import PageTitle from '../../components/common/PageTitle';
 import ZonePreviewMap from '../../components/ZonePreviewMap/ZonePreviewMap';
@@ -292,6 +293,15 @@ function DashboardBeleidszones() {
         <VerhuringenChart title="Verhuringen" />
         <VerhuringenPerVoertuigChart title="Verhuringen per voertuig" />
       </div>
+
+      {hasExactlyOneZone && (
+        <div style={{marginLeft: '58px'}}>
+          <BeleidszonesAvailabilityKpi
+            zoneId={selectedZoneIds[0]}
+            zoneName={selectedZone?.name}
+          />
+        </div>
+      )}
 
       <div className="xl:flex">
         {doShowDetailledAggregatedData(filter, zones) && (
