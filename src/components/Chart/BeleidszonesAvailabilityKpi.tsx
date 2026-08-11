@@ -8,6 +8,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
 } from 'recharts';
 
@@ -15,11 +16,17 @@ import { StateType } from '../../types/StateType';
 import {
   fetch5mAvailabilitySeries,
   computeAvailabilityKpi,
+  getOperatorsInSeries,
   build5mSeriesCsv,
   MAX_5M_PERIOD_DAYS,
   FiveMinutePoint,
 } from '../../helpers/stats/availability-kpi';
 import { downloadCsv } from '../../helpers/stats/index';
+import {
+  getProviderColor,
+  getPrettyProviderName,
+  archivedProviders,
+} from '../../helpers/providers.js';
 import { getOperatorsScopeForStats } from '../../poll-api/pollTools.js';
 
 interface BeleidszonesAvailabilityKpiProps {
@@ -56,9 +63,18 @@ function BeleidszonesAvailabilityKpi({ zoneId, zoneName }: BeleidszonesAvailabil
     ? moment(endDate).startOf('day').subtract(MAX_5M_PERIOD_DAYS - 1, 'days').format('YYYY-MM-DD')
     : filter.ontwikkelingvan;
 
-  // The series belongs to one zone + period; invalidate when those change
+  // The series belongs to one zone + period; invalidate when those change.
+  // The provider selection is applied client-side, so it never invalidates.
   const dataKey = `${zoneId}|${startDate}|${endDate}`;
   const seriesIsCurrent = series !== null && loadedForKey === dataKey;
+
+  // Providers unchecked in the filterbar, plus providers no longer shown in the UI
+  const excludedOperators = useMemo(() => {
+    const fromFilter = filter.aanbiedersexclude
+      ? String(filter.aanbiedersexclude).split(',').filter(Boolean)
+      : [];
+    return [...fromFilter, ...archivedProviders];
+  }, [filter.aanbiedersexclude]);
 
   const loadData = async () => {
     if (loading) return;
@@ -94,10 +110,12 @@ function BeleidszonesAvailabilityKpi({ zoneId, zoneName }: BeleidszonesAvailabil
       windowStartHour,
       windowEndHour,
       threshold,
+      excludedOperators,
     });
-  }, [series, seriesIsCurrent, windowStartHour, windowEndHour, threshold]);
+  }, [series, seriesIsCurrent, windowStartHour, windowEndHour, threshold, excludedOperators]);
 
-  const chartData = useMemo(() => {
+  // Percentage of time above the threshold, per day
+  const pctChartData = useMemo(() => {
     if (!kpi) return [];
     return kpi.perDay.map((day) => ({
       name: moment(day.date).format('DD-MM'),
@@ -105,10 +123,20 @@ function BeleidszonesAvailabilityKpi({ zoneId, zoneName }: BeleidszonesAvailabil
     }));
   }, [kpi]);
 
+  // Average number of available vehicles per operator, per day
+  const operatorChartData = useMemo(() => {
+    if (!kpi) return [];
+    return kpi.perDay.map((day) => ({
+      name: moment(day.date).format('DD-MM'),
+      ...day.avgPerOperator,
+    }));
+  }, [kpi]);
+
   const handleDownloadCsv = () => {
     if (!seriesIsCurrent || !series) return;
+    const operators = getOperatorsInSeries(series, excludedOperators);
     const filename = `beschikbaarheid_5min_zone${zoneId}_${moment(startDate).format('YYYY-MM-DD')}_${moment(endDate).format('YYYY-MM-DD')}.csv`;
-    downloadCsv(build5mSeriesCsv(series), filename);
+    downloadCsv(build5mSeriesCsv(series, operators), filename);
   };
 
   return (
@@ -121,7 +149,8 @@ function BeleidszonesAvailabilityKpi({ zoneId, zoneName }: BeleidszonesAvailabil
         {threshold === 1 ? 'voertuig' : 'voertuigen'} beschikbaar{' '}
         {threshold === 1 ? 'was' : 'waren'}
         {zoneName ? ` in ${zoneName}` : ''}. Gebaseerd op de ruwe metingen per 5
-        minuten; intervallen zonder meting tellen als 0 voertuigen.
+        minuten; intervallen zonder meting tellen als 0 voertuigen. Alleen de
+        aanbieders die in het filter zijn aangevinkt tellen mee.
       </p>
 
       <div className="flex flex-wrap items-end gap-4 my-4">
@@ -204,18 +233,53 @@ function BeleidszonesAvailabilityKpi({ zoneId, zoneName }: BeleidszonesAvailabil
         </div>
       )}
 
-      {kpi && chartData.length > 0 && (
-        <div style={{ width: '100%', height: 300 }}>
-          <ResponsiveContainer>
-            <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" interval="preserveStartEnd" />
-              <YAxis domain={[0, 100]} unit="%" />
-              <Tooltip formatter={(value) => [`${value}%`, 'Beschikbaar']} />
-              <Bar dataKey="pct" fill="#15aeef" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+      {kpi && pctChartData.length > 0 && (
+        <>
+          <h3 className="text-xl mt-6 mb-1">Percentage van de tijd boven de drempel</h3>
+          <div style={{ width: '100%', height: 260 }}>
+            <ResponsiveContainer>
+              <BarChart data={pctChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <XAxis dataKey="name" interval="preserveStartEnd" tickLine={false} />
+                <YAxis domain={[0, 100]} unit="%" tickLine={false} axisLine={false} />
+                <Tooltip formatter={(value) => [`${value}%`, 'Boven drempel']} />
+                <Bar dataKey="pct" fill="#15aeef" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          <h3 className="text-xl mt-8 mb-1">
+            Gemiddeld aantal beschikbare voertuigen per aanbieder
+          </h3>
+          <div style={{ width: '100%', height: 300 }}>
+            <ResponsiveContainer>
+              <BarChart data={operatorChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <XAxis dataKey="name" interval="preserveStartEnd" tickLine={false} />
+                <YAxis tickLine={false} axisLine={false} />
+                <Tooltip />
+                {/* Legend labels in neutral ink; the colored swatch carries identity */}
+                <Legend
+                  formatter={(value) => (
+                    <span style={{ color: '#374151' }}>{value}</span>
+                  )}
+                />
+                {kpi.operators.map((operator, idx) => (
+                  <Bar
+                    key={operator}
+                    dataKey={operator}
+                    name={getPrettyProviderName(operator)}
+                    stackId="operators"
+                    fill={getProviderColor(metadata?.aanbieders ?? [], operator)}
+                    stroke="#ffffff"
+                    strokeWidth={1}
+                    radius={idx === kpi.operators.length - 1 ? [4, 4, 0, 0] : undefined}
+                  />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </>
       )}
     </div>
   );

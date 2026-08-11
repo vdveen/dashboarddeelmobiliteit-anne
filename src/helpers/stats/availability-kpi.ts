@@ -8,6 +8,9 @@
  * a daily time window in which at least `threshold` vehicles were
  * available.
  *
+ * Counts are kept per operator so that changing the provider selection
+ * (filter.aanbiedersexclude) only recomputes, never refetches.
+ *
  * @see https://docs.dashboarddeelmobiliteit.nl/api_docs/zone_statistics/
  */
 
@@ -17,7 +20,8 @@ import { getBeleidszonesAvailabilityStats } from '../../api/beleidszones';
 /** One point of the zero-filled series. `time` is 'YYYY-MM-DDTHH:mm' (local). */
 export interface FiveMinutePoint {
   time: string;
-  count: number;
+  /** Available vehicles per operator system_id at this moment. */
+  counts: Record<string, number>;
 }
 
 export interface AvailabilityKpiOptions {
@@ -27,14 +31,26 @@ export interface AvailabilityKpiOptions {
   windowEndHour: number;
   /** Minimum number of available vehicles for an interval to count. */
   threshold: number;
+  /** Operator system_ids to leave out of the totals (filter.aanbiedersexclude). */
+  excludedOperators?: string[];
 }
 
 export interface DayKpi {
   /** 'YYYY-MM-DD' */
   date: string;
-  /** Share (0-100) of window intervals with count >= threshold. */
+  /** Share (0-100) of window intervals with total count >= threshold. */
   pct: number;
   intervalsInWindow: number;
+  /** Average number of available vehicles per operator during the window. */
+  avgPerOperator: Record<string, number>;
+}
+
+export interface AvailabilityKpiResult {
+  perDay: DayKpi[];
+  /** Share (0-100) over all days combined, or null when there is no data. */
+  overallPct: number | null;
+  /** Included operator system_ids, sorted; stable regardless of selection. */
+  operators: string[];
 }
 
 /** Days fetched per request. */
@@ -44,15 +60,19 @@ const CHUNK_DAYS = 7;
  * Longer selections are clamped to the most recent MAX_5M_PERIOD_DAYS days. */
 export const MAX_5M_PERIOD_DAYS = 90;
 
-const sumOperatorCounts = (item: Record<string, unknown>): number => {
-  let sum = 0;
+const collectOperatorCounts = (
+  item: Record<string, unknown>,
+  target: Record<string, number>
+) => {
   Object.keys(item).forEach((key) => {
     if (key === 'time' || key === 'start_interval') return;
     const val = item[key];
-    if (typeof val === 'number') sum += val;
-    else if (typeof val === 'string' && !isNaN(Number(val))) sum += Number(val);
+    let num: number | null = null;
+    if (typeof val === 'number') num = val;
+    else if (typeof val === 'string' && !isNaN(Number(val))) num = Number(val);
+    if (num === null) return;
+    target[key] = (target[key] || 0) + num;
   });
-  return sum;
 };
 
 /**
@@ -88,7 +108,7 @@ export const fetch5mAvailabilitySeries = async (
     });
   }
 
-  const countByTime = new Map<string, number>();
+  const countsByTime = new Map<string, Record<string, number>>();
   let done = 0;
   for (const chunk of chunks) {
     const result = await getBeleidszonesAvailabilityStats(token, {
@@ -106,7 +126,9 @@ export const fetch5mAvailabilitySeries = async (
       const t = item[timeKey];
       if (!t) return;
       const key = moment(String(t)).format('YYYY-MM-DDTHH:mm');
-      countByTime.set(key, (countByTime.get(key) || 0) + sumOperatorCounts(item));
+      const entry = countsByTime.get(key) || {};
+      collectOperatorCounts(item, entry);
+      countsByTime.set(key, entry);
     });
     done++;
     onProgress?.(done, chunks.length);
@@ -116,40 +138,84 @@ export const fetch5mAvailabilitySeries = async (
   const series: FiveMinutePoint[] = [];
   for (let t = start.clone(); t.isBefore(end); t.add(5, 'minutes')) {
     const key = t.format('YYYY-MM-DDTHH:mm');
-    series.push({ time: key, count: countByTime.get(key) ?? 0 });
+    series.push({ time: key, counts: countsByTime.get(key) ?? {} });
   }
   return series;
+};
+
+/** Operator system_ids present in the series, minus the excluded ones. */
+export const getOperatorsInSeries = (
+  series: FiveMinutePoint[],
+  excludedOperators: string[] = []
+): string[] => {
+  const seen = new Set<string>();
+  series.forEach((point) => {
+    Object.keys(point.counts).forEach((operator) => seen.add(operator));
+  });
+  // Sorted so the stack order (and therefore the colors) stays stable
+  // when the provider selection changes.
+  return Array.from(seen)
+    .filter((operator) => !excludedOperators.includes(operator))
+    .sort();
 };
 
 /**
  * Computes the availability KPI per day plus the overall share:
  * the percentage of 5-minute intervals within the daily window
- * [windowStartHour, windowEndHour) in which count >= threshold.
+ * [windowStartHour, windowEndHour) in which the total number of available
+ * vehicles (of the selected operators) is >= threshold.
  */
 export const computeAvailabilityKpi = (
   series: FiveMinutePoint[],
   options: AvailabilityKpiOptions
-): { perDay: DayKpi[]; overallPct: number | null } => {
+): AvailabilityKpiResult => {
   const { windowStartHour, windowEndHour, threshold } = options;
+  const excludedOperators = options.excludedOperators ?? [];
+  const operators = getOperatorsInSeries(series, excludedOperators);
 
-  const perDayMap = new Map<string, { inWindow: number; above: number }>();
+  const perDayMap = new Map<
+    string,
+    { inWindow: number; above: number; sumPerOperator: Record<string, number> }
+  >();
+
   series.forEach((point) => {
     const hour = parseInt(point.time.substring(11, 13), 10);
     if (hour < windowStartHour || hour >= windowEndHour) return;
     const date = point.time.substring(0, 10);
-    const entry = perDayMap.get(date) || { inWindow: 0, above: 0 };
+    const entry =
+      perDayMap.get(date) || { inWindow: 0, above: 0, sumPerOperator: {} };
+
+    let total = 0;
+    operators.forEach((operator) => {
+      const count = point.counts[operator] || 0;
+      total += count;
+      entry.sumPerOperator[operator] = (entry.sumPerOperator[operator] || 0) + count;
+    });
+
     entry.inWindow++;
-    if (point.count >= threshold) entry.above++;
+    if (total >= threshold) entry.above++;
     perDayMap.set(date, entry);
   });
 
   const perDay: DayKpi[] = Array.from(perDayMap.entries())
     .sort(([a], [b]) => (a < b ? -1 : 1))
-    .map(([date, entry]) => ({
-      date,
-      pct: entry.inWindow > 0 ? Math.round((entry.above / entry.inWindow) * 1000) / 10 : 0,
-      intervalsInWindow: entry.inWindow,
-    }));
+    .map(([date, entry]) => {
+      const avgPerOperator: Record<string, number> = {};
+      operators.forEach((operator) => {
+        const avg =
+          entry.inWindow > 0 ? (entry.sumPerOperator[operator] || 0) / entry.inWindow : 0;
+        avgPerOperator[operator] = Math.round(avg * 10) / 10;
+      });
+      return {
+        date,
+        pct:
+          entry.inWindow > 0
+            ? Math.round((entry.above / entry.inWindow) * 1000) / 10
+            : 0,
+        intervalsInWindow: entry.inWindow,
+        avgPerOperator,
+      };
+    });
 
   const totals = Array.from(perDayMap.values()).reduce(
     (acc, entry) => ({
@@ -163,14 +229,26 @@ export const computeAvailabilityKpi = (
       ? Math.round((totals.above / totals.inWindow) * 1000) / 10
       : null;
 
-  return { perDay, overallPct };
+  return { perDay, overallPct, operators };
 };
 
-/** Builds a CSV (time;count per row) of the raw zero-filled 5-minute series. */
-export const build5mSeriesCsv = (series: FiveMinutePoint[]): string => {
-  const rows = ['tijd;beschikbare_voertuigen'];
+/**
+ * Builds a CSV of the raw zero-filled 5-minute series: one column per
+ * selected operator plus a total.
+ */
+export const build5mSeriesCsv = (
+  series: FiveMinutePoint[],
+  operators: string[]
+): string => {
+  const rows = [['tijd', ...operators, 'totaal'].join(';')];
   series.forEach((point) => {
-    rows.push(`${point.time};${point.count}`);
+    let total = 0;
+    const cells = operators.map((operator) => {
+      const count = point.counts[operator] || 0;
+      total += count;
+      return String(count);
+    });
+    rows.push([point.time, ...cells, String(total)].join(';'));
   });
   return rows.join('\n');
 };
