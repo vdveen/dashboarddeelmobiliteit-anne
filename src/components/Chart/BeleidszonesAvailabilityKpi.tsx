@@ -43,20 +43,23 @@ function BeleidszonesAvailabilityKpi({ zoneId, zoneName }: BeleidszonesAvailabil
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const startDate = filter.ontwikkelingvan;
   const endDate = filter.ontwikkelingtot;
-  const periodDays =
-    startDate && endDate
-      ? moment(endDate).startOf('day').diff(moment(startDate).startOf('day'), 'days') + 1
+  const selectedPeriodDays =
+    filter.ontwikkelingvan && endDate
+      ? moment(endDate).startOf('day').diff(moment(filter.ontwikkelingvan).startOf('day'), 'days') + 1
       : 0;
-  const periodTooLong = periodDays > MAX_5M_PERIOD_DAYS;
+  // Selections longer than the cap are clamped to the most recent 90 days
+  const periodClamped = selectedPeriodDays > MAX_5M_PERIOD_DAYS;
+  const startDate = periodClamped
+    ? moment(endDate).startOf('day').subtract(MAX_5M_PERIOD_DAYS - 1, 'days').format('YYYY-MM-DD')
+    : filter.ontwikkelingvan;
 
   // The series belongs to one zone + period; invalidate when those change
   const dataKey = `${zoneId}|${startDate}|${endDate}`;
   const seriesIsCurrent = series !== null && loadedForKey === dataKey;
 
   const loadData = async () => {
-    if (loading || periodTooLong) return;
+    if (loading) return;
     setLoading(true);
     setError(null);
     setProgress(null);
@@ -156,7 +159,7 @@ function BeleidszonesAvailabilityKpi({ zoneId, zoneName }: BeleidszonesAvailabil
         <button
           type="button"
           onClick={loadData}
-          disabled={loading || periodTooLong}
+          disabled={loading}
           className="px-4 py-2 rounded bg-blue-600 text-white disabled:bg-gray-300"
         >
           {loading
@@ -178,10 +181,12 @@ function BeleidszonesAvailabilityKpi({ zoneId, zoneName }: BeleidszonesAvailabil
         )}
       </div>
 
-      {periodTooLong && (
+      {periodClamped && (
         <p className="text-orange-700 my-2">
-          De geselecteerde periode is {periodDays} dagen. Kies een periode van
-          maximaal {MAX_5M_PERIOD_DAYS} dagen om de 5-minuten-data op te halen.
+          De geselecteerde periode is {selectedPeriodDays} dagen; de
+          5-minuten-data wordt beperkt tot de meest recente{' '}
+          {MAX_5M_PERIOD_DAYS} dagen ({moment(startDate).format('DD-MM-YYYY')}{' '}
+          t/m {moment(endDate).format('DD-MM-YYYY')}).
         </p>
       )}
       {error && <p className="text-red-600 my-2">{error}</p>}

@@ -40,8 +40,9 @@ export interface DayKpi {
 /** Days fetched per request. */
 const CHUNK_DAYS = 7;
 
-/** Maximum period (days) for which the 5-minute series may be fetched. */
-export const MAX_5M_PERIOD_DAYS = 35;
+/** Maximum period (days) for which the 5-minute series may be fetched.
+ * Longer selections are clamped to the most recent MAX_5M_PERIOD_DAYS days. */
+export const MAX_5M_PERIOD_DAYS = 90;
 
 const sumOperatorCounts = (item: Record<string, unknown>): number => {
   let sum = 0;
