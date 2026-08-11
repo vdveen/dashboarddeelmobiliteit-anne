@@ -4,6 +4,7 @@ import {
   getAggregatedStats_timescaleDB
  } from '../../api/aggregatedStats';
 import { getBeleidszonesRentalStats } from '../../api/beleidszones';
+import { getOperatorsScopeForStats } from '../../poll-api/pollTools.js';
 
 import {
   prepareAggregatedStatsData,
@@ -37,6 +38,7 @@ export const getAggregatedRentalsData = async (token, filter, zones, metadata) =
         endTime: tot.toISOString(),
         aggregationLevel: filter.ontwikkelingaggregatie,
         aggregationFunction: filter.ontwikkelingaggregatie_function || 'MAX',
+        operators: getOperatorsScopeForStats(metadata),
       });
     }
     if (!aggregatedVehicleData) {

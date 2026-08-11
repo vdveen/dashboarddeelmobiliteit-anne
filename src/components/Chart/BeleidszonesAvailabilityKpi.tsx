@@ -20,6 +20,7 @@ import {
   FiveMinutePoint,
 } from '../../helpers/stats/availability-kpi';
 import { downloadCsv } from '../../helpers/stats/index';
+import { getOperatorsScopeForStats } from '../../poll-api/pollTools.js';
 
 interface BeleidszonesAvailabilityKpiProps {
   zoneId: number;
@@ -33,6 +34,7 @@ function BeleidszonesAvailabilityKpi({ zoneId, zoneName }: BeleidszonesAvailabil
     (state: StateType) => state.authentication?.user_data?.token || null
   );
   const filter = useSelector((state: StateType) => state.filter);
+  const metadata = useSelector((state: StateType) => state.metadata);
 
   const [threshold, setThreshold] = useState(1);
   const [windowStartHour, setWindowStartHour] = useState(8);
@@ -69,6 +71,7 @@ function BeleidszonesAvailabilityKpi({ zoneId, zoneName }: BeleidszonesAvailabil
         zoneId,
         startDate,
         endDate,
+        getOperatorsScopeForStats(metadata),
         (done, total) => setProgress({ done, total })
       );
       setSeries(result);

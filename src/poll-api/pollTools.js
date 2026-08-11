@@ -16,6 +16,23 @@ export const getAclOperatorSystemIds = (metadata) => {
     .filter(Boolean);
 };
 
+/**
+ * Operator scope for stats requests. Single-ACL-operator accounts (e.g. a
+ * municipality/province with one operator data-access grant) must always be
+ * scoped to that operator or the backend refuses the request; other accounts
+ * get the full public operators list. Mirrors appendOperatorsScope in
+ * createFilterparameters.
+ */
+export const getOperatorsScopeForStats = (metadata) => {
+  const aclSystemIds = getAclOperatorSystemIds(metadata);
+  if (aclSystemIds.length === 1) {
+    return aclSystemIds;
+  }
+  return (metadata?.aanbieders || [])
+    .map((operator) => operator.system_id || operator.value)
+    .filter(Boolean);
+};
+
 /** Append `operators=` when the logged-in user is scoped to specific operators. */
 export const appendAclOperatorsToUrl = (url, metadata) => {
   const systemIds = getAclOperatorSystemIds(metadata);
@@ -111,13 +128,6 @@ export const createFilterparameters = (displayMode, filter, metadata, options) =
 
   const hasOperatorsParam = () => filterparams.some((p) => p.startsWith('operators='));
 
-  // system_ids from the public NL-wide /operators API (state.metadata.aanbieders).
-  const getPublicOperatorSystemIds = () => {
-    return (metadata?.aanbieders || [])
-      .map((operator) => operator.system_id || operator.value)
-      .filter(Boolean);
-  };
-
   // Operator-type accounts (single operator in /menu/acl) must always be
   // scoped to their own operator. For municipality / admin accounts we want
   // the request to reflect the full NL-wide /operators list so newly added
@@ -127,14 +137,9 @@ export const createFilterparameters = (displayMode, filter, metadata, options) =
     if (hasOperatorsParam()) {
       return;
     }
-    const aclSystemIds = getAclOperatorSystemIds(metadata);
-    if (aclSystemIds.length === 1) {
-      filterparams.push('operators=' + aclSystemIds.join(','));
-      return;
-    }
-    const publicSystemIds = getPublicOperatorSystemIds();
-    if (publicSystemIds.length > 0) {
-      filterparams.push('operators=' + publicSystemIds.join(','));
+    const scope = getOperatorsScopeForStats(metadata);
+    if (scope.length > 0) {
+      filterparams.push('operators=' + scope.join(','));
     }
   };
 

@@ -1,6 +1,7 @@
 import moment from 'moment-timezone';
 import {getAggregatedStats, getAggregatedStats_timescaleDB} from '../../api/aggregatedStats';
 import { getBeleidszonesAvailabilityStats } from '../../api/beleidszones';
+import { getOperatorsScopeForStats } from '../../poll-api/pollTools.js';
 
 import {
   prepareAggregatedStatsData,
@@ -40,6 +41,7 @@ export const getAggregatedVehicleData = async (token, filter, zones, metadata) =
         endTime: tot.toISOString(),
         aggregationLevel: filter.ontwikkelingaggregatie,
         aggregationFunction: filter.ontwikkelingaggregatie_function || 'MAX',
+        operators: getOperatorsScopeForStats(metadata),
       });
     }
     if (!aggregatedVehicleData) {

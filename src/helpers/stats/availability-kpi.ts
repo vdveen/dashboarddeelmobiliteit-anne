@@ -69,6 +69,7 @@ export const fetch5mAvailabilitySeries = async (
   zoneId: number,
   startDate: string,
   endDate: string,
+  operators?: string[],
   onProgress?: (done: number, total: number) => void
 ): Promise<FiveMinutePoint[]> => {
   const start = moment(startDate).startOf('day');
@@ -97,6 +98,7 @@ export const fetch5mAvailabilitySeries = async (
       aggregationLevel: '5m',
       // At 5m level each bucket holds a single sample, so MAX == the raw value
       aggregationFunction: 'MAX',
+      operators,
     });
     const values = result?.availability_stats?.values || [];
     const timeKey = values[0]?.time !== undefined ? 'time' : 'start_interval';

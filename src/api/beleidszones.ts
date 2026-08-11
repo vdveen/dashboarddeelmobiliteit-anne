@@ -91,6 +91,10 @@ export interface BeleidszonesStatsOptions {
   endTime: string;
   aggregationLevel?: string;
   aggregationFunction?: string;
+  /** Operator scope (system_ids). Required for accounts whose data access
+   * comes from an operator data-access grant; without it the backend
+   * answers 403. See getOperatorsScopeForStats in poll-api/pollTools. */
+  operators?: string[];
 }
 
 const MDS_URL = process.env.REACT_APP_MDS_URL;
@@ -223,7 +227,11 @@ export const getBeleidszonesAvailabilityStats = async (
     end_time: endTime,
   });
 
-  const url = `${DASHBOARD_API_URL}/dashboard-api/stats_v2/availability_stats?${params.toString()}&zone_ids=${options.zoneIds.join(',')}`;
+  // zone_ids/operators appended with unencoded commas (URLSearchParams would encode them as %2C)
+  let url = `${DASHBOARD_API_URL}/dashboard-api/stats_v2/availability_stats?${params.toString()}&zone_ids=${options.zoneIds.join(',')}`;
+  if (options.operators?.length) {
+    url += `&operators=${options.operators.join(',')}`;
+  }
   const response = await dedupedFetch(url, getFetchOptions(token));
 
   if (!response.ok) {
@@ -258,7 +266,11 @@ export const getBeleidszonesRentalStats = async (
     end_time: endTime,
   });
 
-  const url = `${DASHBOARD_API_URL}/dashboard-api/stats_v2/rental_stats?${params.toString()}&zone_ids=${options.zoneIds.join(',')}`;
+  // zone_ids/operators appended with unencoded commas (URLSearchParams would encode them as %2C)
+  let url = `${DASHBOARD_API_URL}/dashboard-api/stats_v2/rental_stats?${params.toString()}&zone_ids=${options.zoneIds.join(',')}`;
+  if (options.operators?.length) {
+    url += `&operators=${options.operators.join(',')}`;
+  }
   const response = await dedupedFetch(url, getFetchOptions(token));
 
   if (!response.ok) {
