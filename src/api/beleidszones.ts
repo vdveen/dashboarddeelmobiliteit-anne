@@ -14,6 +14,7 @@ import { dedupedFetch } from './dedupedFetch';
 
 const ALLOWED_PHASES = [
   'active',
+  'concept',
   'retirement_concept',
   'published_retirement',
   'committed_retirement_concept',
@@ -62,6 +63,9 @@ function zoneDisplayName(z: Beleidszone, baseName: string): string {
   ) {
     return `${baseName} (toekomst)`;
   }
+  if (z.phase === 'concept') {
+    return `${baseName} (concept)`;
+  }
   return baseName;
 }
 
@@ -103,7 +107,7 @@ const getFetchOptions = (token: string | null) => {
 };
 
 const phasesParam =
-  'phases=active&phases=retirement_concept&phases=published_retirement&phases=committed_retirement_concept';
+  'phases=active&phases=concept&phases=retirement_concept&phases=published_retirement&phases=committed_retirement_concept';
 
 /** Cache for MDS public/zones responses by (gmCode, phases). Avoids refetch when only filter.zones changes. */
 const mdsZonesCache = new Map<string, Beleidszone[]>();
@@ -133,7 +137,7 @@ async function fetchZonesFromMds(
 /**
  * Fetches zones for a municipality from MDS public/zones.
  * Used for the filterbar zone list on /stats/beleidszones.
- * Only includes zones with phase: active, retirement_concept, published_retirement, committed_retirement_concept.
+ * Only includes zones with phase: active, concept, retirement_concept, published_retirement, committed_retirement_concept.
  * Additionally includes zones whose zone_id is in zoneIdsToInclude (e.g. from URL params), even if archived.
  *
  * @param gmCode Municipality code (e.g. GM0599)
