@@ -5,6 +5,8 @@ while testing this fork (`vdveen/dashboarddeelmobiliteit-anne`) with a specific
 account type that the platform currently handles poorly.
 
 **Date:** 2026-07-07
+**Last reviewed:** 2026-07-09 — all four bugs below unchanged; see
+[Review log](#review-log).
 
 ## The account profile that triggers these bugs
 
@@ -147,6 +149,27 @@ same pattern — they are listed so the underlying theme is visible:
 | `c6d1c52` | *Municipality users couldn't see kpi charts* | Municipality account with a small operator list was sent operator-scoped KPI requests → 403. Partial fix; see bug 4. |
 | `61830ba` | *Operator data could not be added to operator organisation* | Admin UI bug encountered while setting up the operator data-access grant used by this account. |
 | `7951529` | *User access to multiple places → show all at once if "Alle plaatsen"* | Accounts with access to many municipalities (e.g. province-wide) hit a backend limit: enumerating >~25 municipalities in `/zones?municipalities=..` queries makes the server reply **502**. Worked around client-side (`MAX_ENUMERABLE_MUNICIPALITIES` in `src/helpers/authentication.js`); the 502 itself is still a backend limitation worth fixing. |
+
+---
+
+## Review log
+
+**2026-07-09** — Re-checked this report against every commit made since it was
+created (`9b01153`, 2026-07-07). Nine commits landed in that window (five
+substantive, four merges); **none touch the code paths behind bugs 1–4**
+(`od-api`, `src/helpers/authentication.js`,
+`src/helpers/prestatiesAanbiedersViewMode.ts`,
+`src/components/Map/MapUtils/map.hb.h3.ts`), so all four bugs remain in the
+state described above and the fork fixes (`ed7535a`, `b217480`) are still in
+history. The commits in that window were unrelated feature/perf work:
+
+| Commit | Summary | Relevance |
+|---|---|---|
+| `2879a31` | perf: eliminate duplicate vehicle fetches, md5→string vehicle id | General map-load perf; does not change the single-operator `operators=<scope>` request logic from `597051d`. |
+| `d2c732d` | feat(verhuringen): 'Ruwe data import' CSV import for rentals | New feature. |
+| `84e8b40` | Fix undefined `md5` reference in `pollVerhuringenData` | Build-fix regression from a merge; unrelated. |
+| `9df8d59` | Fix ASI bug breaking CSV rentals import on the map | Regression fix for the CSV import feature; unrelated. |
+| `b9f5671` | Add GeoJSON download button for service areas | New feature. |
 
 ---
 

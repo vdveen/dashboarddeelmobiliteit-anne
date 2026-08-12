@@ -1,5 +1,4 @@
 // import moment from 'moment';
-import md5 from 'md5';
 import {
   createFilterparameters,
   convertDistanceToBin,
@@ -119,7 +118,7 @@ const processCsvRentalsResult = (state, csvData) => {
     let feature = {
      "type":"Feature",
      "properties":{
-        "id": md5(`${v.lat}${v.lon}`),
+        "id": `${v.lat},${v.lon}`,
         "system_id": v.system_id,
         "form_factor": v.form_factor || null,
         "arrival_time": v.start_time,
