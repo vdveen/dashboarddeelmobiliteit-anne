@@ -17,6 +17,7 @@ import U from 'mapbox-gl-utils';
 import {getMapStyles, applyMapStyle} from './MapUtils/map';
 import {createSafeGeolocateControl} from './MapUtils/mapControls';
 import { whenMapStyleReady } from './MapUtils/mapGuards';
+import { applyDataLayerOrderWhenReady } from './MapUtils/dataLayerOrder';
 import {initPopupLogic} from './MapUtils/popups.js';
 import {initClusters} from './MapUtils/clusters.js';
 import {
@@ -38,6 +39,9 @@ import {
   DISPLAYMODE_OTHER,
   DISPLAYMODE_SERVICE_AREAS,
   DISPLAYMODE_POLICY_HUBS,
+  DATA_LAYER_ORDER_SERVICE_AREAS,
+  DATA_LAYER_ORDER_HUBS,
+  DATA_LAYER_ORDER_VERBODSGEBIEDEN,
 } from '../../reducers/layers.js';
 import { removeHubsFromMap } from './MapUtils/map.policy_hubs';
 import { removeServiceAreasFromMap } from './MapUtils/map.service_areas';
@@ -54,12 +58,19 @@ import DdServiceAreasLayer from '../MapLayer/DdServiceAreasLayer';
 import DdPolicyHubsLayer from '../MapLayer/DdPolicyHubsLayer';
 import DdParkEventsLayer from '../MapLayer/DdParkEventsLayer';
 import DdRentalsLayer from '../MapLayer/DdRentalsLayer';
+import DdServiceAreasOverlay from '../MapLayer/DdServiceAreasOverlay';
+import DdPolicyHubsOverlay from '../MapLayer/DdPolicyHubsOverlay';
 import { WidthIcon } from '@radix-ui/react-icons';
 import { useBackgroundLayer } from './MapUtils/useBackgroundLayer';
 import { updateStreetVisibilityForSatellite } from './MapUtils/backgroundLayerManager';
 import { getProviderColorForProvider } from '../../helpers/providers';
 import { isOperatorPrestatiesView } from '../../helpers/prestatiesAanbiedersViewMode';
 import SelectionTool from '../SelectionTool/SelectionTool';
+import {
+  selectDataLayerOrder,
+  selectOverlayLayers,
+  isOverlayLayerEnabled
+} from '../../helpers/layerSelectors';
 
 // Set language for momentJS
 moment.locale('nl');
@@ -79,6 +90,9 @@ const MapComponent = (props): JSX.Element => {
   const mapStyle = useSelector((state: StateType) => {
     return state.layers ? state.layers.map_style : null;
   });
+
+  const dataLayerOrder = useSelector(selectDataLayerOrder);
+  const overlayLayers = useSelector(selectOverlayLayers);
 
   // Connect to redux store
   const dispatch = useDispatch()
@@ -497,6 +511,24 @@ const MapComponent = (props): JSX.Element => {
     JSON.stringify(props.layers)
   ])
 
+  // Re-apply user-defined z-order after layers are (re)activated or the style changes.
+  useEffect(() => {
+    if (!didInitSourcesAndLayers) return;
+    if (!map.current) return;
+
+    applyDataLayerOrderWhenReady(
+      map.current,
+      dataLayerOrder[displayMode],
+      displayMode
+    );
+  }, [
+    didInitSourcesAndLayers,
+    displayMode,
+    JSON.stringify(dataLayerOrder),
+    JSON.stringify(props.layers),
+    mapStyle
+  ])
+
   // Defensive cleanup: when the display mode changes away from a page that owns
   // dynamic map layers, make sure those layers are removed. Child components
   // normally clean up themselves, but if the map style was loading during their
@@ -506,13 +538,22 @@ const MapComponent = (props): JSX.Element => {
     if(! didMapLoad) return;
 
     if (displayMode !== DISPLAYMODE_POLICY_HUBS) {
+      // Only remove the native policy hubs source; overlay sources are
+      // managed by DdPolicyHubsOverlay itself.
       removeHubsFromMap(map.current);
     }
-    if (displayMode !== DISPLAYMODE_SERVICE_AREAS) {
+    // The service_areas source is shared by the native layer and the overlay,
+    // so keep it if the servicegebieden overlay is enabled for this page.
+    const serviceAreasOverlayEnabled = isOverlayLayerEnabled(
+      overlayLayers,
+      displayMode,
+      DATA_LAYER_ORDER_SERVICE_AREAS
+    );
+    if (displayMode !== DISPLAYMODE_SERVICE_AREAS && !serviceAreasOverlayEnabled) {
       removeServiceAreasFromMap(map.current);
       removeServiceAreaDeltaFromMap(map.current);
     }
-  }, [displayMode, didMapLoad]);
+  }, [displayMode, didMapLoad, overlayLayers]);
 
   // Set vehicles sources
   useEffect(() => {
@@ -786,6 +827,14 @@ const MapComponent = (props): JSX.Element => {
     {stateLayers.displaymode === 'displaymode-policy-hubs' && <>
       <DdPolicyHubsLayer map={map.current} />
     </>}
+    {/* Overlay layers (Andere datalaag) on non-native pages */}
+    {stateLayers.displaymode !== DISPLAYMODE_SERVICE_AREAS
+      && isOverlayLayerEnabled(overlayLayers, stateLayers.displaymode, DATA_LAYER_ORDER_SERVICE_AREAS)
+      && <DdServiceAreasOverlay map={map.current} />}
+    {stateLayers.displaymode !== DISPLAYMODE_POLICY_HUBS
+      && (isOverlayLayerEnabled(overlayLayers, stateLayers.displaymode, DATA_LAYER_ORDER_HUBS)
+        || isOverlayLayerEnabled(overlayLayers, stateLayers.displaymode, DATA_LAYER_ORDER_VERBODSGEBIEDEN))
+      && <DdPolicyHubsOverlay map={map.current} />}
     {shouldShowMapTopControls() &&
       <>
         <RightTop>
