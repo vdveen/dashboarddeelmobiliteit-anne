@@ -24,6 +24,7 @@ import Admin from './components/Admin/Admin';
 import FilterbarDesktop from './components/Filterbar/FilterbarDesktop.jsx';
 import FilterbarMobile from './components/Filterbar/FilterbarMobile.jsx';
 import About from './components/About/About.jsx';
+import Features from './components/Features/Features';
 import Tour from './components/Tour/Tour.jsx';
 import Overlay from './components/Overlay/Overlay.jsx';
 import Misc from './components/Misc/Misc.jsx';
@@ -35,6 +36,7 @@ import ActiveFeeds from './components/ActiveFeeds/ActiveFeeds';
 import MailTemplateList from './components/MailTemplateList/MailTemplateList';
 import MapPage from './pages/MapPage.jsx';
 import Menu from './components/Menu';
+import IntroModal from './components/IntroModal/IntroModal';
 import FloatingMobileMenu from './components/Menu/FloatingMobileMenu.jsx';
 import {SelectLayerMobile} from './components/SelectLayer/SelectLayerMobile.jsx';
 import LoadingIndicator from './components/LoadingIndicator/LoadingIndicator.jsx';
@@ -151,6 +153,9 @@ function App() {
       if (pathname === '/over') {
         return `Over - ${baseTitle}`;
       }
+      if (pathname === '/features') {
+        return `In het kort - ${baseTitle}`;
+      }
       if (pathname === '/faq') {
         return `Veelgestelde vragen - ${baseTitle}`;
       }
@@ -173,7 +178,7 @@ function App() {
         return `Inloggen - ${baseTitle}`;
       }
       if (pathname === '/profile') {
-        return `Profiel - ${baseTitle}`;
+        return `Start - ${baseTitle}`;
       }
       if (pathname === '/profile/api') {
         return `API-sleutels - ${baseTitle}`;
@@ -459,21 +464,27 @@ function App() {
     return () => clearTimeout(timer);
   }, [isLoggedIn]);
   
+  // Only the beleidszones page loads a different set of zones, so reloading on
+  // every single path change is wasteful: it briefly resets `zones_loaded`,
+  // which retriggers the zone geodata fetch (and used to reset the map viewport).
+  const isBeleidszonesPath = Boolean(pathName?.includes('/stats/beleidszones'));
+  const beleidszonesFilterZones = isBeleidszonesPath ? filter.zones : null;
+
   useEffect(() => {
     if(process && process.env.DEBUG) console.log('useEffect zones', filter.gebied)
     if(! metadata.metadata_loaded) return;
 
-    if (pathName?.includes('/stats/beleidszones')) {
+    if (isBeleidszonesPath) {
       updateBeleidszonesZones(store);
     } else {
       updateZones(store);
     }
   }, [
-    pathName,
+    isBeleidszonesPath,
     isLoggedIn,
     metadata.metadata_loaded,
     filter.gebied,
-    ...(pathName?.includes('/stats/beleidszones') ? [filter.zones] : []),
+    beleidszonesFilterZones,
   ]);
 
   /**
@@ -748,6 +759,13 @@ function App() {
                 </Misc>
               </Overlay>
             } />
+            <Route path="/features" element={
+              <Overlay>
+                <Misc contentWidth="900px">
+                  <Features />
+                </Misc>
+              </Overlay>
+            } />
             <Route path="/export" element={
               <Overlay>
                 <Misc>
@@ -844,6 +862,13 @@ function App() {
             </Misc>
           </Overlay>
         } />
+        <Route path="/features" element={
+          <Overlay>
+            <Misc contentWidth="900px">
+              <Features />
+            </Misc>
+          </Overlay>
+        } />
         <Route path="/stats/beleidsinfo" element={<>
           <Overlay>
             <Login />
@@ -908,6 +933,7 @@ function App() {
       {pathRequiresBackgroundMap(pathName) && <MapPage mapContainer={mapContainer} />}
 
       <Menu acl={acl} pathName={pathName} />
+      <IntroModal pathName={pathName} />
 
      </div>
      <Toaster />     

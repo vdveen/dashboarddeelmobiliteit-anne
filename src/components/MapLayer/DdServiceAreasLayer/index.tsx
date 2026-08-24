@@ -25,7 +25,13 @@ import { ServiceAreaDelta } from '../../../types/ServiceAreaDelta';
 import moment from 'moment';
 import { loadServiceAreas, loadServiceAreasHistory, loadServiceAreaDeltas } from '../../../helpers/service-areas';
 import { useBackgroundLayer } from '../../Map/MapUtils/useBackgroundLayer';
-import { whenMapStyleReady } from '../../Map/MapUtils/mapGuards';
+import { whenMapLayersMutable } from '../../Map/MapUtils/mapGuards';
+import { selectOverlayLayers, isOverlayLayerEnabled, selectDataLayerOrder } from '../../../helpers/layerSelectors';
+import { applyDataLayerOrderWhenReady } from '../../Map/MapUtils/dataLayerOrder';
+import {
+  DISPLAYMODE_SERVICE_AREAS,
+  DATA_LAYER_ORDER_SERVICE_AREAS
+} from '../../../reducers/layers.js';
 
 import { Legend, LegendItemType } from './Legend';
 import { ArrowLeftIcon, ArrowRightIcon } from '@radix-ui/react-icons';
@@ -51,6 +57,15 @@ const DdServiceAreasLayer = ({
   const visible_operators = useSelector((state: StateType) => state.service_areas ? state.service_areas.visible_operators : null);
   const isFilterbarOpen = useSelector((state: StateType) => state.ui && state.ui.FILTERBAR || false);
   const stateLayers = useSelector((state: StateType) => state.layers || null);
+  const overlayLayers = useSelector(selectOverlayLayers);
+  const dataLayerOrder = useSelector(selectDataLayerOrder);
+
+  // The 'Servicegebieden' checkbox in the layer list can hide this layer
+  const isServiceAreasLayerEnabled = isOverlayLayerEnabled(
+    overlayLayers,
+    DISPLAYMODE_SERVICE_AREAS,
+    DATA_LAYER_ORDER_SERVICE_AREAS
+  );
 
   // On component load: Set background layer to 'base layer' only on initial load
   useEffect(() => {
@@ -91,16 +106,18 @@ const DdServiceAreasLayer = ({
     // together via Promise.all and the polygons only rendered once both
     // finished.
     setIsLoading(true);
+    let isStale = false;
     let serviceAreasDone = false;
     let historyDone = false;
     const maybeFinishLoading = () => {
-      if (serviceAreasDone && historyDone) {
+      if (serviceAreasDone && historyDone && !isStale) {
         setIsLoading(false);
       }
     };
 
     loadServiceAreas(filter.gebied, visible_operators)
       .then((service_areas) => {
+        if (isStale) return;
         setServiceAreas(service_areas);
       })
       .catch((error) => {
@@ -113,6 +130,7 @@ const DdServiceAreasLayer = ({
 
     loadServiceAreasHistory(filter.gebied, visible_operators)
       .then((service_area_history) => {
+        if (isStale) return;
         setServiceAreasHistory(service_area_history);
       })
       .catch((error) => {
@@ -123,6 +141,11 @@ const DdServiceAreasLayer = ({
         maybeFinishLoading();
       });
 
+    // Switching municipality again while these are in flight must not let the
+    // superseded response overwrite the newer one.
+    return () => {
+      isStale = true;
+    };
   }, [
     map,
     filter?.gebied,
@@ -134,7 +157,7 @@ const DdServiceAreasLayer = ({
   useEffect(() => {
     return () => {
       if (map) {
-        whenMapStyleReady(map, () => {
+        whenMapLayersMutable(map, () => {
           removeServiceAreasFromMap(map);
           removeServiceAreaDeltaFromMap(map);
         });
@@ -200,14 +223,26 @@ const DdServiceAreasLayer = ({
 
   // Do things if 'serviceAreas' change
   useEffect(() => {
+    if (!map) return;
+
+    // If the Servicegebieden layer is unchecked in the layer list: hide it
+    if (!isServiceAreasLayerEnabled) {
+      removeServiceAreasFromMap(map);
+      removeServiceAreaDeltaFromMap(map);
+      return;
+    }
+
     // Return if no service areas were found or map is not ready
-    if (!map || !serviceAreaForMunicipality || !visible_operators || visible_operators.length === 0) {
+    if (!serviceAreaForMunicipality || !visible_operators || visible_operators.length === 0) {
       return;
     }
 
     // Only render if we're not showing a delta (delta takes precedence)
     if (!versionParam) {
       renderServiceAreas(map, visible_operators[0], serviceAreaForMunicipality.geometries);
+
+      // Re-apply the user-defined z-order now that the layers exist again
+      applyDataLayerOrderWhenReady(map, dataLayerOrder[DISPLAYMODE_SERVICE_AREAS], DISPLAYMODE_SERVICE_AREAS);
     }
 
     // Cleanup function - only remove if component unmounts
@@ -221,13 +256,20 @@ const DdServiceAreasLayer = ({
     map,
     serviceAreaForMunicipality,
     visible_operators,
-    versionParam
+    versionParam,
+    isServiceAreasLayerEnabled
   ]);
 
   // Do things if 'serviceAreaDelta' changes
   useEffect(() => {
     // Return if no service area delta or map is not ready
     if (!map || !serviceAreaDelta) {
+      return;
+    }
+
+    // If the Servicegebieden layer is unchecked in the layer list: hide it
+    if (!isServiceAreasLayerEnabled) {
+      removeServiceAreaDeltaFromMap(map);
       return;
     }
 
@@ -241,7 +283,7 @@ const DdServiceAreasLayer = ({
     return () => {
       removeServiceAreaDeltaFromMap(map);
     };
-  }, [map, serviceAreaDelta, activeTypes]);
+  }, [map, serviceAreaDelta, activeTypes, isServiceAreasLayerEnabled]);
 
   // Update filters when activeTypes change (without recreating layers)
   useEffect(() => {
