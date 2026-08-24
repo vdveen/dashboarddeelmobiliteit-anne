@@ -26,12 +26,13 @@ const displayValue = (v) =>
   v == null ? '0' : (Number.isInteger(v) ? v.toString() : v.toFixed(2));
 
 const CustomizedTooltip = ({
-  active, payload, label, contentStyle = {}
+  active, payload, label, contentStyle = {}, itemValueFormatter
 }: {
   active?: any,
   payload?: any,
   label?: any,
-  contentStyle?: any
+  contentStyle?: any,
+  itemValueFormatter?: any
 }) => {
   if (active && payload && payload.length) {
 
@@ -56,7 +57,9 @@ const CustomizedTooltip = ({
         <ul className="my-0 py-0">
           {arrayReverseObj(payload).map((x, i) => (
             <li key={'c-' + i} className="CustomizedTooltip-item" style={{ color: getLineColor(x) }}>
-              {x.name}: {displayValue(Number(x.value))}
+              {x.name}: {itemValueFormatter
+                ? itemValueFormatter(x, label)
+                : displayValue(Number(x.value))}
             </li>
           ))}
         </ul>

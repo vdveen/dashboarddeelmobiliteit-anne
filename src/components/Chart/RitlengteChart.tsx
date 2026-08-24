@@ -29,6 +29,10 @@ import {CustomizedXAxisTick, CustomizedYAxisTick} from '../Chart/CustomizedAxisT
 import {CustomizedTooltip} from '../Chart/CustomizedTooltip.jsx';
 import InfoTooltip from '../InfoTooltip/InfoTooltip';
 import ChartSkeleton from './ChartSkeleton';
+import {
+  calculateRelativeTripPercentages,
+  formatRelativeTripValue
+} from './ritlengteChartUtils';
 
 // Trips longer than this many km all land in one open-ended last bin
 // ('20+'), so a few long outliers don't stretch the X axis.
@@ -127,7 +131,19 @@ function RitlengteChart(props) {
     return {chartData: rows, providerKeys: Array.from(providers).sort()};
   }, [trips, filter.aanbiedersexclude]);
 
+  const relativeTripPercentages = useMemo(
+    () => calculateRelativeTripPercentages(chartData, providerKeys),
+    [chartData, providerKeys]
+  );
+
   const hasData = providerKeys.length > 0;
+
+  const formatTooltipValue = (item, label) => {
+    const value = Number(item.value) || 0;
+    const percentages = relativeTripPercentages[label]?.[item.dataKey];
+
+    return formatRelativeTripValue(value, percentages);
+  };
 
   const renderChart = () => (
     <BarChart
@@ -146,7 +162,10 @@ function RitlengteChart(props) {
         label={{ value: 'ritlengte (km)', position: 'insideBottom', offset: -8, fill: '#666', fontSize: '0.8em' }}
       />
       <YAxis tick={<CustomizedYAxisTick />} />
-      <Tooltip content={<CustomizedTooltip />} contentStyle={{ color: '#333333' }} />
+      <Tooltip
+        content={<CustomizedTooltip itemValueFormatter={formatTooltipValue} />}
+        contentStyle={{ color: '#333333' }}
+      />
       <Legend verticalAlign="top" />
       {providerKeys.map(x => (
         <Bar
