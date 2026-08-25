@@ -16,6 +16,7 @@ import {StateType} from '../../types/StateType';
 import U from 'mapbox-gl-utils';
 import {getMapStyles, applyMapStyle} from './MapUtils/map';
 import {createSafeGeolocateControl} from './MapUtils/mapControls';
+import MapAttribution from './MapControls/MapAttribution';
 import { whenMapStyleReady } from './MapUtils/mapGuards';
 import { applyDataLayerOrderWhenReady } from './MapUtils/dataLayerOrder';
 import {initPopupLogic} from './MapUtils/popups.js';
@@ -154,6 +155,10 @@ const MapComponent = (props): JSX.Element => {
     return null;
   });
 
+  const filterbarOpen = useSelector((state: StateType) => {
+    return state.ui && state.ui.FILTERBAR || false;
+  });
+
   // Store window location in a local variable
   let location = useLocation();
   useEffect(() => {
@@ -222,7 +227,9 @@ const MapComponent = (props): JSX.Element => {
         center: [lng, lat],
         zoom: zoom,
         maxZoom: 21,
-        attributionControl: false// Hide info icon
+        // Attribution is rendered by <MapAttribution /> in the bottom-right control stack
+        attributionControl: false,
+        maplibreLogo: false
       });
 
       // Apply settings like disabling rotating the map
@@ -806,9 +813,11 @@ const MapComponent = (props): JSX.Element => {
 
   return <>
     {/* The map container (HTML element) */}
-    <div ref={mapContainer} className="map flex-1" />
+    <div ref={mapContainer} className={`map flex-1 ${filterbarOpen ? 'filter-open' : ''}`} />
     {/* Isochrone layer */}
-    {isLoggedIn ? <IsochroneTools /> : null}
+    {isLoggedIn ? <IsochroneTools map={map.current} /> : null}
+    {/* Attribution (bottom-right control stack) */}
+    <MapAttribution map={map.current} />
     {/* Service areas layer */}
     {stateLayers.displaymode === 'displaymode-park' && <DdParkEventsLayer map={map.current} />}
     
