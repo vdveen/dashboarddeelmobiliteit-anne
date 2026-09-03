@@ -3,7 +3,7 @@ const base = {
   sources: {
     composite: {
       type: 'vector',
-      attribution: 'Mapbox',
+      attribution: '© <a href="https://www.openstreetmap.org/about/">OpenStreetMap</a> © <a href="https://www.mapbox.com/about/maps/">Mapbox</a>',
       tiles: ['https://a.tiles.mapbox.com/v4/mapbox.mapbox-streets-v8/{z}/{x}/{y}.vector.pbf?access_token=pk.eyJ1IjoiYmFydHdyIiwiYSI6ImNsaXVqYnoybTE1ZGQzZW90YXNwNXE0YTMifQ.xdC_OTxwV95tNVjovRv9yg']
     },
   },
