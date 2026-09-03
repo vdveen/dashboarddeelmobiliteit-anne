@@ -194,11 +194,12 @@ function EditUser({
         setMessage(error);
         return;
       }
-      // If no errors: FusionAuth sends the Setup Password email (configured
-      // separately from the Forgot Password template used by password reset).
+      // The admin API sends the Setup Password email via FusionAuth and
+      // confirms it with email_sent. Older API versions don't send any email
+      // and omit the field, so only an explicit true counts as sent.
       setWelcomeEmail({
         emailText: createdUser.email_text || '',
-        emailSent: createdUser.email_sent !== false,
+        emailSent: createdUser.email_sent === true,
         username: createdUser.user_account.user_id
       })
       setDoShowCredentialsModal(true);
