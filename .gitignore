@@ -25,6 +25,11 @@ yarn-error.log*
 
 .env
 
+# Python collector output
+__pycache__/
+*.py[cod]
+/voi-vehicle-snapshots/
+
 .angular/
 
 NOTES*.md
