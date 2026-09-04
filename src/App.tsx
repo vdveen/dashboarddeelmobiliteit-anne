@@ -535,6 +535,7 @@ function App() {
   //  or if pathName/filter is changed:
   //  reload park events data
   useEffect(() => {
+    if(pathName === '/monitor/voi') return;
     // displayMode
     if(displayMode !== 'displaymode-park') return;
     if(isLoggedIn && metadata.zones_loaded === false) return;
@@ -551,6 +552,7 @@ function App() {
     metadata.zones_loaded,
     metadata.aclOperators,
     filter,
+    pathName,
     DELAY_TIMEOUT_IN_MS,
     displayMode,
     // exportState?.layers.map_style,
