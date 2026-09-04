@@ -1,9 +1,11 @@
 # Use the Voi vehicle monitor
 
 The `Monitor Voi vehicle positions` GitHub Actions workflow queries the public
-vehicle API at 17 minutes past each hour. Each run stores one GeoJSON artifact
-for 90 days. The API response has anonymous positions, vehicle type, and the
-Voi operator ID. It does not have vehicle IDs.
+vehicle API once per hour. GitHub can delay scheduled jobs when Actions is
+busy. Each run stores one GeoJSON artifact for 90 days. The workflow also adds
+a compressed copy to a public monthly GitHub release for the timeline viewer.
+The API response has anonymous positions, vehicle type, and the Voi operator
+ID. It does not have vehicle IDs.
 
 The capture time is UTC. It appears in the artifact name, the `.geojson`
 filename, the GeoJSON `title`, and the `captured_at` field.
@@ -16,6 +18,12 @@ filename, the GeoJSON `title`, and the `captured_at` field.
 4. Download the `voi-vehicles-<timestamp>` artifact from **Artifacts**.
 
 GitHub packages the GeoJSON file in a ZIP archive for download.
+
+## View the timeline
+
+Open `/monitor/voi` in the deployed app. Drag the timeline, scroll above the
+timeline panel, or use the arrow buttons to move between snapshots. The play
+button advances through the available snapshots automatically.
 
 ## Run the collector now
 

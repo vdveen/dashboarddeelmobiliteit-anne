@@ -18,6 +18,7 @@ import DashboardPage from './pages/dashboard/DashboardPage';
 import Login from './pages/Login.jsx';
 import SetPassword from './pages/SetPassword.jsx';
 import Monitoring from './pages/Monitoring.jsx';
+import VoiVehicleHistory from './pages/VoiVehicleHistory';
 import { Toaster } from "./components/ui/toaster"
 
 import Admin from './components/Admin/Admin';
@@ -173,6 +174,9 @@ function App() {
       }
       if (pathname === '/monitoring') {
         return `Monitoring - ${baseTitle}`;
+      }
+      if (pathname === '/monitor/voi') {
+        return `Voi door de tijd - ${baseTitle}`;
       }
       if (pathname === '/login') {
         return `Inloggen - ${baseTitle}`;
@@ -862,6 +866,7 @@ function App() {
             </Misc>
           </Overlay>
         } />
+        <Route path="/monitor/voi" element={<VoiVehicleHistory />} />
         <Route path="/features" element={
           <Overlay>
             <Misc contentWidth="900px">

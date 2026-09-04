@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: monitor-voi-vehicles
@@ -41,3 +41,24 @@ jobs:
           if-no-files-found: error
           retention-days: 90
           compression-level: 9
+
+      - name: Publish the snapshot for the viewer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          snapshot_path="${{ steps.collect.outputs.path }}"
+          snapshot_name="${{ steps.collect.outputs.artifact_name }}"
+          snapshot_month="${snapshot_name:13:7}"
+          release_tag="voi-snapshots-$snapshot_month"
+
+          gzip --best --keep "$snapshot_path"
+
+          if ! gh release view "$release_tag" > /dev/null 2>&1; then
+            gh release create "$release_tag" \
+              --prerelease \
+              --title "Voi vehicle snapshots $snapshot_month" \
+              --notes "Public, compressed GeoJSON snapshots for the Voi timeline viewer."
+          fi
+
+          gh release upload "$release_tag" "$snapshot_path.gz" --clobber
