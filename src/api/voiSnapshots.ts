@@ -1,23 +1,12 @@
-export interface GitHubReleaseAsset {
-  id: number;
-  name: string;
-  browser_download_url: string;
-  size: number;
-}
-
-export interface GitHubRelease {
-  id: number;
-  tag_name: string;
-  published_at: string | null;
-  assets: GitHubReleaseAsset[];
+export interface VoiSnapshotIndexEntry {
+  captured_at: string;
+  path: string;
 }
 
 export interface VoiSnapshot {
-  id: number;
   name: string;
   capturedAt: string;
   downloadUrl: string;
-  size: number;
 }
 
 export interface VoiFeatureCollection extends GeoJSON.FeatureCollection<GeoJSON.Point> {
@@ -28,12 +17,13 @@ export interface VoiFeatureCollection extends GeoJSON.FeatureCollection<GeoJSON.
 }
 
 const REPOSITORY = 'vdveen/dashboarddeelmobiliteit-anne';
-const RELEASE_PREFIX = 'voi-snapshots-';
+const DATA_BRANCH = 'voi-vehicle-data';
 const SNAPSHOT_NAME = /^voi-vehicles-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})Z\.geojson\.gz$/;
-const MAX_MONTHLY_RELEASES = 4;
+const RAW_ROOT = `https://raw.githubusercontent.com/${REPOSITORY}/${DATA_BRANCH}`;
 
-export function parseVoiSnapshotAsset(asset: GitHubReleaseAsset): VoiSnapshot | null {
-  const match = SNAPSHOT_NAME.exec(asset.name);
+export function parseVoiSnapshotEntry(entry: VoiSnapshotIndexEntry): VoiSnapshot | null {
+  const name = entry.path.split('/').pop() ?? '';
+  const match = SNAPSHOT_NAME.exec(name);
   if (!match) return null;
 
   const capturedAt = `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}Z`;
@@ -41,44 +31,30 @@ export function parseVoiSnapshotAsset(asset: GitHubReleaseAsset): VoiSnapshot | 
   if (!Number.isFinite(capturedTime)) return null;
 
   return {
-    id: asset.id,
-    name: asset.name,
+    name,
     capturedAt,
-    downloadUrl: asset.browser_download_url,
-    size: asset.size,
+    downloadUrl: `${RAW_ROOT}/${entry.path}`,
   };
 }
 
-export function snapshotsFromReleases(releases: GitHubRelease[]): VoiSnapshot[] {
-  const recentReleases = releases
-    .filter((release) => release.tag_name.startsWith(RELEASE_PREFIX))
-    .sort((left, right) => right.tag_name.localeCompare(left.tag_name))
-    .slice(0, MAX_MONTHLY_RELEASES);
-
-  return recentReleases
-    .flatMap((release) => release.assets)
-    .map(parseVoiSnapshotAsset)
+export function snapshotsFromIndex(entries: VoiSnapshotIndexEntry[]): VoiSnapshot[] {
+  return entries
+    .map(parseVoiSnapshotEntry)
     .filter((snapshot): snapshot is VoiSnapshot => snapshot !== null)
     .sort((left, right) => left.capturedAt.localeCompare(right.capturedAt));
 }
 
 export async function listVoiSnapshots(signal?: AbortSignal): Promise<VoiSnapshot[]> {
   const response = await fetch(
-    `https://api.github.com/repos/${REPOSITORY}/releases?per_page=100`,
-    {
-      signal,
-      headers: {
-        Accept: 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-      },
-    }
+    `${RAW_ROOT}/index.json`,
+    { signal }
   );
 
   if (!response.ok) {
-    throw new Error(`GitHub gaf status ${response.status} bij het laden van de metingen.`);
+    throw new Error(`Het meetarchief gaf status ${response.status}.`);
   }
 
-  return snapshotsFromReleases(await response.json() as GitHubRelease[]);
+  return snapshotsFromIndex(await response.json() as VoiSnapshotIndexEntry[]);
 }
 
 export async function downloadVoiSnapshot(

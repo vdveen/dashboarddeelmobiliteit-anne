@@ -42,23 +42,34 @@ jobs:
           retention-days: 90
           compression-level: 9
 
+      - name: Check out the public snapshot archive
+        uses: actions/checkout@v4
+        with:
+          ref: voi-vehicle-data
+          path: voi-vehicle-data
+
       - name: Publish the snapshot for the viewer
-        env:
-          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           snapshot_path="${{ steps.collect.outputs.path }}"
           snapshot_name="${{ steps.collect.outputs.artifact_name }}"
           snapshot_month="${snapshot_name:13:7}"
-          release_tag="voi-snapshots-$snapshot_month"
+          archive_path="snapshots/${snapshot_month:0:4}/${snapshot_month:5:2}/${snapshot_name}.geojson.gz"
 
           gzip --best --keep "$snapshot_path"
+          mkdir -p "voi-vehicle-data/$(dirname "$archive_path")"
+          cp "$snapshot_path.gz" "voi-vehicle-data/$archive_path"
 
-          if ! gh release view "$release_tag" > /dev/null 2>&1; then
-            gh release create "$release_tag" \
-              --prerelease \
-              --title "Voi vehicle snapshots $snapshot_month" \
-              --notes "Public, compressed GeoJSON snapshots for the Voi timeline viewer."
-          fi
+          cd voi-vehicle-data
+          jq \
+            --arg captured_at "${snapshot_name:13:10}T${snapshot_name:24:2}:${snapshot_name:27:2}:${snapshot_name:30:2}Z" \
+            --arg path "$archive_path" \
+            '. + [{captured_at: $captured_at, path: $path}] | unique_by(.path) | sort_by(.captured_at)' \
+            index.json > index.next.json
+          mv index.next.json index.json
 
-          gh release upload "$release_tag" "$snapshot_path.gz" --clobber
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add index.json "$archive_path"
+          git commit -m "Add Voi snapshot ${snapshot_name:13}"
+          git push origin HEAD:voi-vehicle-data

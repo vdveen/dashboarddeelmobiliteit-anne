@@ -3,7 +3,7 @@
 The `Monitor Voi vehicle positions` GitHub Actions workflow queries the public
 vehicle API once per hour. GitHub can delay scheduled jobs when Actions is
 busy. Each run stores one GeoJSON artifact for 90 days. The workflow also adds
-a compressed copy to a public monthly GitHub release for the timeline viewer.
+a compressed copy to the public `voi-vehicle-data` branch for the timeline viewer.
 The API response has anonymous positions, vehicle type, and the Voi operator
 ID. It does not have vehicle IDs.
 
