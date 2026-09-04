@@ -1,5 +1,33 @@
 [
   {
+    "captured_at": "2026-09-03T17:10:15Z",
+    "path": "snapshots/2026/09/voi-vehicles-2026-09-03T17-10-15Z.geojson.gz"
+  },
+  {
+    "captured_at": "2026-09-03T19:50:22Z",
+    "path": "snapshots/2026/09/voi-vehicles-2026-09-03T19-50-22Z.geojson.gz"
+  },
+  {
+    "captured_at": "2026-09-03T22:35:06Z",
+    "path": "snapshots/2026/09/voi-vehicles-2026-09-03T22-35-06Z.geojson.gz"
+  },
+  {
+    "captured_at": "2026-09-04T00:58:50Z",
+    "path": "snapshots/2026/09/voi-vehicles-2026-09-04T00-58-50Z.geojson.gz"
+  },
+  {
+    "captured_at": "2026-09-04T05:54:33Z",
+    "path": "snapshots/2026/09/voi-vehicles-2026-09-04T05-54-33Z.geojson.gz"
+  },
+  {
+    "captured_at": "2026-09-04T11:18:17Z",
+    "path": "snapshots/2026/09/voi-vehicles-2026-09-04T11-18-17Z.geojson.gz"
+  },
+  {
+    "captured_at": "2026-09-04T13:57:55Z",
+    "path": "snapshots/2026/09/voi-vehicles-2026-09-04T13-57-55Z.geojson.gz"
+  },
+  {
     "captured_at": "2026-09-04T14:04:11Z",
     "path": "snapshots/2026/09/voi-vehicles-2026-09-04T14-04-11Z.geojson.gz"
   }
