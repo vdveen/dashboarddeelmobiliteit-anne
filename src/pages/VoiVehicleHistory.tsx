@@ -15,7 +15,6 @@ import {
   VoiFeatureCollection,
   VoiSnapshot,
 } from '../api/voiSnapshots';
-import { getMapStyles } from '../components/Map/MapUtils/map';
 import { Button } from '../components/ui/button';
 
 import './VoiVehicleHistory.css';
@@ -23,6 +22,29 @@ import './VoiVehicleHistory.css';
 const EMPTY_GEOJSON: VoiFeatureCollection = {
   type: 'FeatureCollection',
   features: [],
+};
+
+const VOI_MAP_STYLE: maplibregl.StyleSpecification = {
+  version: 8,
+  glyphs: 'https://a.tiles.mapbox.com/v4/fontstack/{fontstack}/{range}.pbf?access_token=pk.eyJ1IjoiYmFydHdyIiwiYSI6ImNsaXVqYnoybTE1ZGQzZW90YXNwNXE0YTMifQ.xdC_OTxwV95tNVjovRv9yg',
+  sources: {
+    'pdok-background': {
+      type: 'raster',
+      tiles: [
+        'https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/standaard/EPSG:3857/{z}/{x}/{y}.png',
+      ],
+      tileSize: 256,
+      maxzoom: 19,
+      attribution: 'Kaartgegevens: <a href="https://www.pdok.nl/">PDOK</a>',
+    },
+  },
+  layers: [
+    {
+      id: 'pdok-background',
+      type: 'raster',
+      source: 'pdok-background',
+    },
+  ],
 };
 
 const dateTimeFormatter = new Intl.DateTimeFormat('nl-NL', {
@@ -85,6 +107,7 @@ function addVehicleLayers(map: maplibregl.Map) {
     filter: ['has', 'point_count'],
     layout: {
       'text-field': ['get', 'point_count_abbreviated'],
+      'text-font': ['Arial Unicode MS Regular'],
       'text-size': 12,
     },
     paint: {
@@ -190,7 +213,7 @@ function VoiVehicleHistory() {
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: getMapStyles().base as maplibregl.StyleSpecification,
+      style: VOI_MAP_STYLE,
       center: [5.35, 52.15],
       zoom: 6.7,
       minZoom: 5,
