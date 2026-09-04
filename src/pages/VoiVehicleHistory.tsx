@@ -24,6 +24,17 @@ const EMPTY_GEOJSON: VoiFeatureCollection = {
   features: [],
 };
 
+type VehicleView = 'clusters' | 'heatmap';
+
+const CLUSTER_SOURCE_ID = 'voi-history';
+const HEATMAP_SOURCE_ID = 'voi-history-heatmap';
+const HEATMAP_LAYER_ID = 'voi-history-heatmap';
+const CLUSTER_LAYER_IDS = [
+  'voi-history-clusters',
+  'voi-history-cluster-count',
+  'voi-history-points',
+];
+
 const VOI_MAP_STYLE: maplibregl.StyleSpecification = {
   version: 8,
   glyphs: 'https://a.tiles.mapbox.com/v4/fontstack/{fontstack}/{range}.pbf?access_token=pk.eyJ1IjoiYmFydHdyIiwiYSI6ImNsaXVqYnoybTE1ZGQzZW90YXNwNXE0YTMifQ.xdC_OTxwV95tNVjovRv9yg',
@@ -70,7 +81,12 @@ function formatShortDateTime(value: string): string {
 }
 
 function addVehicleLayers(map: maplibregl.Map) {
-  map.addSource('voi-history', {
+  map.addSource(HEATMAP_SOURCE_ID, {
+    type: 'geojson',
+    data: EMPTY_GEOJSON,
+  });
+
+  map.addSource(CLUSTER_SOURCE_ID, {
     type: 'geojson',
     data: EMPTY_GEOJSON,
     cluster: true,
@@ -79,9 +95,53 @@ function addVehicleLayers(map: maplibregl.Map) {
   });
 
   map.addLayer({
+    id: HEATMAP_LAYER_ID,
+    type: 'heatmap',
+    source: HEATMAP_SOURCE_ID,
+    layout: {
+      visibility: 'none',
+    },
+    paint: {
+      // These expressions depend only on zoom. Every snapshot uses the same
+      // weight, intensity, radius, and density-to-color mapping.
+      'heatmap-weight': 1,
+      'heatmap-intensity': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        5, 0.35,
+        8, 0.7,
+        11, 1.1,
+        15, 1.5,
+      ],
+      'heatmap-radius': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        5, 8,
+        8, 14,
+        11, 22,
+        15, 34,
+      ],
+      'heatmap-color': [
+        'interpolate',
+        ['linear'],
+        ['heatmap-density'],
+        0, 'rgba(37, 92, 116, 0)',
+        0.12, '#58a8c4',
+        0.35, '#58c49c',
+        0.58, '#f7d154',
+        0.8, '#f1844f',
+        1, '#bd3043',
+      ],
+      'heatmap-opacity': 0.88,
+    },
+  });
+
+  map.addLayer({
     id: 'voi-history-clusters',
     type: 'circle',
-    source: 'voi-history',
+    source: CLUSTER_SOURCE_ID,
     filter: ['has', 'point_count'],
     paint: {
       'circle-color': '#f26961',
@@ -103,7 +163,7 @@ function addVehicleLayers(map: maplibregl.Map) {
   map.addLayer({
     id: 'voi-history-cluster-count',
     type: 'symbol',
-    source: 'voi-history',
+    source: CLUSTER_SOURCE_ID,
     filter: ['has', 'point_count'],
     layout: {
       'text-field': ['get', 'point_count_abbreviated'],
@@ -118,7 +178,7 @@ function addVehicleLayers(map: maplibregl.Map) {
   map.addLayer({
     id: 'voi-history-points',
     type: 'circle',
-    source: 'voi-history',
+    source: CLUSTER_SOURCE_ID,
     filter: ['!', ['has', 'point_count']],
     paint: {
       'circle-color': '#f26961',
@@ -139,7 +199,7 @@ function addVehicleLayers(map: maplibregl.Map) {
   map.on('click', 'voi-history-clusters', (event) => {
     const feature = event.features?.[0];
     const clusterId = feature?.properties?.cluster_id;
-    const source = map.getSource('voi-history') as maplibregl.GeoJSONSource;
+    const source = map.getSource(CLUSTER_SOURCE_ID) as maplibregl.GeoJSONSource;
     if (clusterId === undefined || !source) return;
 
     const coordinates = (feature.geometry as GeoJSON.Point).coordinates;
@@ -157,11 +217,37 @@ function addVehicleLayers(map: maplibregl.Map) {
   });
 }
 
+function setVehicleData(map: maplibregl.Map, data: VoiFeatureCollection) {
+  [CLUSTER_SOURCE_ID, HEATMAP_SOURCE_ID].forEach((sourceId) => {
+    const source = map.getSource(sourceId) as maplibregl.GeoJSONSource | undefined;
+    source?.setData(data);
+  });
+}
+
+function setVehicleView(map: maplibregl.Map, view: VehicleView) {
+  if (!map.getLayer(HEATMAP_LAYER_ID)) return;
+
+  map.setLayoutProperty(
+    HEATMAP_LAYER_ID,
+    'visibility',
+    view === 'heatmap' ? 'visible' : 'none'
+  );
+  CLUSTER_LAYER_IDS.forEach((layerId) => {
+    map.setLayoutProperty(
+      layerId,
+      'visibility',
+      view === 'clusters' ? 'visible' : 'none'
+    );
+  });
+  map.getCanvas().style.cursor = '';
+}
+
 function VoiVehicleHistory() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const mapLoadedRef = useRef(false);
   const dataRef = useRef<VoiFeatureCollection>(EMPTY_GEOJSON);
+  const viewRef = useRef<VehicleView>('heatmap');
   const cacheRef = useRef(new Map<string, Promise<VoiFeatureCollection>>());
   const wheelTimeRef = useRef(0);
 
@@ -171,6 +257,7 @@ function VoiVehicleHistory() {
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [isLoadingSnapshot, setIsLoadingSnapshot] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [vehicleView, setVehicleViewState] = useState<VehicleView>('heatmap');
   const [error, setError] = useState<string | null>(null);
 
   const selectedSnapshot = snapshots[selectedIndex] ?? null;
@@ -230,8 +317,8 @@ function VoiVehicleHistory() {
       if (mapRef.current !== map) return;
       addVehicleLayers(map);
       mapLoadedRef.current = true;
-      const source = map.getSource('voi-history') as maplibregl.GeoJSONSource;
-      source.setData(dataRef.current);
+      setVehicleData(map, dataRef.current);
+      setVehicleView(map, viewRef.current);
     });
 
     return () => {
@@ -240,6 +327,13 @@ function VoiVehicleHistory() {
       map.remove();
     };
   }, []);
+
+  useEffect(() => {
+    viewRef.current = vehicleView;
+    if (mapLoadedRef.current && mapRef.current) {
+      setVehicleView(mapRef.current, vehicleView);
+    }
+  }, [vehicleView]);
 
   useEffect(() => {
     if (!selectedSnapshot) return;
@@ -254,8 +348,7 @@ function VoiVehicleHistory() {
         dataRef.current = nextGeojson;
         setGeojson(nextGeojson);
         if (mapLoadedRef.current && mapRef.current) {
-          const source = mapRef.current.getSource('voi-history') as maplibregl.GeoJSONSource;
-          source?.setData(nextGeojson);
+          setVehicleData(mapRef.current, nextGeojson);
         }
       })
       .catch((snapshotError) => {
@@ -327,7 +420,11 @@ function VoiVehicleHistory() {
 
   return (
     <main className="VoiVehicleHistory">
-      <div ref={mapContainerRef} className="VoiVehicleHistory-map" aria-label="Kaart met Voi-voertuigposities" />
+      <div
+        ref={mapContainerRef}
+        className="VoiVehicleHistory-map"
+        aria-label={`Kaart met Voi-voertuigposities als ${vehicleView}`}
+      />
 
       <header className="VoiVehicleHistory-heading">
         <div className="VoiVehicleHistory-kicker">Voi-monitor</div>
@@ -336,6 +433,38 @@ function VoiVehicleHistory() {
           <span className="VoiVehicleHistory-liveDot" aria-hidden="true" />
           {statusText}
         </div>
+        <div className="VoiVehicleHistory-viewToggle" role="group" aria-label="Kaartweergave">
+          <button
+            type="button"
+            aria-pressed={vehicleView === 'clusters'}
+            onClick={() => setVehicleViewState('clusters')}
+          >
+            Clusters
+          </button>
+          <button
+            type="button"
+            aria-pressed={vehicleView === 'heatmap'}
+            onClick={() => setVehicleViewState('heatmap')}
+          >
+            Heatmap
+          </button>
+        </div>
+        {vehicleView === 'heatmap' && (
+          <div
+            className="VoiVehicleHistory-heatmapLegend"
+            aria-label="Vaste heatmapschaal van lage naar hoge voertuigdichtheid"
+          >
+            <div className="VoiVehicleHistory-heatmapLegendHeading">
+              <span>Voertuigdichtheid</span>
+              <span>Vaste schaal</span>
+            </div>
+            <div className="VoiVehicleHistory-heatmapLegendScale" aria-hidden="true" />
+            <div className="VoiVehicleHistory-heatmapLegendLabels" aria-hidden="true">
+              <span>lager</span>
+              <span>hoger</span>
+            </div>
+          </div>
+        )}
       </header>
 
       {error && (

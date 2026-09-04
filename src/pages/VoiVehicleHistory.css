@@ -62,6 +62,73 @@
   box-shadow: 0 0 0 4px rgba(242, 105, 97, 0.14);
 }
 
+.VoiVehicleHistory-viewToggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  margin-top: 14px;
+  padding: 3px;
+  border: 1px solid #d8dddf;
+  border-radius: 11px;
+  background: #edf0f0;
+}
+
+.VoiVehicleHistory-viewToggle button {
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #607078;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.VoiVehicleHistory-viewToggle button[aria-pressed='true'] {
+  background: white;
+  box-shadow: 0 1px 4px rgba(23, 49, 59, 0.14);
+  color: var(--voi-ink);
+}
+
+.VoiVehicleHistory-viewToggle button:focus-visible {
+  outline: 2px solid var(--voi-coral);
+  outline-offset: 2px;
+}
+
+.VoiVehicleHistory-heatmapLegend {
+  margin-top: 12px;
+}
+
+.VoiVehicleHistory-heatmapLegendHeading,
+.VoiVehicleHistory-heatmapLegendLabels {
+  display: flex;
+  justify-content: space-between;
+  color: #718087;
+  font-size: 0.68rem;
+}
+
+.VoiVehicleHistory-heatmapLegendHeading {
+  margin-bottom: 5px;
+  font-weight: 650;
+}
+
+.VoiVehicleHistory-heatmapLegendHeading span:last-child {
+  color: #8b979b;
+  font-weight: 500;
+}
+
+.VoiVehicleHistory-heatmapLegendScale {
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #58a8c4, #58c49c 29%, #f7d154 55%, #f1844f 78%, #bd3043);
+}
+
+.VoiVehicleHistory-heatmapLegendLabels {
+  margin-top: 3px;
+}
+
 .VoiVehicleHistory-error {
   position: absolute;
   top: 24px;
