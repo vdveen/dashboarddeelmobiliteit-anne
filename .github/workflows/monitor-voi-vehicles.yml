@@ -1,8 +1,7 @@
 name: Monitor Voi vehicle positions
 
 on:
-  schedule:
-    - cron: '17 * * * *'
+  # Railway owns the hourly schedule. Keep manual dispatch as a fallback.
   workflow_dispatch:
 
 permissions:

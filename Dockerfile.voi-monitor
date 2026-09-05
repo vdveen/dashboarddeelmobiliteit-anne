@@ -1,0 +1,14 @@
+FROM python:3.13-alpine
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN addgroup -S collector && adduser -S collector -G collector
+
+COPY --chown=collector:collector scripts/collect_voi_vehicles.py scripts/publish_voi_snapshot.py /app/scripts/
+
+USER collector
+
+CMD ["python3", "-m", "scripts.publish_voi_snapshot"]
