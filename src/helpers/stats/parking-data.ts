@@ -1,4 +1,5 @@
 import moment from 'moment-timezone';
+import { REPORTING_TIMEZONE } from './time';
 import {getAggregatedStats, getAggregatedStats_timescaleDB} from '../../api/aggregatedStats';
 import { getBeleidszonesAvailabilityStats } from '../../api/beleidszones';
 import { getOperatorsScopeForStats } from '../../poll-api/pollTools.js';
@@ -33,8 +34,8 @@ export const getAggregatedVehicleData = async (token, filter, zones, metadata) =
   if (doShowDetailledAggregatedData(filter, zones)) {
     const zoneIds = parseZoneIdsFromFilter(filter);
     if (zoneIds.length > 0) {
-      const van = filter.ontwikkelingvan ? new Date(filter.ontwikkelingvan) : new Date();
-      const tot = filter.ontwikkelingtot ? moment(filter.ontwikkelingtot).add(1, 'day').toDate() : new Date();
+      const van = filter.ontwikkelingvan ? moment.tz(filter.ontwikkelingvan, REPORTING_TIMEZONE).startOf('day').toDate() : new Date();
+      const tot = filter.ontwikkelingtot ? moment.tz(filter.ontwikkelingtot, REPORTING_TIMEZONE).startOf('day').add(1, 'day').toDate() : new Date();
       aggregatedVehicleData = await getBeleidszonesAvailabilityStats(token, {
         zoneIds,
         startTime: van.toISOString(),

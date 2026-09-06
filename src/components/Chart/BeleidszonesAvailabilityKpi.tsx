@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
-import moment from 'moment';
+import moment from 'moment-timezone';
+import { REPORTING_TIMEZONE } from '../../helpers/stats/time';
 import {
   BarChart,
   Bar,
@@ -55,18 +56,33 @@ function BeleidszonesAvailabilityKpi({ zoneId, zoneName }: BeleidszonesAvailabil
   const endDate = filter.ontwikkelingtot;
   const selectedPeriodDays =
     filter.ontwikkelingvan && endDate
-      ? moment(endDate).startOf('day').diff(moment(filter.ontwikkelingvan).startOf('day'), 'days') + 1
+      ? moment.tz(endDate, REPORTING_TIMEZONE).startOf('day').diff(moment.tz(filter.ontwikkelingvan, REPORTING_TIMEZONE).startOf('day'), 'days') + 1
       : 0;
   // Selections longer than the cap are clamped to the most recent 90 days
   const periodClamped = selectedPeriodDays > MAX_5M_PERIOD_DAYS;
   const startDate = periodClamped
-    ? moment(endDate).startOf('day').subtract(MAX_5M_PERIOD_DAYS - 1, 'days').format('YYYY-MM-DD')
+    ? moment.tz(endDate, REPORTING_TIMEZONE).startOf('day').subtract(MAX_5M_PERIOD_DAYS - 1, 'days').format('YYYY-MM-DD')
     : filter.ontwikkelingvan;
 
-  // The series belongs to one zone + period; invalidate when those change.
-  // The provider selection is applied client-side, so it never invalidates.
-  const dataKey = `${zoneId}|${startDate}|${endDate}`;
+  // Provider exclusions are applied locally; the fetched scope and account own the data.
+  const operatorScope = getOperatorsScopeForStats(metadata);
+  const dataKey = JSON.stringify([zoneId, startDate, endDate, token, [...operatorScope].sort()]);
+  const currentKey = useRef(dataKey);
+  currentKey.current = dataKey;
+  const requestRef = useRef<AbortController | null>(null);
   const seriesIsCurrent = series !== null && loadedForKey === dataKey;
+
+  useEffect(() => {
+    setSeries(null);
+    setLoadedForKey(null);
+    setLoading(false);
+    setProgress(null);
+    setError(null);
+    return () => {
+      requestRef.current?.abort();
+      requestRef.current = null;
+    };
+  }, [dataKey]);
 
   // Providers unchecked in the filterbar, plus providers no longer shown in the UI
   const excludedOperators = useMemo(() => {
@@ -77,30 +93,33 @@ function BeleidszonesAvailabilityKpi({ zoneId, zoneName }: BeleidszonesAvailabil
   }, [filter.aanbiedersexclude]);
 
   const loadData = async () => {
-    if (loading) return;
+    if (requestRef.current) return;
+    const request = new AbortController();
+    requestRef.current = request;
+    const isCurrent = () => requestRef.current === request && currentKey.current === dataKey;
     setLoading(true);
+    setSeries(null);
+    setLoadedForKey(null);
     setError(null);
     setProgress(null);
     try {
       const result = await fetch5mAvailabilitySeries(
-        token,
-        zoneId,
-        startDate,
-        endDate,
-        getOperatorsScopeForStats(metadata),
-        (done, total) => setProgress({ done, total })
+        token, zoneId, startDate, endDate, operatorScope,
+        (done, total) => { if (isCurrent()) setProgress({ done, total }); },
+        request.signal
       );
+      if (!isCurrent()) return;
       setSeries(result);
       setLoadedForKey(dataKey);
-      if (result.length === 0) {
-        setError('Geen data ontvangen voor deze zone en periode');
-      }
     } catch (err) {
-      console.error('BeleidszonesAvailabilityKpi loadData failed:', err);
-      setError('Er ging iets mis bij het ophalen van de data');
+      if (!isCurrent() || request.signal.aborted) return;
+      setError(err instanceof Error ? err.message : 'Er ging iets mis bij het ophalen van de data');
     } finally {
-      setLoading(false);
-      setProgress(null);
+      if (isCurrent()) {
+        requestRef.current = null;
+        setLoading(false);
+        setProgress(null);
+      }
     }
   };
 
@@ -111,10 +130,11 @@ function BeleidszonesAvailabilityKpi({ zoneId, zoneName }: BeleidszonesAvailabil
       windowEndHour,
       threshold,
       excludedOperators,
+      operators: operatorScope,
     });
-  }, [series, seriesIsCurrent, windowStartHour, windowEndHour, threshold, excludedOperators]);
+  }, [series, seriesIsCurrent, windowStartHour, windowEndHour, threshold, excludedOperators, dataKey]);
 
-  // Percentage of time above the threshold, per day
+  // Percentage of complete observations above the threshold, per day
   const pctChartData = useMemo(() => {
     if (!kpi) return [];
     return kpi.perDay.map((day) => ({
@@ -134,7 +154,7 @@ function BeleidszonesAvailabilityKpi({ zoneId, zoneName }: BeleidszonesAvailabil
 
   const handleDownloadCsv = () => {
     if (!seriesIsCurrent || !series) return;
-    const operators = getOperatorsInSeries(series, excludedOperators);
+    const operators = getOperatorsInSeries(series, excludedOperators, operatorScope);
     const filename = `beschikbaarheid_5min_zone${zoneId}_${moment(startDate).format('YYYY-MM-DD')}_${moment(endDate).format('YYYY-MM-DD')}.csv`;
     downloadCsv(build5mSeriesCsv(series, operators), filename);
   };
@@ -143,14 +163,15 @@ function BeleidszonesAvailabilityKpi({ zoneId, zoneName }: BeleidszonesAvailabil
     <div className="my-8">
       <h2 className="text-4xl my-2">Beschikbaarheid (5-minuten-data)</h2>
       <p className="text-gray-600 my-2">
-        Percentage van de tijd tussen{' '}
+        Percentage van de gemeten intervallen tussen{' '}
         {String(windowStartHour).padStart(2, '0')}:00 en{' '}
         {String(windowEndHour).padStart(2, '0')}:00 waarin minimaal {threshold}{' '}
         {threshold === 1 ? 'voertuig' : 'voertuigen'} beschikbaar{' '}
         {threshold === 1 ? 'was' : 'waren'}
-        {zoneName ? ` in ${zoneName}` : ''}. Gebaseerd op de ruwe metingen per 5
-        minuten; intervallen zonder meting tellen als 0 voertuigen. Alleen de
-        aanbieders die in het filter zijn aangevinkt tellen mee.
+        {zoneName ? ` in ${zoneName}` : ''}. Tijden zijn in Europe/Amsterdam.
+        Alleen volledige intervallen van vijf minuten met een meetwaarde voor iedere
+        aangevinkte aanbieder tellen mee. Ontbrekende waarden blijven onbekend.
+        De API levert het maximum per interval; het percentage beschrijft de ontvangen metingen.
       </p>
 
       <div className="flex flex-wrap items-end gap-4 my-4">
@@ -221,21 +242,27 @@ function BeleidszonesAvailabilityKpi({ zoneId, zoneName }: BeleidszonesAvailabil
           t/m {moment(endDate).format('DD-MM-YYYY')}).
         </p>
       )}
-      {error && <p className="text-red-600 my-2">{error}</p>}
+      {error && <p role="alert" className="text-red-600 my-2">{error}</p>}
+      {kpi && (
+        <p className="text-gray-600 my-2" role="status">
+          Meetdekking: {kpi.coveragePct}% ({kpi.observedIntervals} van {kpi.expectedIntervals} intervallen).
+          {kpi.overallPct === null && ' Geen volledige metingen voor de geselecteerde aanbieders en tijden.'}
+        </p>
+      )}
 
       {kpi && kpi.overallPct !== null && (
         <div className="my-4">
           <span className="text-5xl font-bold">{kpi.overallPct}%</span>
           <span className="text-gray-600 ml-3">
-            van de tijd ({moment(startDate).format('DD-MM-YYYY')} t/m{' '}
+            van de gemeten intervallen ({moment(startDate).format('DD-MM-YYYY')} t/m{' '}
             {moment(endDate).format('DD-MM-YYYY')})
           </span>
         </div>
       )}
 
-      {kpi && pctChartData.length > 0 && (
+      {kpi && kpi.overallPct !== null && pctChartData.length > 0 && (
         <>
-          <h3 className="text-xl mt-6 mb-1">Percentage van de tijd boven de drempel</h3>
+          <h3 className="text-xl mt-6 mb-1">Percentage gemeten intervallen boven de drempel</h3>
           <div style={{ width: '100%', height: 260 }}>
             <ResponsiveContainer>
               <BarChart data={pctChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -249,7 +276,7 @@ function BeleidszonesAvailabilityKpi({ zoneId, zoneName }: BeleidszonesAvailabil
           </div>
 
           <h3 className="text-xl mt-8 mb-1">
-            Gemiddeld aantal beschikbare voertuigen per aanbieder
+            Gemiddelde meetwaarde per aanbieder bij volledige metingen
           </h3>
           <div style={{ width: '100%', height: 300 }}>
             <ResponsiveContainer>
