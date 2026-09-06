@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
+import MapControlsPortal from '../Map/MapControls/MapControlsPortal';
 import './SelectionTool.css';
 
 type SelectionMode = 'polygon' | 'lasso';
@@ -190,7 +191,8 @@ const SelectionTool = ({ map, vehicles }: SelectionToolProps): JSX.Element => {
     }
   }, [vehicleFeatures]);
 
-  return <div className="SelectionTool">
+  return <MapControlsPortal map={map} corner="bottom-right" order={-2}>
+    <div className="SelectionTool">
     {isOpen && <div className="SelectionTool-panel">
       <strong>Selectie</strong>
       <p>{activeMode === 'polygon' ? 'Klik punten op de kaart. Rechtsklik om af te ronden.' : activeMode === 'lasso' ? 'Klik en sleep om een lasso te tekenen.' : 'Teken een gebied om voertuigen te tellen.'}</p>
@@ -202,7 +204,8 @@ const SelectionTool = ({ map, vehicles }: SelectionToolProps): JSX.Element => {
       </div>
     </div>}
     <button type="button" className={`SelectionTool-toggle ${activeMode ? 'is-active' : ''}`} aria-label="Voertuigen selecteren" onClick={() => setIsOpen((current) => !current)}>⌁</button>
-  </div>;
+    </div>
+  </MapControlsPortal>;
 };
 
 export default SelectionTool;
