@@ -3,23 +3,7 @@ import moment from 'moment';
 import maplibregl from 'maplibre-gl';
 import localization from 'moment/locale/nl'
 
-import {
-  getProviderColor,
-  getPrettyProviderName,
-  getProviderWebsiteUrl
-} from '../../../helpers/providers.js';
-
-import {
-  buildProviderLabelHtml
-} from '../../PrestatiesAanbieders/ProviderLabel';
-
-import {
-  getPrettyVehicleTypeName
-} from '../../../helpers/vehicleTypes';
-
-import {
-  getVehicleTypeHeaderImgHtml
-} from '../../../helpers/vehicleTypeIconCommon';
+import { createVehiclePopup, createVehicleOverlapPopup } from './vehiclePopup';
 
 // Set language for momentJS
 moment.updateLocale('nl', localization);
@@ -51,7 +35,6 @@ export const initPopupLogic = (
   filterDate,
   hidePopupProviderTitle = false
 ) => {
-  const providerLabelOptions = hidePopupProviderTitle ? { showTitle: false } : undefined;
   // Docs: https://maplibre.org/maplibre-gl-js-docs/example/popup-on-click/
   const layerNamesToApplyPopupLogicTo = [
     'vehicles-point',
@@ -66,7 +49,7 @@ export const initPopupLogic = (
 
   layerNamesToApplyPopupLogicTo.forEach((layerName) => {
     // When a click event occurs on a feature in the places layer, open a popup at the
-    // location of the feature, with description HTML from its properties.
+    // location of the feature, with its external values rendered as text.
     function clickHandler (e) {
       // Remove popups
       if(popup) popup.remove();
@@ -79,190 +62,30 @@ export const initPopupLogic = (
       const features = e.features || [];
       if(! features.length) return;
 
-      const primaryVehicleProperties = features[0].properties || {};
-      const vehicleProperties = primaryVehicleProperties;
-      const providerColor = getProviderColor(providers, vehicleProperties.system_id)
-
-      var coordinates = features[0].geometry.coordinates.slice();
-      // var description = e.features[0].properties.description;
-
-      // Ensure that if the map is zoomed out such that multiple
-      // copies of the feature are visible, the popup appears
-      // over the copy being pointed to.
-      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-      }
-
-      const providerWebsiteUrl = getProviderWebsiteUrl(vehicleProperties.system_id);
-      const prettyVehicleTypeName = getPrettyVehicleTypeName(vehicleProperties.form_factor);
-      const headerLabel = `${getPrettyProviderName(vehicleProperties.system_id)} ${prettyVehicleTypeName ? prettyVehicleTypeName : ''}`;
-
-      const escapeHtml = (value) => {
-        const str = String(value ?? '');
-        return str.replace(/[&<>"']/g, (c) => {
-          switch (c) {
-            case '&':
-              return '&amp;';
-            case '<':
-              return '&lt;';
-            case '>':
-              return '&gt;';
-            case '"':
-              return '&quot;';
-            case '\'':
-              return '&#039;';
-            default:
-              return c;
-          }
-        });
+      const properties = features[0].properties || {};
+      const options = { canSeeVehicleId, filterDate, hideProviderTitle: hidePopupProviderTitle };
+      const coordinatesFor = (feature) => {
+        if (feature.geometry?.type !== 'Point' || !Array.isArray(feature.geometry.coordinates)) return null;
+        const coordinates = feature.geometry.coordinates.slice();
+        if (!Number.isFinite(coordinates[0]) || !Number.isFinite(coordinates[1])) return null;
+        // Display the popup on the visible copy when the map wraps around.
+        coordinates[0] += Math.round((e.lngLat.lng - coordinates[0]) / 360) * 360;
+        return coordinates;
       };
-
-      const formatSinceDateTime = (props) => {
-        if(! props || ! props.in_public_space_since) return '-';
-        return moment(props.in_public_space_since).locale('nl').format('DD/MM HH:mm');
+      const coordinates = coordinatesFor(features[0]);
+      if (!coordinates) return;
+      const showVehicle = (feature) => {
+        const selectedCoordinates = coordinatesFor(feature);
+        if (!selectedCoordinates) return;
+        popup.setLngLat(selectedCoordinates)
+          .setDOMContent(createVehiclePopup(feature.properties || {}, providers, options));
       };
-
-      const buildVehicleBodyHtml = (theVehicleProperties, theProviderColor) => {
-        const providerWebsiteUrl = getProviderWebsiteUrl(theVehicleProperties.system_id);
-
-        return `
-          <div class="Map-popup-body">
-            ${theVehicleProperties.in_public_space_since ? `<div>
-              Staat hier sinds ${moment(theVehicleProperties.in_public_space_since).locale('nl').from(filterDate)}<br />
-              Geparkeerd sinds: ${moment(theVehicleProperties.in_public_space_since).format('DD-MM-YYYY HH:mm')}
-            </div>` : ''}
-
-            ${theVehicleProperties.distance_in_meters ? `<div>
-              Dit voertuig is ${theVehicleProperties.distance_in_meters} meter verplaatst<br />
-            </div>` : ''}
-
-            ${(canSeeVehicleId && theVehicleProperties.vehicle_id) ? `<div class="mt-4 mb-4 text-xs block text-gray-400">
-              ${theVehicleProperties.vehicle_id}
-            </div>` : ''}
-
-            ${providerWebsiteUrl ? `<div class="mt-2">
-              <a href="${providerWebsiteUrl}" rel="external" target="_blank" class="inline-block py-1 px-2 text-white rounded-md hover:opacity-80" style="background-color: ${theProviderColor};">
-                website
-              </a>
-            </div>` : ''}
-          </div>
-        `;
-      };
-
-      const buildOverlappingVehiclesTableHtml = () => {
-        const shouldShowVehicleId = canSeeVehicleId ? true : false;
-        const rowsHtml = features.map((feature, idx) => {
-          const props = feature.properties || {};
-          const vehicleId = shouldShowVehicleId && props.vehicle_id ? props.vehicle_id : '-';
-          const vehicleTypeIconHtml = getVehicleTypeHeaderImgHtml(
-            props.form_factor,
-            undefined,
-            'height:18px; width:auto; margin-right: 6px;'
-          );
-          const sinceDateTime = formatSinceDateTime(props);
-
-          return `
-            <tr
-              data-dd-vehicle-row="true"
-              data-feature-index="${idx}"
-              class="dd-vehicle-overlap-row"
-              style="cursor: pointer;"
-            >
-              <td style="padding: 4px">
-                <div style="display: flex; align-items: center; gap: 6px;">
-                  <span style="white-space: nowrap;">${escapeHtml(vehicleId)}</span>
-                  ${vehicleTypeIconHtml}
-                </div>
-              </td>
-              <td style="padding: 4px;">${escapeHtml(sinceDateTime)}</td>
-            </tr>
-          `;
-        }).join('');
-
-        return `
-          <div class="Map-popup-body">
-            <table style="width: 100%; border-collapse: collapse;">
-              <thead>
-                <tr>
-                  <th style="text-align: left; font-weight: 600; padding: 0 4px 6px 4px; font-size: 12px;">voertuig-id</th>
-                  <th style="text-align: left; font-weight: 600; padding: 0 4px 6px 4px; font-size: 12px;">sinds</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${rowsHtml}
-              </tbody>
-            </table>
-          </div>
-        `;
-      };
-
-      const isVehicleMarkerLayer = (
-        layerName === 'vehicles-point' || layerName === 'vehicles-clusters-point'
-      );
-
-      const primaryFeatureIsVehicle = (
-        vehicleProperties && vehicleProperties.vehicle_id
-      );
-
-      const shouldShowOverlappingVehiclesTable = (
-        isVehicleMarkerLayer && primaryFeatureIsVehicle && features.length > 1
-      );
-
-      popup = new maplibregl.Popup()
-        .setLngLat(coordinates)
-        .setHTML(`
-          ${buildProviderLabelHtml(headerLabel, providerColor, providerLabelOptions)}
-          ${
-            shouldShowOverlappingVehiclesTable
-              ? buildOverlappingVehiclesTableHtml()
-              : buildVehicleBodyHtml(vehicleProperties, providerColor)
-          }
-        `)
-        .addTo(theMap);
-
-      if(shouldShowOverlappingVehiclesTable) {
-        const popupEl = popup && popup.getElement && popup.getElement();
-        if(popupEl) {
-          popupEl.addEventListener('click', (evt) => {
-            const tr = evt.target && evt.target.closest
-              ? evt.target.closest('tr[data-dd-vehicle-row="true"]')
-              : null;
-
-            if(! tr) return;
-
-            const idxStr = tr.getAttribute('data-feature-index');
-            const idx = parseInt(idxStr, 10);
-            const clickedFeature = features[idx];
-            if(! clickedFeature) return;
-
-            evt.preventDefault();
-            evt.stopPropagation();
-
-            const clickedVehicleProperties = clickedFeature.properties || {};
-            const clickedProviderColor = getProviderColor(
-              providers,
-              clickedVehicleProperties.system_id
-            );
-
-            const clickedPrettyVehicleTypeName = getPrettyVehicleTypeName(
-              clickedVehicleProperties.form_factor
-            );
-            const clickedHeaderLabel = `${getPrettyProviderName(clickedVehicleProperties.system_id)} ${clickedPrettyVehicleTypeName ? clickedPrettyVehicleTypeName : ''}`;
-
-            var clickedCoordinates = clickedFeature.geometry.coordinates.slice();
-            while (Math.abs(e.lngLat.lng - clickedCoordinates[0]) > 180) {
-              clickedCoordinates[0] += e.lngLat.lng > clickedCoordinates[0] ? 360 : -360;
-            }
-
-            popup
-              .setLngLat(clickedCoordinates)
-              .setHTML(`
-                ${buildProviderLabelHtml(clickedHeaderLabel, clickedProviderColor, providerLabelOptions)}
-                ${buildVehicleBodyHtml(clickedVehicleProperties, clickedProviderColor)}
-              `);
-          })
-        }
-      }
+      const showOverlap = (layerName === 'vehicles-point' || layerName === 'vehicles-clusters-point')
+        && properties.vehicle_id && features.length > 1;
+      const contents = showOverlap
+        ? createVehicleOverlapPopup(features, providers, options, showVehicle)
+        : createVehiclePopup(properties, providers, options);
+      popup = new maplibregl.Popup().setLngLat(coordinates).setDOMContent(contents).addTo(theMap);
     }
     // Touch event
     // https://github.com/mapbox/mapbox-gl-draw/issues/1019#issuecomment-850229493=
