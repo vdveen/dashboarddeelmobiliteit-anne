@@ -86,3 +86,21 @@ test('does not fetch or count the current incomplete bucket', async () => {
   await expect(fetch5mAvailabilitySeries(null, 1, '2026-08-01', '2026-08-01', [], undefined, controller.signal))
     .rejects.toMatchObject({ name: 'AbortError' });
 });
+
+test.each(['getBeleidszonesAvailabilityStats', 'getBeleidszonesRentalStats'])('%s sends UTC bounds and the caller abort signal', async (method) => {
+  const api = jest.requireActual('../../api/beleidszones');
+  const originalFetch = global.fetch;
+  const transport = jest.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+  global.fetch = transport;
+  try {
+    const signal = new AbortController().signal;
+    await api[method](null, { zoneIds: [1], startTime: '2026-08-01T08:00:00+02:00', endTime: '2026-08-01T20:00:00+02:00', signal });
+    const [url, init] = transport.mock.calls[0];
+    const params = new URL(url, 'https://example.test').searchParams;
+    expect(params.get('start_time')).toBe('2026-08-01T06:00:00Z');
+    expect(params.get('end_time')).toBe('2026-08-01T18:00:00Z');
+    expect(init.signal).toBe(signal);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
