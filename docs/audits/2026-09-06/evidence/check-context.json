@@ -1,0 +1,63 @@
+{
+  "note": "Command context recorded after execution from this audit run. Outcome logs are original captures. No complete transcript was available. npm ci used a separate install directory; other JS checks used the original node_modules, including through a symlink in the merge worktree. Trailing whitespace and extra final blank lines were removed from the two build logs; outcome text is unchanged.",
+  "node": "v24.20.0",
+  "npm": "12.0.2",
+  "checks": [
+    {
+      "log": "jest.log",
+      "cwd": "/home/exedev/dashboarddeelmobiliteit-anne",
+      "revision": "f2162fdf",
+      "command": "CI=true npm test -- --watchAll=false --runInBand",
+      "outcome": "2 suites fail before execution; 20 tests pass"
+    },
+    {
+      "log": "python.log",
+      "cwd": "/home/exedev/dashboarddeelmobiliteit-anne",
+      "revision": "f2162fdf",
+      "command": "python3 -m unittest discover -s scripts -p 'test_*.py' -v",
+      "outcome": "8 tests pass"
+    },
+    {
+      "log": "build.log",
+      "cwd": "/home/exedev/dashboarddeelmobiliteit-anne",
+      "revision": "f2162fdf",
+      "command": "npm run build",
+      "outcome": "succeeds with warnings"
+    },
+    {
+      "log": "tsc.log",
+      "cwd": "/home/exedev/dashboarddeelmobiliteit-anne",
+      "revision": "f2162fdf",
+      "command": "./node_modules/.bin/tsc --noEmit",
+      "outcome": "fails"
+    },
+    {
+      "log": "upstream-tests.log",
+      "cwd": "/tmp/fork-audit-2026-09-06/merged",
+      "revision": "d40a67ed + c177af35 with resolved-map.diff",
+      "command": "CI=true npm test -- --watchAll=false --runInBand src/helpers/csv.test.ts src/components/PrestatiesAanbieders/chartCsv.test.ts",
+      "outcome": "10 tests pass"
+    },
+    {
+      "log": "merged-build.log",
+      "cwd": "/tmp/fork-audit-2026-09-06/merged",
+      "revision": "d40a67ed + c177af35 with resolved-map.diff",
+      "command": "npm run build",
+      "outcome": "succeeds with warnings"
+    },
+    {
+      "log": "install.log",
+      "cwd": "/home/exedev/dashboarddeelmobiliteit-anne",
+      "revision": "package.json and package-lock.json copied from f2162fdf",
+      "command": "npm ci --ignore-scripts --no-audit --prefix /tmp/fork-audit-2026-09-06/install",
+      "outcome": "succeeds; lifecycle scripts not exercised"
+    },
+    {
+      "log": "probes.log",
+      "cwd": "/home/exedev/dashboarddeelmobiliteit-anne",
+      "revision": "f2162fdf",
+      "command": "node /tmp/fork-audit-2026-09-06/probes.cjs",
+      "outcome": "mocked module and jsdom behaviors, not deployed browser verification"
+    }
+  ]
+}

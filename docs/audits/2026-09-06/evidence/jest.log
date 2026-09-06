@@ -1,0 +1,55 @@
+npm notice run dashboarddeelmobiliteit-app@0.1.0 test
+npm notice run craco test --watchAll=false --runInBand
+PASS src/components/Filterbar/FilteritemMarkers.test.js
+PASS src/api/voiSnapshots.test.ts
+PASS src/components/Chart/ritlengteChartUtils.test.ts
+PASS src/helpers/authentication.test.js
+PASS src/helpers/layerSelectors.test.ts
+FAIL src/components/NewFeatureIndicator/NewFeatureIndicator.test.js
+  ● Test suite failed to run
+
+    Cannot find module '@reduxjs/toolkit' from 'src/components/NewFeatureIndicator/NewFeatureIndicator.test.js'
+
+      2 | import { render, screen, fireEvent } from '@testing-library/react';
+      3 | import { Provider } from 'react-redux';
+    > 4 | import { configureStore } from '@reduxjs/toolkit';
+        | ^
+      5 | import NewFeatureIndicator from './NewFeatureIndicator';
+      6 |
+      7 | // Mock the custom hook
+
+      at Resolver.resolveModule (node_modules/jest-resolve/build/resolver.js:324:11)
+      at Object.<anonymous> (src/components/NewFeatureIndicator/NewFeatureIndicator.test.js:4:1)
+
+FAIL src/App.test.js
+  ● Test suite failed to run
+
+    TypeError: window.URL.createObjectURL is not a function
+
+      2 | // https://github.com/mapbox/mapbox-gl-draw
+      3 | import MapboxDraw from "@mapbox/mapbox-gl-draw";
+    > 4 | import maplibregl from 'maplibre-gl';
+        | ^
+      5 | import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
+      6 | import StaticMode from '@mapbox/mapbox-gl-draw-static-mode'
+      7 | import {themes} from '../../../themes';
+
+      at define (node_modules/maplibre-gl/dist/maplibre-gl.js:25:47)
+      at node_modules/maplibre-gl/dist/maplibre-gl.js:35:1
+      at node_modules/maplibre-gl/dist/maplibre-gl.js:3:81
+      at Object.<anonymous> (node_modules/maplibre-gl/dist/maplibre-gl.js:6:3)
+      at Object.<anonymous> (src/components/Map/MapUtils/zones.js:4:1)
+      at Object.<anonymous> (src/helpers/stats/index.ts:14:1)
+      at Object.<anonymous> (src/pages/StatsPage.tsx:13:1)
+      at Object.<anonymous> (src/App.tsx:15:1)
+      at Object.<anonymous> (src/App.test.js:2:1)
+      at TestScheduler.scheduleTests (node_modules/@jest/core/build/TestScheduler.js:333:13)
+      at runJest (node_modules/@jest/core/build/runJest.js:404:19)
+      at _run10000 (node_modules/@jest/core/build/cli/index.js:320:7)
+      at runCLI (node_modules/@jest/core/build/cli/index.js:173:3)
+
+Test Suites: 2 failed, 5 passed, 7 total
+Tests:       20 passed, 20 total
+Snapshots:   0 total
+Time:        6.694 s
+Ran all test suites.

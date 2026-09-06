@@ -1,0 +1,52 @@
+npm notice run dashboarddeelmobiliteit-app@0.1.0 build
+npm notice run craco build
+(node:362656) [DEP0176] DeprecationWarning: fs.F_OK is deprecated, use fs.constants.F_OK instead
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Creating an optimized production build...
+Compiled with warnings.
+
+[eslint]
+src/reducers/filter.js
+  Line 462:5:  Expected a 'break' statement before 'case'  no-fallthrough
+
+/static/js/main.5d68ac17.js is 5.87 MB, and won't be precached. Configure maximumFileSizeToCacheInBytes to change this limit.
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+File sizes after gzip:
+
+  1.43 MB   build/static/js/main.5d68ac17.js
+  49.93 kB  build/static/css/main.c0fba84d.css
+  3.02 kB   build/static/js/reactPlayerFilePlayer.2769632d.chunk.js
+  1.98 kB   build/static/js/reactPlayerYouTube.cf5d08c7.chunk.js
+  1.9 kB    build/static/js/reactPlayerMux.29ebe0fc.chunk.js
+  1.67 kB   build/static/js/510.c4bd8947.chunk.js
+  1.46 kB   build/static/js/reactPlayerWistia.9acc59b6.chunk.js
+  1.43 kB   build/static/js/reactPlayerVimeo.3eba4feb.chunk.js
+  1.38 kB   build/static/js/reactPlayerPreview.17b93ede.chunk.js
+  1.37 kB   build/static/js/reactPlayerFacebook.898e463d.chunk.js
+  1.35 kB   build/static/js/reactPlayerTwitch.a5f38451.chunk.js
+  1.33 kB   build/static/js/reactPlayerDailyMotion.be33efc5.chunk.js
+  1.31 kB   build/static/js/reactPlayerSoundCloud.6f101ab1.chunk.js
+  1.27 kB   build/static/js/reactPlayerStreamable.22444c56.chunk.js
+  1.26 kB   build/static/js/reactPlayerVidyard.4b2db0e9.chunk.js
+  1.24 kB   build/static/js/reactPlayerKaltura.f8f2c8ac.chunk.js
+  1.22 kB   build/static/js/reactPlayerMixcloud.658018b8.chunk.js
+
+The bundle size is significantly larger than recommended.
+Consider reducing it with code splitting: https://goo.gl/9VhYWB
+You can also analyze the project dependencies: https://goo.gl/LeUzfb
+
+The project was built assuming it is hosted at /.
+You can control this with the homepage field in your package.json.
+
+The build folder is ready to be deployed.
+You may serve it with a static server:
+
+  npm install -g serve
+  serve -s build
+
+Find out more about deployment here:
+
+  https://cra.link/deployment

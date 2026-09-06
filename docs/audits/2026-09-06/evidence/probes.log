@@ -1,0 +1,7 @@
+Failed availability API: {"intervals":288,"kpi":0}
+08:00 Amsterdam API start: 2026-08-01T08:00:00Z
+CSV numeric parsing: {"rows":[{"system_id":"voi","lat":52,"lon":4,"start_time":null,"end_time":null,"form_factor":null,"propulsion_type":null}],"skipped":0}
+CSV numeric parsing: {"rows":[{"system_id":"voi","lat":52,"lon":4,"start_time":null,"end_time":null,"form_factor":null,"propulsion_type":null}],"skipped":0}
+Defaults overwrite existing selection: {"gebied":"","zones":"","aanbiedersexclude":"other"}
+Drag pan enabled after lasso mousedown: true
+Imported provider creates an HTML image: true
