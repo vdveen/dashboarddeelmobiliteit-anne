@@ -1,0 +1,13 @@
+npm notice run dashboarddeelmobiliteit-app@0.1.0 test
+npm notice run craco test --watchAll=false --runInBand src/poll-api/metadataAccessControlList.test.js src/helpers/csv.test.ts src/components/PrestatiesAanbieders/chartCsv.test.ts src/helpers/authentication.test.js src/helpers/layerSelectors.test.ts
+PASS src/components/PrestatiesAanbieders/chartCsv.test.ts
+PASS src/poll-api/metadataAccessControlList.test.js
+PASS src/helpers/csv.test.ts
+PASS src/helpers/authentication.test.js
+PASS src/helpers/layerSelectors.test.ts
+
+Test Suites: 5 passed, 5 total
+Tests:       23 passed, 23 total
+Snapshots:   0 total
+Time:        2.844 s
+Ran all test suites matching /src\/poll-api\/metadataAccessControlList.test.js|src\/helpers\/csv.test.ts|src\/components\/PrestatiesAanbieders\/chartCsv.test.ts|src\/helpers\/authentication.test.js|src\/helpers\/layerSelectors.test.ts/i.

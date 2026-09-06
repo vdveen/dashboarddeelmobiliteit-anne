@@ -1,0 +1,19 @@
+npm notice run dashboarddeelmobiliteit-app@0.1.0 test
+npm notice run craco test --watchAll=false --runInBand src/components/Map/MapUtils/popupDom.test.ts
+PASS src/components/Map/MapUtils/popupDom.test.ts
+  ✓ an imported provider reaches the actual rental click handler as text (21 ms)
+  ✓ vehicle details keep IDs literal, preserve safe links, and honor ID visibility (54 ms)
+  ✓ overlapping vehicle selection still opens the selected details (17 ms)
+  ✓ rejects popup link protocol: javascript:alert(1) (3 ms)
+  ✓ rejects popup link protocol: data:text/html,test
+  ✓ rejects popup link protocol: //example.com (1 ms)
+  ✓ rejects popup link protocol: file:///tmp/test
+  ✓ accepts HTTP links and color values without parsing markup or extra CSS (4 ms)
+  ✓ zone popups unwrap properties, keep names literal, and handle missing or invalid stop data (11 ms)
+  ✓ hub names and phases remain text and row selection preserves the ID (5 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       10 passed, 10 total
+Snapshots:   0 total
+Time:        5.471 s, estimated 6 s
+Ran all test suites matching /src\/components\/Map\/MapUtils\/popupDom.test.ts/i.

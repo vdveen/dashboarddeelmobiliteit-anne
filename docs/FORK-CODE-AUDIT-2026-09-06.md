@@ -1,5 +1,7 @@
 # Fork code audit, 6 September 2026
 
+Update: proposals 1, 2, and 7 now have implementation PRs. See the [repair results and revised remaining work](FORK-REPAIRS-2026-09-06.md). The findings below preserve the original audit baseline.
+
 The fork is maintainable, but several features need another pass before their results can be trusted under failure or unusual input. The strongest changes are small helpers with clear inputs, the collector's validation and atomic file writes, and the organisation-type correction. The weakest areas are asynchronous state ownership, data interpretation, and integration with shared map and API code.
 
 I recommend eleven bounded PRs. Fix misleading results and unsafe popup rendering first. Keep useful existing tests, repair the broken verification baseline, and add a small number of regression cases at the boundaries where this audit found failures. A framework rewrite or a coverage-percentage target would distract from those fixes.

@@ -1,0 +1,11 @@
+npm notice run dashboarddeelmobiliteit-app@0.1.0 test
+npm notice run craco test --watchAll=false --runInBand src/components/Chart/BeleidszonesAvailabilityKpi.test.tsx
+PASS src/components/Chart/BeleidszonesAvailabilityKpi.test.tsx (5.107 s)
+  ✓ clears a successful KPI when refresh fails (953 ms)
+  ✓ aborts and ignores a completion from an older account (364 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        6.105 s
+Ran all test suites matching /src\/components\/Chart\/BeleidszonesAvailabilityKpi.test.tsx/i.
