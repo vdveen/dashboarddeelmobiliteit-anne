@@ -165,13 +165,13 @@ function BeleidszonesAvailabilityKpi({ zoneId, zoneName }: BeleidszonesAvailabil
       <p className="text-gray-600 my-2">
         Percentage van de gemeten intervallen tussen{' '}
         {String(windowStartHour).padStart(2, '0')}:00 en{' '}
-        {String(windowEndHour).padStart(2, '0')}:00 waarin minimaal {threshold}{' '}
-        {threshold === 1 ? 'voertuig' : 'voertuigen'} beschikbaar{' '}
-        {threshold === 1 ? 'was' : 'waren'}
+        {String(windowEndHour).padStart(2, '0')}:00 waarin de som van de maxima per aanbieder
+        minimaal {threshold} {threshold === 1 ? 'voertuig' : 'voertuigen'} bedroeg
         {zoneName ? ` in ${zoneName}` : ''}. Tijden zijn in Europe/Amsterdam.
         Alleen volledige intervallen van vijf minuten met een meetwaarde voor iedere
         aangevinkte aanbieder tellen mee. Ontbrekende waarden blijven onbekend.
-        De API levert het maximum per interval; het percentage beschrijft de ontvangen metingen.
+        De API levert per aanbieder het maximum binnen ieder interval. Deze maxima hoeven niet
+        op hetzelfde moment gemeten te zijn.
       </p>
 
       <div className="flex flex-wrap items-end gap-4 my-4">
