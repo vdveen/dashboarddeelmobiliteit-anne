@@ -114,5 +114,9 @@
   {
     "captured_at": "2026-09-07T10:19:05Z",
     "path": "snapshots/2026/09/voi-vehicles-2026-09-07T10-19-05Z.geojson.gz"
+  },
+  {
+    "captured_at": "2026-09-07T16:27:36Z",
+    "path": "snapshots/2026/09/voi-vehicles-2026-09-07T16-27-36Z.geojson.gz"
   }
 ]
