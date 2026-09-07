@@ -1,0 +1,65 @@
+"""Transactional snapshot storage in PostgreSQL/PostGIS."""
+
+import os
+from pathlib import Path
+
+import psycopg
+
+from scripts.collect_voi_vehicles import (
+    DEFAULT_API_URL, fetch_payload, to_geojson, utc_now,
+)
+
+
+def connect(*, readonly=False):
+    connection = psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=15)
+    connection.read_only = readonly
+    with connection.cursor() as cursor:
+        cursor.execute("SET statement_timeout = '30s'")
+    return connection
+
+
+def initialize(connection):
+    connection.execute(Path(__file__).with_name("voi_schema.sql").read_text())
+
+
+def store_snapshot(connection, geojson, source_url):
+    captured_at = geojson["captured_at"]
+    inserted = connection.execute(
+        """INSERT INTO voi_snapshots (captured_at, title, source_url, feature_count)
+           VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING RETURNING captured_at""",
+        (captured_at, geojson["title"], source_url, len(geojson["features"])),
+    ).fetchone()
+    if not inserted:
+        return False
+    with connection.cursor() as cursor:
+        cursor.executemany(
+            """INSERT INTO voi_positions
+               (captured_at, system_id, form_factor, is_non_operational,
+                is_reserved, is_available, geom)
+               VALUES (%s, %s, %s, %s, %s, %s, ST_SetSRID(ST_MakePoint(%s, %s), 4326))""",
+            [
+                (captured_at, f["properties"]["system_id"],
+                 f["properties"].get("form_factor"),
+                 f["properties"].get("is_non_operational"),
+                 f["properties"].get("is_reserved"),
+                 f["properties"].get("is_available"),
+                 *f["geometry"]["coordinates"])
+                for f in geojson["features"]
+            ],
+        )
+    return True
+
+
+def main():
+    # Query the exact hour even if Railway starts the container a little late.
+    captured_at = utc_now().replace(minute=0, second=0)
+    source_url = os.environ.get("VOI_API_URL", DEFAULT_API_URL)
+    geojson = to_geojson(fetch_payload(source_url, captured_at, timeout=30), captured_at)
+    with connect() as connection:
+        initialize(connection)
+        inserted = store_snapshot(connection, geojson, source_url)
+    print(f"{'Stored' if inserted else 'Already stored'} {geojson['feature_count']} Voi positions at {geojson['captured_at']}")
+
+
+if __name__ == "__main__":
+    main()

@@ -5,12 +5,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apk add --no-cache git openssh-client \
-    && addgroup -S collector \
+RUN addgroup -S collector \
     && adduser -S collector -G collector
 
-COPY --chown=collector:collector scripts/collect_voi_vehicles.py scripts/publish_voi_snapshot.py /app/scripts/
+COPY scripts/voi-requirements.txt /app/scripts/voi-requirements.txt
+RUN pip install --no-cache-dir -r scripts/voi-requirements.txt
+COPY --chown=collector:collector scripts/collect_voi_vehicles.py scripts/voi_database.py scripts/voi_api.py scripts/voi_schema.sql /app/scripts/
 
 USER collector
 
-CMD ["python3", "-m", "scripts.publish_voi_snapshot"]
+CMD ["python3", "-m", "scripts.voi_database"]

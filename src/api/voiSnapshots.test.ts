@@ -5,17 +5,17 @@ import {
 
 const entry = (name: string) => ({
   captured_at: 'not-used-for-parsing',
-  path: `snapshots/2026/09/${name}`,
+  path: `snapshots/${name}`,
 });
 
 describe('parseVoiSnapshotEntry', () => {
-  it('reads the UTC capture time from the compressed GeoJSON filename', () => {
+  it('reads the UTC capture time from the GeoJSON filename', () => {
     expect(parseVoiSnapshotEntry(
-      entry('voi-vehicles-2026-09-04T11-18-17Z.geojson.gz')
+      entry('voi-vehicles-2026-09-04T11-18-17Z.geojson')
     )).toEqual({
-      name: 'voi-vehicles-2026-09-04T11-18-17Z.geojson.gz',
+      name: 'voi-vehicles-2026-09-04T11-18-17Z.geojson',
       capturedAt: '2026-09-04T11:18:17Z',
-      downloadUrl: 'https://raw.githubusercontent.com/vdveen/dashboarddeelmobiliteit-anne/voi-vehicle-data/snapshots/2026/09/voi-vehicles-2026-09-04T11-18-17Z.geojson.gz',
+      downloadUrl: 'https://voi-snapshot-api-production.up.railway.app/snapshots/voi-vehicles-2026-09-04T11-18-17Z.geojson',
     });
   });
 
@@ -27,9 +27,9 @@ describe('parseVoiSnapshotEntry', () => {
 describe('snapshotsFromIndex', () => {
   it('returns valid snapshots in time order', () => {
     const entries = [
-      entry('voi-vehicles-2026-09-04T11-18-17Z.geojson.gz'),
+      entry('voi-vehicles-2026-09-04T11-18-17Z.geojson'),
       entry('notes.txt'),
-      entry('voi-vehicles-2026-09-03T17-10-15Z.geojson.gz'),
+      entry('voi-vehicles-2026-09-03T17-10-15Z.geojson'),
     ];
 
     const snapshots = snapshotsFromIndex(entries);

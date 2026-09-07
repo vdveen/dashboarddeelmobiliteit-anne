@@ -3,13 +3,23 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 
-from scripts.collect_voi_vehicles import to_geojson, write_geojson
+from scripts.collect_voi_vehicles import to_geojson, write_geojson, availability_properties
 
 
 CAPTURED_AT = datetime(2026, 9, 3, 17, 5, 49, tzinfo=timezone.utc)
 
 
 class ToGeoJsonTest(unittest.TestCase):
+    def test_absent_status_is_unknown(self):
+        self.assertEqual(availability_properties({}), {
+            "is_non_operational": None, "is_reserved": None, "is_available": None,
+        })
+        self.assertIsNone(availability_properties({"is_non_operational": False})["is_available"])
+
+    def test_unavailable_status_overrides_available(self):
+        for status in ({"is_non_operational": "true"}, {"is_reserved": True}):
+            self.assertFalse(availability_properties({"is_available": True, **status})["is_available"])
+
     def test_converts_voi_positions_and_ignores_other_operators(self):
         payload = {
             "vehicles_in_public_space": [

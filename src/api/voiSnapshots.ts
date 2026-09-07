@@ -16,12 +16,11 @@ export interface VoiFeatureCollection extends GeoJSON.FeatureCollection<GeoJSON.
   feature_count?: number;
 }
 
-const REPOSITORY = 'vdveen/dashboarddeelmobiliteit-anne';
-const DATA_BRANCH = 'voi-vehicle-data';
-const SNAPSHOT_NAME = /^voi-vehicles-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})Z\.geojson\.gz$/;
-const RAW_ROOT = `https://raw.githubusercontent.com/${REPOSITORY}/${DATA_BRANCH}`;
+const SNAPSHOT_NAME = /^voi-vehicles-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})Z\.geojson$/;
+const API_ROOT = (process.env.REACT_APP_VOI_API_URL || 'https://voi-snapshot-api-production.up.railway.app').replace(/\/$/, '');
 
 export function parseVoiSnapshotEntry(entry: VoiSnapshotIndexEntry): VoiSnapshot | null {
+  if (!entry || typeof entry.path !== 'string') return null;
   const name = entry.path.split('/').pop() ?? '';
   const match = SNAPSHOT_NAME.exec(name);
   if (!match) return null;
@@ -33,7 +32,7 @@ export function parseVoiSnapshotEntry(entry: VoiSnapshotIndexEntry): VoiSnapshot
   return {
     name,
     capturedAt,
-    downloadUrl: `${RAW_ROOT}/${entry.path}`,
+    downloadUrl: `${API_ROOT}/snapshots/${name}`,
   };
 }
 
@@ -46,7 +45,7 @@ export function snapshotsFromIndex(entries: VoiSnapshotIndexEntry[]): VoiSnapsho
 
 export async function listVoiSnapshots(signal?: AbortSignal): Promise<VoiSnapshot[]> {
   const response = await fetch(
-    `${RAW_ROOT}/index.json`,
+    `${API_ROOT}/index.json`,
     { signal }
   );
 
@@ -65,15 +64,7 @@ export async function downloadVoiSnapshot(
   if (!response.ok) {
     throw new Error(`De meting kon niet worden geladen. Status ${response.status}.`);
   }
-  if (!response.body) {
-    throw new Error('De meting heeft geen leesbare inhoud.');
-  }
-  if (typeof DecompressionStream === 'undefined') {
-    throw new Error('Deze browser kan het gecomprimeerde GeoJSON-bestand niet openen.');
-  }
-
-  const decompressed = response.body.pipeThrough(new DecompressionStream('gzip'));
-  const geojson = await new Response(decompressed).json() as VoiFeatureCollection;
+  const geojson = await response.json() as VoiFeatureCollection;
 
   if (geojson.type !== 'FeatureCollection' || !Array.isArray(geojson.features)) {
     throw new Error('De meting is geen geldige GeoJSON FeatureCollection.');

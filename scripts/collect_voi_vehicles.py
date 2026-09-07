@@ -80,6 +80,7 @@ def to_geojson(payload: Any, captured_at: datetime) -> dict[str, Any]:
                 "properties": {
                     "system_id": OPERATOR,
                     "form_factor": vehicle.get("form_factor"),
+                    **availability_properties(vehicle),
                 },
                 "geometry": {
                     "type": "Point",
@@ -96,6 +97,28 @@ def to_geojson(payload: Any, captured_at: datetime) -> dict[str, Any]:
         "operator": OPERATOR,
         "feature_count": len(features),
         "features": features,
+    }
+
+
+def optional_bool(value: Any) -> bool | None:
+    if value is True or value == "true":
+        return True
+    if value is False or value == "false":
+        return False
+    return None
+
+
+def availability_properties(vehicle: dict[str, Any]) -> dict[str, Any]:
+    # Missing public API fields are unknown, not evidence of availability.
+    non_operational = optional_bool(vehicle.get("is_non_operational"))
+    reserved = optional_bool(vehicle.get("is_reserved"))
+    available = optional_bool(vehicle.get("is_available"))
+    if non_operational is True or reserved is True:
+        available = False
+    return {
+        "is_non_operational": non_operational,
+        "is_reserved": reserved,
+        "is_available": available,
     }
 
 

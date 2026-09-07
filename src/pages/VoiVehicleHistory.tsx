@@ -548,7 +548,7 @@ function VoiVehicleHistory() {
               href={selectedSnapshot.downloadUrl}
               download={selectedSnapshot.name}
               aria-label="Download de geselecteerde meting"
-              title="Download GeoJSON.gz"
+              title="Download GeoJSON"
             >
               <DownloadIcon />
             </a>
