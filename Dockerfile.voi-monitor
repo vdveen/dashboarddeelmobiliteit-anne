@@ -5,7 +5,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN addgroup -S collector && adduser -S collector -G collector
+RUN apk add --no-cache git openssh-client \
+    && addgroup -S collector \
+    && adduser -S collector -G collector
 
 COPY --chown=collector:collector scripts/collect_voi_vehicles.py scripts/publish_voi_snapshot.py /app/scripts/
 

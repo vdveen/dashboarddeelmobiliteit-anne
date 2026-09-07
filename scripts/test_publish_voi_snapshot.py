@@ -1,13 +1,16 @@
-import base64
 import gzip
 import json
+import subprocess
+import tempfile
 import unittest
 from datetime import datetime, timezone
+from pathlib import Path
 
 from scripts.publish_voi_snapshot import (
     archive_path,
     encode_snapshot,
     publish_snapshot,
+    stage_snapshot,
     update_index,
 )
 
@@ -21,6 +24,16 @@ GEOJSON = {
     "feature_count": 0,
     "features": [],
 }
+
+
+def git(arguments, working_directory):
+    return subprocess.run(
+        ["git", *arguments],
+        cwd=working_directory,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
 
 
 class ArchiveEncodingTest(unittest.TestCase):
@@ -54,64 +67,62 @@ class ArchiveEncodingTest(unittest.TestCase):
             ["2026-09-05T12:17:04Z", "2026-09-05T13:17:00Z"],
         )
 
+    def test_stages_the_snapshot_and_index_once(self):
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            (directory / "index.json").write_text("[]\n", encoding="utf-8")
+
+            snapshot_path, changed = stage_snapshot(directory, GEOJSON, CAPTURED_AT)
+            _, changed_again = stage_snapshot(directory, GEOJSON, CAPTURED_AT)
+
+            self.assertTrue(changed)
+            self.assertFalse(changed_again)
+            self.assertEqual(
+                json.loads(gzip.decompress((directory / snapshot_path).read_bytes())),
+                GEOJSON,
+            )
+
 
 class PublishSnapshotTest(unittest.TestCase):
-    def test_commits_the_snapshot_and_index_in_one_branch_update(self):
-        calls = []
-        blob_count = 0
-        current_index = [
-            {
-                "captured_at": "2026-09-05T11:17:00Z",
-                "path": "snapshots/older.geojson.gz",
-            }
-        ]
+    def test_pushes_one_atomic_commit_to_the_archive_branch(self):
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            remote = directory / "remote.git"
+            seed = directory / "seed"
+            result = directory / "result"
 
-        def request(method, path, token, payload):
-            nonlocal blob_count
-            calls.append((method, path, token, payload))
-            if path.endswith("/git/ref/heads/voi-vehicle-data"):
-                return {"object": {"sha": "base-commit"}}
-            if path.endswith("/git/commits/base-commit"):
-                return {"tree": {"sha": "base-tree"}}
-            if "/contents/index.json" in path:
-                return {
-                    "content": base64.b64encode(
-                        json.dumps(current_index).encode("utf-8")
-                    ).decode("ascii")
-                }
-            if path.endswith("/git/blobs"):
-                blob_count += 1
-                return {"sha": f"blob-{blob_count}"}
-            if path.endswith("/git/trees"):
-                return {"sha": "new-tree"}
-            if path.endswith("/git/commits"):
-                return {"sha": "new-commit"}
-            if path.endswith("/git/refs/heads/voi-vehicle-data"):
-                return {"object": {"sha": "new-commit"}}
-            self.fail(f"Unexpected request: {method} {path}")
+            git(["init", "--bare", str(remote)], directory)
+            git(["init", "--initial-branch", "voi-vehicle-data", str(seed)], directory)
+            git(["config", "user.name", "Test"], seed)
+            git(["config", "user.email", "test@example.com"], seed)
+            (seed / "index.json").write_text("[]\n", encoding="utf-8")
+            git(["add", "index.json"], seed)
+            git(["commit", "-m", "Create archive"], seed)
+            git(["remote", "add", "origin", str(remote)], seed)
+            git(["push", "origin", "voi-vehicle-data"], seed)
 
-        commit_sha, snapshot_path = publish_snapshot(
-            GEOJSON,
-            CAPTURED_AT,
-            "vdveen/dashboarddeelmobiliteit-anne",
-            "voi-vehicle-data",
-            "test-token",
-            request,
-        )
+            commit_sha, snapshot_path = publish_snapshot(
+                GEOJSON,
+                CAPTURED_AT,
+                str(remote),
+                "voi-vehicle-data",
+            )
 
-        self.assertEqual(commit_sha, "new-commit")
-        self.assertEqual(snapshot_path, archive_path(CAPTURED_AT))
-        tree_payload = next(
-            payload for method, path, _, payload in calls
-            if method == "POST" and path.endswith("/git/trees")
-        )
-        self.assertEqual(
-            [entry["path"] for entry in tree_payload["tree"]],
-            [archive_path(CAPTURED_AT), "index.json"],
-        )
-        ref_update = calls[-1]
-        self.assertEqual(ref_update[0], "PATCH")
-        self.assertEqual(ref_update[3], {"sha": "new-commit", "force": False})
+            git(["clone", "--branch", "voi-vehicle-data", str(remote), str(result)], directory)
+            self.assertEqual(git(["rev-parse", "HEAD"], result), commit_sha)
+            self.assertEqual(
+                json.loads(gzip.decompress((result / snapshot_path).read_bytes())),
+                GEOJSON,
+            )
+            self.assertEqual(
+                json.loads((result / "index.json").read_text(encoding="utf-8")),
+                [
+                    {
+                        "captured_at": "2026-09-05T12:17:04Z",
+                        "path": snapshot_path,
+                    }
+                ],
+            )
 
 
 if __name__ == "__main__":

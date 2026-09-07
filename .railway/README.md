@@ -4,11 +4,11 @@ The Railway configuration creates `voi-vehicle-monitor` in the existing `dashboa
 
 The cron service deploys from `origin/main`. Apply the configuration only after this commit is available on that branch.
 
-## Prepare the GitHub token
+## Prepare the deploy key
 
-The service writes snapshots to the `voi-vehicle-data` branch. Create a fine-grained GitHub personal access token. Limit the token to `vdveen/dashboarddeelmobiliteit-anne`. Grant it read and write access to repository contents.
+The service writes snapshots to the `voi-vehicle-data` branch with a GitHub deploy key. Give the public key write access to this repository. Store the private key in Railway as `VOI_ARCHIVE_SSH_PRIVATE_KEY`.
 
-Store the token only in Railway. Do not add it to this repository or pass it as a command-line argument.
+Do not add the private key to this repository or print it in command output.
 
 ## Create the service
 
@@ -24,18 +24,7 @@ Store the token only in Railway. Do not add it to this repository or pass it as 
 
 4. Run `railway config plan`. The plan must create only `voi-vehicle-monitor`. Stop if it changes or deletes another service.
 5. Run `railway config apply` and confirm the plan.
-6. Add the token without putting it in shell history:
-
-   ```bash
-   read -rsp "GitHub token: " voi_archive_token
-   printf %s "$voi_archive_token" | railway variable set \
-     VOI_ARCHIVE_GITHUB_TOKEN \
-     --stdin \
-     --project 85622316-5f8e-4eec-9a0c-d3ca3336b928 \
-     --environment production \
-     --service voi-vehicle-monitor
-   unset voi_archive_token
-   ```
+6. Add the private deploy key to `VOI_ARCHIVE_SSH_PRIVATE_KEY` through standard input. Do not put it in a command-line argument.
 
 The variable update starts a deployment. Wait until the next minute 17 UTC. Then run `railway service logs --service voi-vehicle-monitor`. Confirm that the process published one snapshot and exited.
 

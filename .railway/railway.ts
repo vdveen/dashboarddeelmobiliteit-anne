@@ -30,7 +30,7 @@ export default defineRailway(() => {
       restartPolicyType: "NEVER",
     },
     env: {
-      VOI_ARCHIVE_GITHUB_TOKEN: preserve(),
+      VOI_ARCHIVE_SSH_PRIVATE_KEY: preserve(),
       VOI_ARCHIVE_REPOSITORY: "vdveen/dashboarddeelmobiliteit-anne",
       VOI_ARCHIVE_BRANCH: "voi-vehicle-data",
     },

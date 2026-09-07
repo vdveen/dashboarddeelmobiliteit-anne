@@ -3,15 +3,17 @@
 
 from __future__ import annotations
 
-import base64
 import gzip
 import json
 import os
+import shlex
+import subprocess
 import sys
+import tempfile
 from datetime import datetime
-from typing import Any, Callable
+from pathlib import Path
+from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 from scripts.collect_voi_vehicles import (
@@ -26,57 +28,11 @@ from scripts.collect_voi_vehicles import (
 
 DEFAULT_REPOSITORY = "vdveen/dashboarddeelmobiliteit-anne"
 DEFAULT_ARCHIVE_BRANCH = "voi-vehicle-data"
-DEFAULT_GITHUB_API_URL = "https://api.github.com"
+GITHUB_META_URL = "https://api.github.com/meta"
 
 
-class GitHubApiError(RuntimeError):
-    """A GitHub API request returned an error response."""
-
-    def __init__(self, status: int, method: str, path: str, message: str):
-        super().__init__(
-            f"GitHub API {method} {path} returned status {status}: {message}"
-        )
-        self.status = status
-
-
-def github_request(
-    method: str,
-    path: str,
-    token: str,
-    payload: dict[str, Any] | None = None,
-    api_url: str = DEFAULT_GITHUB_API_URL,
-) -> Any:
-    data = None
-    if payload is not None:
-        data = json.dumps(payload, separators=(",", ":")).encode("utf-8")
-
-    request = Request(
-        f"{api_url.rstrip('/')}{path}",
-        data=data,
-        method=method,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "User-Agent": "dashboarddeelmobiliteit-voi-monitor/1.0",
-            "X-GitHub-Api-Version": "2022-11-28",
-        },
-    )
-
-    try:
-        with urlopen(request, timeout=30) as response:
-            if response.status == 204:
-                return None
-            return json.load(response)
-    except HTTPError as error:
-        try:
-            response_body = json.load(error)
-            message = response_body.get("message", error.reason)
-        except (json.JSONDecodeError, AttributeError):
-            message = error.reason
-        raise GitHubApiError(error.code, method, path, str(message)) from error
-    except (URLError, TimeoutError, json.JSONDecodeError) as error:
-        raise RuntimeError(f"GitHub API {method} {path} failed: {error}") from error
+class GitCommandError(RuntimeError):
+    """A Git command failed."""
 
 
 def archive_path(captured_at: datetime) -> str:
@@ -119,125 +75,171 @@ def update_index(
     return json.dumps(entries, ensure_ascii=False, indent=2).encode("utf-8") + b"\n"
 
 
-RequestFunction = Callable[[str, str, str, dict[str, Any] | None], Any]
+def stage_snapshot(
+    archive_directory: Path,
+    geojson: dict[str, Any],
+    captured_at: datetime,
+) -> tuple[str, bool]:
+    snapshot_path = archive_path(captured_at)
+    snapshot_file = archive_directory / snapshot_path
+    if snapshot_file.exists():
+        return snapshot_path, False
+
+    index_file = archive_directory / "index.json"
+    current_index = json.loads(index_file.read_text(encoding="utf-8"))
+    snapshot_file.parent.mkdir(parents=True, exist_ok=True)
+    snapshot_file.write_bytes(encode_snapshot(geojson))
+    index_file.write_bytes(update_index(current_index, captured_at, snapshot_path))
+    return snapshot_path, True
+
+
+def run_git(
+    arguments: list[str],
+    working_directory: Path | None = None,
+    environment: dict[str, str] | None = None,
+) -> str:
+    result = subprocess.run(
+        ["git", *arguments],
+        cwd=working_directory,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or "unknown error"
+        raise GitCommandError(f"git {arguments[0]} failed: {detail[-1200:]}")
+    return result.stdout.strip()
+
+
+def fetch_github_ssh_keys() -> list[str]:
+    request = Request(
+        GITHUB_META_URL,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "dashboarddeelmobiliteit-voi-monitor/1.0",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    try:
+        with urlopen(request, timeout=30) as response:
+            keys = json.load(response).get("ssh_keys")
+    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as error:
+        raise RuntimeError(f"Could not load GitHub SSH host keys: {error}") from error
+
+    if not isinstance(keys, list) or not keys:
+        raise RuntimeError("GitHub metadata returned no SSH host keys")
+    key_types = {"ssh-ed25519", "ssh-rsa", "ecdsa-sha2-nistp256"}
+    if not all(
+        isinstance(key, str) and key.split(" ", 1)[0] in key_types
+        for key in keys
+    ):
+        raise RuntimeError("GitHub metadata returned invalid SSH host keys")
+    return keys
+
+
+def configure_ssh(
+    directory: Path,
+    private_key: str,
+) -> dict[str, str]:
+    key_file = directory / "archive-deploy-key"
+    key_file.write_text(private_key.rstrip("\n") + "\n", encoding="utf-8")
+    key_file.chmod(0o600)
+
+    known_hosts_file = directory / "known_hosts"
+    known_hosts_file.write_text(
+        "".join(f"[ssh.github.com]:443 {key}\n" for key in fetch_github_ssh_keys()),
+        encoding="utf-8",
+    )
+
+    environment = os.environ.copy()
+    environment["GIT_SSH_COMMAND"] = " ".join(
+        [
+            "ssh",
+            "-p 443",
+            f"-i {shlex.quote(str(key_file))}",
+            "-o IdentitiesOnly=yes",
+            "-o StrictHostKeyChecking=yes",
+            f"-o UserKnownHostsFile={shlex.quote(str(known_hosts_file))}",
+        ]
+    )
+    return environment
 
 
 def publish_snapshot(
     geojson: dict[str, Any],
     captured_at: datetime,
-    repository: str,
+    remote_url: str,
     branch: str,
-    token: str,
-    request_function: RequestFunction = github_request,
+    private_key: str | None = None,
 ) -> tuple[str, str]:
-    encoded_repository = "/".join(
-        quote(part, safe="") for part in repository.split("/", 1)
-    )
-    encoded_branch = quote(branch, safe="")
-    snapshot_path = archive_path(captured_at)
-    snapshot_contents = encode_snapshot(geojson)
-
     for attempt in range(1, 4):
-        ref = request_function(
-            "GET",
-            f"/repos/{encoded_repository}/git/ref/heads/{encoded_branch}",
-            token,
-            None,
-        )
-        base_commit_sha = ref["object"]["sha"]
-        base_commit = request_function(
-            "GET",
-            f"/repos/{encoded_repository}/git/commits/{base_commit_sha}",
-            token,
-            None,
-        )
-        index_file = request_function(
-            "GET",
-            f"/repos/{encoded_repository}/contents/index.json?ref={base_commit_sha}",
-            token,
-            None,
-        )
-        current_index = json.loads(
-            base64.b64decode(index_file["content"]).decode("utf-8")
-        )
-
-        if any(
-            isinstance(entry, dict) and entry.get("path") == snapshot_path
-            for entry in current_index
-        ):
-            return base_commit_sha, snapshot_path
-
-        index_contents = update_index(current_index, captured_at, snapshot_path)
-        snapshot_blob = request_function(
-            "POST",
-            f"/repos/{encoded_repository}/git/blobs",
-            token,
-            {
-                "content": base64.b64encode(snapshot_contents).decode("ascii"),
-                "encoding": "base64",
-            },
-        )
-        index_blob = request_function(
-            "POST",
-            f"/repos/{encoded_repository}/git/blobs",
-            token,
-            {
-                "content": index_contents.decode("utf-8"),
-                "encoding": "utf-8",
-            },
-        )
-        tree = request_function(
-            "POST",
-            f"/repos/{encoded_repository}/git/trees",
-            token,
-            {
-                "base_tree": base_commit["tree"]["sha"],
-                "tree": [
-                    {
-                        "path": snapshot_path,
-                        "mode": "100644",
-                        "type": "blob",
-                        "sha": snapshot_blob["sha"],
-                    },
-                    {
-                        "path": "index.json",
-                        "mode": "100644",
-                        "type": "blob",
-                        "sha": index_blob["sha"],
-                    },
-                ],
-            },
-        )
-        commit = request_function(
-            "POST",
-            f"/repos/{encoded_repository}/git/commits",
-            token,
-            {
-                "message": f"Add Voi snapshot {iso_timestamp(captured_at)}",
-                "tree": tree["sha"],
-                "parents": [base_commit_sha],
-            },
-        )
-
-        try:
-            request_function(
-                "PATCH",
-                f"/repos/{encoded_repository}/git/refs/heads/{encoded_branch}",
-                token,
-                {"sha": commit["sha"], "force": False},
+        with tempfile.TemporaryDirectory(prefix="voi-archive-") as directory_name:
+            directory = Path(directory_name)
+            environment = (
+                configure_ssh(directory, private_key)
+                if private_key is not None
+                else os.environ.copy()
             )
-            return commit["sha"], snapshot_path
-        except GitHubApiError as error:
-            if error.status != 422 or attempt == 3:
-                raise
+            archive_directory = directory / "archive"
+            run_git(
+                [
+                    "clone",
+                    "--depth",
+                    "1",
+                    "--single-branch",
+                    "--branch",
+                    branch,
+                    remote_url,
+                    str(archive_directory),
+                ],
+                environment=environment,
+            )
+            snapshot_path, changed = stage_snapshot(
+                archive_directory,
+                geojson,
+                captured_at,
+            )
+            if not changed:
+                return run_git(["rev-parse", "HEAD"], archive_directory), snapshot_path
+
+            run_git(
+                ["config", "user.name", "voi-vehicle-monitor[bot]"],
+                archive_directory,
+            )
+            run_git(
+                [
+                    "config",
+                    "user.email",
+                    "voi-vehicle-monitor[bot]@users.noreply.github.com",
+                ],
+                archive_directory,
+            )
+            run_git(["add", "index.json", snapshot_path], archive_directory)
+            run_git(
+                ["commit", "-m", f"Add Voi snapshot {iso_timestamp(captured_at)}"],
+                archive_directory,
+            )
+            commit_sha = run_git(["rev-parse", "HEAD"], archive_directory)
+            try:
+                run_git(
+                    ["push", "origin", f"HEAD:{branch}"],
+                    archive_directory,
+                    environment,
+                )
+                return commit_sha, snapshot_path
+            except GitCommandError:
+                if attempt == 3:
+                    raise
 
     raise RuntimeError("Archive branch changed during all three publish attempts")
 
 
 def main() -> int:
-    token = os.environ.get("VOI_ARCHIVE_GITHUB_TOKEN", "").strip()
-    if not token:
-        print("VOI_ARCHIVE_GITHUB_TOKEN is required", file=sys.stderr)
+    private_key = os.environ.get("VOI_ARCHIVE_SSH_PRIVATE_KEY", "").strip()
+    if not private_key:
+        print("VOI_ARCHIVE_SSH_PRIVATE_KEY is required", file=sys.stderr)
         return 1
 
     repository = os.environ.get(
@@ -250,6 +252,7 @@ def main() -> int:
     )
     api_url = os.environ.get("VOI_API_URL", DEFAULT_API_URL)
     captured_at = utc_now()
+    remote_url = f"ssh://git@ssh.github.com:443/{repository}.git"
 
     try:
         payload = fetch_payload(api_url, captured_at, timeout=30)
@@ -257,11 +260,11 @@ def main() -> int:
         commit_sha, snapshot_path = publish_snapshot(
             geojson,
             captured_at,
-            repository,
+            remote_url,
             branch,
-            token,
+            private_key,
         )
-    except (GitHubApiError, KeyError, OSError, RuntimeError, ValueError) as error:
+    except (GitCommandError, KeyError, OSError, RuntimeError, ValueError) as error:
         print(f"Voi snapshot publish failed: {error}", file=sys.stderr)
         return 1
 

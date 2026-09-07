@@ -16,7 +16,7 @@
 - Do not create another Railway project or service for this app unless the user asks for one. A push to `origin/main` starts the normal production deployment through the GitHub integration.
 - Use a project-scoped `RAILWAY_TOKEN` for unattended Railway commands. Never commit a Railway token or account credentials.
 - `.railway/railway.ts` defines the `voi-vehicle-monitor` cron service as a named partial. Follow `.railway/README.md` to plan and apply it after the user authenticates the CLI.
-- The cron service needs `VOI_ARCHIVE_GITHUB_TOKEN` in Railway. The token must have read and write access to repository contents for this fork. Never print or commit its value.
+- The cron service uses a repository-scoped GitHub deploy key. Railway stores the private key in `VOI_ARCHIVE_SSH_PRIVATE_KEY`. Never print or commit its value.
 
 ## Commit and push changes
 
