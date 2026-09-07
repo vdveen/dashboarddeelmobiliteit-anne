@@ -38,6 +38,53 @@ const dispatchCachedAanbieders = (store_accesscontrollist) => {
   return false;
 };
 
+const publicGebiedenRequests = new WeakMap();
+
+const toGebiedOptions = (municipalities) => {
+  return (Array.isArray(municipalities) ? municipalities : [])
+    .filter((municipality) => municipality && typeof municipality === 'object')
+    .map((municipality) => ({
+      gm_code: municipality.gm_code || municipality.municipality,
+      name: municipality.name,
+    }))
+    .filter((municipality) => municipality.gm_code);
+};
+
+// Guests and NL-wide accounts use the live public municipalities list so new
+// places (e.g. Weert) appear without a frontend deploy. The hardcoded
+// cPublicGebieden list is only a last-resort fallback when the API fails.
+const loadPublicGebieden = (store_accesscontrollist) => {
+  const userData = store_accesscontrollist.getState().authentication?.user_data;
+  const requestId = Symbol();
+  publicGebiedenRequests.set(store_accesscontrollist, requestId);
+  const isCurrent = () => publicGebiedenRequests.get(store_accesscontrollist) === requestId
+    && store_accesscontrollist.getState().authentication?.user_data === userData;
+
+  const url = `${process.env.REACT_APP_MAIN_API_URL}/dashboard-api/public/municipalities`;
+  fetch(url)
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`public/municipalities ${response.status}`);
+      }
+      return response.json();
+    })
+    .then((publicData) => {
+      if (!isCurrent()) return;
+      const gebieden = toGebiedOptions(publicData?.municipalities);
+      if (gebieden.length > 0) {
+        store_accesscontrollist.dispatch({ type: 'SET_GEBIEDEN', payload: gebieden });
+      }
+    })
+    .catch((ex) => {
+      if (!isCurrent()) return;
+      console.error('Unable to load public municipalities', ex);
+      store_accesscontrollist.dispatch({
+        type: 'SET_GEBIEDEN',
+        payload: cPublicGebieden.filter((gebied) => gebied.gm_code),
+      });
+    });
+};
+
 // Resolve the public operators list from the API. If the network fails and
 // nothing is cached, we leave aanbieders as-is so the app keeps working with
 // whatever is already in state.
@@ -62,11 +109,13 @@ export const initAccessControlList = (store_accesscontrollist)  => {
       return false;
     }
     
+    // A newer ACL load owns the municipality options, even for the same user.
+    publicGebiedenRequests.delete(store_accesscontrollist);
     const state = store_accesscontrollist.getState();
     if(!isLoggedIn(state)) {
       // console.log("initialize ACL Data (not logged in)")
 
-      store_accesscontrollist.dispatch({ type: 'SET_GEBIEDEN', payload: cPublicGebieden});
+      loadPublicGebieden(store_accesscontrollist);
 
       // Render whatever we already have cached for instant paint, then refresh
       // from the operators API in the background.
@@ -99,7 +148,7 @@ export const initAccessControlList = (store_accesscontrollist)  => {
             store_accesscontrollist.dispatch({ type: 'CLEAR_USER' });
             
             // Fall back to public data (operators come from the API).
-            store_accesscontrollist.dispatch({ type: 'SET_GEBIEDEN', payload: cPublicGebieden});
+            loadPublicGebieden(store_accesscontrollist);
             dispatchPublicAanbiedersFromApi(store_accesscontrollist);
             store_accesscontrollist.dispatch({ type: 'SET_VEHICLE_TYPES', payload: cPublicVoertuigTypes});
             store_accesscontrollist.dispatch({ type: 'SET_METADATA_LOADED', payload: true});
@@ -125,12 +174,23 @@ export const initAccessControlList = (store_accesscontrollist)  => {
                 is_contact_person_municipality: metadata.is_contact_person_municipality,
               }));
             }
-            store_accesscontrollist.dispatch({ type: 'SET_GEBIEDEN', payload: metadata.municipalities});
-            if(metadata.municipalities.length===1) {
-              store_accesscontrollist.dispatch({ type: 'SET_FILTER_GEBIED', payload: metadata.municipalities[0].gm_code});
-            } else if(metadata.municipalities.length === 0){
-              // Reset filterGebied if user has access to 0 municipalities
-              store_accesscontrollist.dispatch({ type: 'SET_FILTER_GEBIED', payload: ""});
+            const municipalities = metadata.municipalities || [];
+            store_accesscontrollist.dispatch({ type: 'SET_GEBIEDEN', payload: municipalities});
+            // ADMIN organisations typically have an empty ACL municipality list
+            // (they see all data). Do not treat that as "no access".
+            const organisationType = metadata.organisation_type
+              || metadata.type_of_organisation;
+            const treatAsNlWide = organisationType === 'ADMIN'
+              || metadata.is_admin === true
+              || isAdmin(store_accesscontrollist.getState());
+            if(municipalities.length===1) {
+              store_accesscontrollist.dispatch({ type: 'SET_FILTER_GEBIED', payload: municipalities[0].gm_code});
+            } else if(municipalities.length === 0){
+              if (!treatAsNlWide) {
+                store_accesscontrollist.dispatch({ type: 'SET_FILTER_GEBIED', payload: ""});
+              } else {
+                loadPublicGebieden(store_accesscontrollist);
+              }
             } else {
               // User has access to multiple municipalities. When the persisted /
               // initial 'Plaats' filter points at a municipality this user cannot
@@ -162,7 +222,7 @@ export const initAccessControlList = (store_accesscontrollist)  => {
 
           // Handle network errors by falling back to public data (operators
           // come from the public operators API).
-          store_accesscontrollist.dispatch({ type: 'SET_GEBIEDEN', payload: cPublicGebieden});
+          loadPublicGebieden(store_accesscontrollist);
           dispatchPublicAanbiedersFromApi(store_accesscontrollist);
           store_accesscontrollist.dispatch({ type: 'SET_VEHICLE_TYPES', payload: cPublicVoertuigTypes});
           store_accesscontrollist.dispatch({ type: 'SET_METADATA_LOADED', payload: true});
@@ -176,7 +236,7 @@ export const initAccessControlList = (store_accesscontrollist)  => {
     store_accesscontrollist.dispatch({type: 'SHOW_LOADING', payload: false});
     
     // Handle any other errors by falling back to public data.
-    store_accesscontrollist.dispatch({ type: 'SET_GEBIEDEN', payload: cPublicGebieden});
+    loadPublicGebieden(store_accesscontrollist);
     dispatchPublicAanbiedersFromApi(store_accesscontrollist);
     store_accesscontrollist.dispatch({ type: 'SET_VEHICLE_TYPES', payload: cPublicVoertuigTypes});
     store_accesscontrollist.dispatch({ type: 'SET_METADATA_LOADED', payload: true});

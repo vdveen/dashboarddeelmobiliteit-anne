@@ -1,8 +1,5 @@
 .SelectionTool {
-  position: absolute;
-  right: 10px;
-  bottom: 108px;
-  z-index: 2;
+  position: relative;
   display: flex;
   align-items: flex-end;
   gap: 8px;
@@ -28,7 +25,11 @@
 }
 
 .SelectionTool-panel {
+  position: absolute;
+  right: calc(100% + 8px);
+  bottom: 0;
   width: 260px;
+  max-width: calc(100vw - 80px);
   padding: 12px;
   border-radius: 8px;
   background: #FFFFFF;
