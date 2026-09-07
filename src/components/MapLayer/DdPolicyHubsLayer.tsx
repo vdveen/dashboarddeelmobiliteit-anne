@@ -1,3 +1,4 @@
+import { createHubSelectionPopup } from '../Map/MapUtils/hubPopup';
 import { toast, useToast } from "../ui/use-toast"
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { whenMapLayersMutable } from '../Map/MapUtils/mapGuards';
@@ -5,7 +6,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import maplibregl from 'maplibre-gl';
 import PolicyHubsPhaseMenu from '../PolicyHubsPhaseMenu/PolicyHubsPhaseMenu';
 import st from 'geojson-bounds';
-import { deDuplicateHubs, isHubInPhase, readable_phase } from '../../helpers/policy-hubs/common';
+import { deDuplicateHubs, isHubInPhase } from '../../helpers/policy-hubs/common';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { notify } from '../../helpers/notify';
 
@@ -742,109 +743,19 @@ const DdPolicyHubsLayer = ({
     overlapSelectionPopupRef.current = null;
   }
 
-  const escapeHtml = (value: any) => {
-    const str = String(value ?? '');
-    return str.replace(/[&<>"']/g, (c) => {
-      switch(c) {
-        case '&':
-          return '&amp;';
-        case '<':
-          return '&lt;';
-        case '>':
-          return '&gt;';
-        case '"':
-          return '&quot;';
-        case '\'':
-          return '&#039;';
-        default:
-          return c;
-      }
-    });
-  }
-
-  const buildOverlappingHubsTableHtml = (features) => {
-    const getReadableGeographyType = (geographyType: string) => {
-      if(geographyType === 'stop') return 'hub';
-      if(geographyType === 'no_parking') return 'verbodszone';
-      if(geographyType === 'monitoring') return 'analysezone';
-      return geographyType || '-';
-    }
-
-    const rowsHtml = features.map((feature, idx) => {
-      const props = feature?.properties || {};
-      const geographyTypeLabel = getReadableGeographyType(props.geography_type);
-      const phaseLabel = props.phase ? readable_phase(props.phase) : '-';
-      return `
-        <tr
-          data-dd-hub-row="true"
-          data-zone-id="${escapeHtml(props.id)}"
-          class="dd-vehicle-overlap-row"
-          style="cursor: pointer;"
-        >
-          <td style="padding: 4px; vertical-align: top;">${idx + 1}.</td>
-          <td style="padding: 4px; vertical-align: top;">${escapeHtml(props.name || '-')}</td>
-          <td style="padding: 4px; vertical-align: top;">${escapeHtml(`${geographyTypeLabel} (${phaseLabel})`)}</td>
-        </tr>
-      `;
-    }).join('');
-
-    return `
-      <h1 class="mb-2">
-        <span
-          class="rounded-full inline-block w-4 h-4"
-          style="background-color: #0B3D20;position: relative;top: 2px"
-        ></span>
-        <span class="Map-popup-title ml-1" style="color: #0B3D20;">
-          Selecteer een zone
-        </span>
-      </h1>
-      <div class="Map-popup-body">
-        <table style="width: 100%; border-collapse: collapse;">
-          <thead>
-            <tr>
-              <th style="text-align: left; font-weight: 600; padding: 0 4px 6px 4px; font-size: 12px; vertical-align: top;">#</th>
-              <th style="text-align: left; font-weight: 600; padding: 0 4px 6px 4px; font-size: 12px; vertical-align: top;">naam</th>
-              <th style="text-align: left; font-weight: 600; padding: 0 4px 6px 4px; font-size: 12px; vertical-align: top;">type/fase</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rowsHtml}
-          </tbody>
-        </table>
-      </div>
-    `;
-  }
-
   const showOverlappingHubsSelectionPopup = (e, features) => {
-    if(! map) return;
+    if (!map) return;
     closeOverlapSelectionPopup();
-
-    overlapSelectionPopupRef.current = new maplibregl.Popup()
-      .setLngLat(e.lngLat)
-      .setHTML(buildOverlappingHubsTableHtml(features))
-      .addTo(map);
-
-    const popupEl = overlapSelectionPopupRef.current?.getElement?.();
-    if(! popupEl) return;
-
-    popupEl.addEventListener('click', (evt) => {
-      const tr = evt.target && evt.target.closest
-        ? evt.target.closest('tr[data-dd-hub-row="true"]')
-        : null;
-      if(! tr) return;
-
-      evt.preventDefault();
-      evt.stopPropagation();
-
-      const zoneId = tr.getAttribute('data-zone-id');
-      if(! zoneId) return;
-      const normalizedZoneId = Number.isNaN(Number(zoneId)) ? zoneId : Number(zoneId);
-
-      dispatch(setSelectedPolicyHubs([normalizedZoneId]));
+    const contents = createHubSelectionPopup(features, zoneId => {
+      dispatch(setSelectedPolicyHubs([zoneId]));
       dispatch(setShowEditForm(true));
       dispatch(setShowProposeDeleteForm(false));
       closeOverlapSelectionPopup();
     });
+    overlapSelectionPopupRef.current = new maplibregl.Popup()
+      .setLngLat(e.lngLat)
+      .setDOMContent(contents)
+      .addTo(map);
   }
 
   const clickHandler = (e) => {

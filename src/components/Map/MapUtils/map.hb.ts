@@ -390,7 +390,7 @@ const createHoverEffect = (map, layerId, maxCount, sumCount) => {
     // Populate the popup and set its coordinates
     // based on the feature found.
     if(percentageColorFill > 0) {
-      popup.setLngLat(lngLat).setHTML(description).addTo(map);
+      popup.setLngLat(lngLat).setText(description).addTo(map);
     }
 
     if (hoveredStateId) {

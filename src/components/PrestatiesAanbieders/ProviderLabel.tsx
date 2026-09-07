@@ -1,4 +1,5 @@
 import React from 'react';
+import { popupColor, popupElement } from '../../helpers/popupDom';
 
 interface ProviderLabelProps {
   label: string;
@@ -7,38 +8,26 @@ interface ProviderLabelProps {
   showTitle?: boolean;
 }
 
-export interface BuildProviderLabelHtmlOptions {
-  /** When false, only the colored dot is shown (operator prestaties map popups). */
+export interface ProviderLabelOptions {
+  /** When false, only the provider dot is shown. */
   showTitle?: boolean;
 }
 
-/**
- * HTML snippet used in map popups (for maplibre's setHTML).
- * Kept here so both the map popup and the React component share the same structure.
- */
-export const buildProviderLabelHtml = (
-  label: string,
-  color: string,
-  options?: BuildProviderLabelHtmlOptions
-): string => {
-  const showTitle = options?.showTitle !== false;
-  const titleHtml = showTitle
-    ? `<span class="Map-popup-title ml-2" style="color: ${color};">
-              ${label}
-            </span>`
-    : '';
-
-  return `
-          <h1 class="mb-2">
-            <span
-              class="rounded-full inline-block w-4 h-4"
-              style="background-color: ${color};position: relative;"
-              onClick="window.showConfetti()"
-              >
-            </span>
-            ${titleHtml}
-          </h1>
-`;
+export const createProviderLabel = (label: string, color: string, options?: ProviderLabelOptions): HTMLElement => {
+  const heading = popupElement('h1', 'mb-2');
+  const dot = popupElement('span', 'rounded-full inline-block w-4 h-4');
+  dot.style.backgroundColor = popupColor(color);
+  dot.style.position = 'relative';
+  dot.addEventListener('click', () => {
+    if (typeof window['showConfetti'] === 'function') window['showConfetti']();
+  });
+  heading.append(dot);
+  if (options?.showTitle !== false) {
+    const title = popupElement('span', 'Map-popup-title ml-2', label);
+    title.style.color = popupColor(color);
+    heading.append(title);
+  }
+  return heading;
 };
 
 /**

@@ -5,7 +5,7 @@ import maplibregl from 'maplibre-gl';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 import StaticMode from '@mapbox/mapbox-gl-draw-static-mode'
 import {themes} from '../../../themes';
-import {getVehicleIconUrl} from '../../../helpers/vehicleTypes';
+import { createZonePopup } from './zonePopup';
 import {useLocation, useRouteMatch} from "react-router-dom";
 import center from '@turf/center'
 
@@ -73,168 +73,6 @@ const getIndicatorColor = (parked, capacity) => {
   return calculateGradient(parked, capacity);
 }
 
-const generatePopupHtml = (feature) => {
-  if(! feature) return '<div />';
-  if(! feature) return '<div />';
-  if(! feature.stop) return '<div />';
-  const stop = JSON.parse(feature.stop);
-  if(! stop) return `
-    <div class="font-inter" style="min-width:180px">
-      <div class="text-lg font-bold">
-        ${feature.name}
-      </div>
-    </div>
-  `;
-  if(! stop.realtime_data) return '<div>:)</div>';// Realtime data not yet loaded
-
-  const isControlledAutomatically = stop.status.control_automatic === true;
-  const isManuallySetToOpen = ! isControlledAutomatically && stop.status.is_returning === true;
-  const isManuallySetToClosed = ! isControlledAutomatically && stop.status.is_returning === false;
-
-  const getCapacityForModality = (capacity, modality) => {
-    // Return nothing if no stop capacity was found
-    if(! capacity || capacity.length === 0) return;
-    // If it's a modality specific value: return value
-    if(capacity[modality]) return capacity[modality];
-    // If it's a combined value: return combined
-    return capacity.combined;
-  }
-
-  const getAvailableForModality = (num_places_available, modality) => {
-    // Return nothing if no stop capacity was found
-    if(! num_places_available) return;
-    if(! modality) return;
-
-    if(num_places_available[modality]) return num_places_available[modality];
-  }
-
-  const getParkedVehiclesForModality = (num_vehicles_available, modality) => {
-    // Return nothing if no stop capacity was found
-    if(! num_vehicles_available || num_vehicles_available.length === 0) return;
-    // If it's a modality specific value: return value
-    if(num_vehicles_available[modality]) return num_vehicles_available[modality];
-  }
-
-  const modalityNameToModalityTitle = (modalityName) => {
-    if(modalityName === 'moped') return 'scooters';
-    if(modalityName === 'bicycle') return 'fietsen';
-    if(modalityName === 'cargo_bicycle') return 'bakfietsen';
-    if(modalityName === 'car') return 'auto\'s';
-    if(modalityName === 'other') return 'overige voertuigen';
-  }
-
-  const renderModalityRows = (stop) => {
-    if(! stop) return;
-
-    // Loop modalities
-    let html = '';
-    Object.keys(stop.realtime_data.num_places_available).forEach(modalityName => {
-      const parkedVehiclesForModality = getParkedVehiclesForModality(stop.realtime_data.num_vehicles_available, modalityName);
-      const capacityForModality = getCapacityForModality(stop.capacity, modalityName);
-      const availableForModality = getAvailableForModality(stop.realtime_data.num_places_available, modalityName);
-      // Don't show row if no relevant data is available
-      if(! parkedVehiclesForModality && ! capacityForModality) return;
-
-      const getDotColor = () => {
-        if(availableForModality > 0) {
-          return themes.zone.quiet.primaryColor;
-        } else {
-          return themes.zone.busy.primaryColor;
-        }
-      }
-
-      return html += `<div class="flex my-1" style="min-width:180px">
-        <div class="mr-2 flex justify-center flex-col">
-          <div
-            class="rounded-full w-3 h-3" style="background: ${getDotColor()}"
-            title="${availableForModality > 0 ? `Open voor` : `Gesloten voor`} ${modalityNameToModalityTitle(modalityName)}"
-          ></div>
-        </div>
-        <div class="mr-4 w-5">
-          <img class="inline-block w-5" src="${getVehicleIconUrl(modalityName)}" alt="${modalityName}" style="max-width:none;" />
-        </div>
-        <div class="mr-2 flex justify-center flex-col">
-          ${parkedVehiclesForModality
-              ? parkedVehiclesForModality
-              : '0'
-            }${stop.capacity && stop.capacity.combined
-            ? ''
-            : capacityForModality ? `/${capacityForModality}` : ''
-          }
-        </div>
-      </div>`
-    });
-
-    return html;
-  }
-
-  const renderParkedVehicles = (modality) => {
-    return `<div>
-      check: 14<br />
-      felyx: 13<br />
-      gosharing: 8<br />
-    </div>`
-  }
-
-  const renderVisualIndicator = (numVehicles, numPlaces) => {
-    if(! numVehicles) return '<div />';
-    if(! numPlaces) return '<div />';
-
-    // Calculate percentage
-    const percentageOfVehiclesAvailable = parseInt(numVehicles/numPlaces*100);
-
-    return `<div class="rounded-xl flex" style="background: #F6F5F4">
-      <div class="rounded-l-xl font-bold py-1 px-2" style="background-color: ${getIndicatorColor(numVehicles, numPlaces)};min-width: ${percentageOfVehiclesAvailable > 100 ? 100 : percentageOfVehiclesAvailable}%">
-        ${percentageOfVehiclesAvailable > 100 ? 100 : percentageOfVehiclesAvailable}%
-      </div>
-      <div class="flex-1" />
-    </div>`
-  }
-
-  // num_places_available is het aantal beschikbare plkken
-  const numPlacesAvailable = getNumPlacesAvailable(stop)
-  // num_vehicles_available = Hoeveel voertuigen staan in dat gebied geparkeerd
-  const numVehiclesAvailable = getNumVehiclesAvailable(stop.realtime_data)
-  // Percentage
-  const percentageOfVehiclesAvailable = numVehiclesAvailable/numPlacesAvailable*100;
-
-  return `
-    <div class="font-inter">
-      <div class="text-lg font-bold">
-        ${feature.name}
-      </div>
-      <div class="mt-2 text-sm font-bold" ${isControlledAutomatically ? 'hidden' : ''} style="color:#15aeef;">
-        Instelling actief: <b>altijd ${isManuallySetToOpen ? 'open' : 'gesloten'}</b>
-      </div>
-      <div class="mt-2 text-sm font-bold" ${(! numPlacesAvailable || isNaN(percentageOfVehiclesAvailable)) ? 'hidden' : ''}>
-        Bezetting: ${numVehiclesAvailable}${isControlledAutomatically ? `/${numPlacesAvailable}` : ''}
-      </div>
-      <div class="mt-2 text-sm bg-green" ${(! numPlacesAvailable || isNaN(percentageOfVehiclesAvailable)) ? 'hidden' : ''}>
-        ${renderVisualIndicator(numVehiclesAvailable, numPlacesAvailable)}
-      </div>
-      <div class="mt-4 text-sm">
-        ${renderModalityRows(stop)}
-      </div>
-      <div class="mt-2 text-base" hidden>
-        Scooter aanbieders:
-      </div>
-      <div hidden>
-        ${renderParkedVehicles()}
-      </div>
-      <div class="mt-2 text-base" hidden>
-        Andere aanbieders:
-      </div>
-      <div class="text-xs" hidden>
-        (tellen niet mee voor capaciteit)
-      </div>
-      <div hidden>
-        donkey: 25<br />
-        htm: 4
-      </div>
-    </div>
-  `
-}
-
 const initZonesMap = async (theMap, token, filterGebied) => {
   if(! theMap) return;
 
@@ -272,7 +110,7 @@ const initZonesMap = async (theMap, token, filterGebied) => {
     // Add map popup
     new maplibregl.Popup()
       .setLngLat(e.lngLat)
-      .setHTML(generatePopupHtml(e.features[0]))
+      .setDOMContent(createZonePopup(e.features[0], getIndicatorColor))
       .addTo(theMap);
 
     // Set page URL without reloading page
@@ -781,7 +619,6 @@ export {
   setPublicZoneUrl,
   setAdminZoneUrl,
   openPopup,
-  generatePopupHtml,
   navigateToGeography,
   triggerGeographyClick,
   getIndicatorColor,
