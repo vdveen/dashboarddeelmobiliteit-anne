@@ -299,7 +299,7 @@ function Filterbar({
           rel="external noreferrer"
           className="underline"
         >
-          2026-08-25
+          2026-09-07
         </a>
       </div>
     </>
