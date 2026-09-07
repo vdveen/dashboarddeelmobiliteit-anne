@@ -1,7 +1,7 @@
 # Update Release Notes Workflow
 
 ## Purpose
-This workflow automates the creation and update of release notes in RELEASES.md based on git commits since the last release date.
+This workflow automates the creation and update of release notes in RELEASES.md based on git commits since the last release date. When a new release section is written, the version date in the filter bar is updated to match.
 
 ## How to Use
 Run the command: `update-release-notes` or ask Cursor to "update release notes"
@@ -46,7 +46,23 @@ Run the command: `update-release-notes` or ask Cursor to "update release notes"
 
 6. **Insert the new release section** at the top of RELEASES.md, right after the "# Dashboard Deelmobiliteit app Releases" heading
 
-7. **Use appropriate emojis**:
+7. **If a new release section was created**, update the version date in the filter bar to the same `YYYY-MM-DD` date. In `src/components/Filterbar/Filterbar.tsx`, replace only the date text inside the version link (the `<a>` that points to `RELEASES.md`). Keep the surrounding markup unchanged. Example:
+
+   ```tsx
+   Versie{' '}
+   <a
+     href="https://github.com/Stichting-CROW/dashboarddeelmobiliteit-app/blob/main/RELEASES.md#dashboard-deelmobiliteit-app-releases"
+     target="_blank"
+     rel="external noreferrer"
+     className="underline"
+   >
+     YYYY-MM-DD
+   </a>
+   ```
+
+   Do this only when new release notes were actually written. If there are no new commits to document, leave both files unchanged.
+
+8. **Use appropriate emojis**:
    - 🪄 for new features
    - ✨ for improvements
    - 🐛 for bug fixes
@@ -58,6 +74,7 @@ Run the command: `update-release-notes` or ask Cursor to "update release notes"
 - Use clear, user-friendly language (not too technical)
 - Group related changes together
 - Use the current date as the release date (format: YYYY-MM-DD)
+- The filter bar version date in `src/components/Filterbar/Filterbar.tsx` must match that release date
 - Include context about what changed and why it matters to users
 - For technical changes, explain the user-facing impact if any
 - Keep descriptions concise but informative
@@ -98,3 +115,4 @@ Run the command: `update-release-notes` or ask Cursor to "update release notes"
 - Combine related commits into single bullet points when appropriate
 - Focus on user-facing changes, but include important technical improvements
 - If a commit message is unclear, look at the actual code changes to understand what was done
+- When new release notes are written, always update the filter bar version date in the same change
