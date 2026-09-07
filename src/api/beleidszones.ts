@@ -11,6 +11,7 @@
 
 import moment from 'moment';
 import { dedupedFetch } from './dedupedFetch';
+import { statsTimeToUtc } from '../helpers/stats/time';
 
 const ALLOWED_PHASES = [
   'active',
@@ -95,6 +96,7 @@ export interface BeleidszonesStatsOptions {
    * comes from an operator data-access grant; without it the backend
    * answers 403. See getOperatorsScopeForStats in poll-api/pollTools. */
   operators?: string[];
+  signal?: AbortSignal;
 }
 
 const MDS_URL = process.env.REACT_APP_MDS_URL;
@@ -214,8 +216,8 @@ export const getBeleidszonesAvailabilityStats = async (
 ): Promise<{ availability_stats?: { values: Array<Record<string, unknown>> } } | null> => {
   if (!options.zoneIds?.length) return null;
 
-  const startTime = moment(options.startTime).format('YYYY-MM-DDTHH:mm:ss') + 'Z';
-  const endTime = moment(options.endTime).format('YYYY-MM-DDTHH:mm:ss') + 'Z';
+  const startTime = statsTimeToUtc(options.startTime);
+  const endTime = statsTimeToUtc(options.endTime);
   const aggregationLevel = options.aggregationLevel ?? 'day';
   const aggregationFunction = options.aggregationFunction ?? 'MAX';
 
@@ -232,7 +234,10 @@ export const getBeleidszonesAvailabilityStats = async (
   if (options.operators?.length) {
     url += `&operators=${options.operators.join(',')}`;
   }
-  const response = await dedupedFetch(url, getFetchOptions(token));
+  // A caller-owned abort signal must not cancel a shared deduplicated request.
+  const response = options.signal
+    ? await fetch(url, { ...getFetchOptions(token), signal: options.signal })
+    : await dedupedFetch(url, getFetchOptions(token));
 
   if (!response.ok) {
     console.error('getBeleidszonesAvailabilityStats failed:', response.status);
@@ -253,8 +258,8 @@ export const getBeleidszonesRentalStats = async (
 ): Promise<{ rental_stats?: { values: Array<Record<string, unknown>> } } | null> => {
   if (!options.zoneIds?.length) return null;
 
-  const startTime = moment(options.startTime).format('YYYY-MM-DDTHH:mm:ss') + 'Z';
-  const endTime = moment(options.endTime).format('YYYY-MM-DDTHH:mm:ss') + 'Z';
+  const startTime = statsTimeToUtc(options.startTime);
+  const endTime = statsTimeToUtc(options.endTime);
   const aggregationLevel = options.aggregationLevel ?? 'day';
   const aggregationFunction = options.aggregationFunction ?? 'MAX';
 
@@ -271,7 +276,10 @@ export const getBeleidszonesRentalStats = async (
   if (options.operators?.length) {
     url += `&operators=${options.operators.join(',')}`;
   }
-  const response = await dedupedFetch(url, getFetchOptions(token));
+  // A caller-owned abort signal must not cancel a shared deduplicated request.
+  const response = options.signal
+    ? await fetch(url, { ...getFetchOptions(token), signal: options.signal })
+    : await dedupedFetch(url, getFetchOptions(token));
 
   if (!response.ok) {
     console.error('getBeleidszonesRentalStats failed:', response.status);
