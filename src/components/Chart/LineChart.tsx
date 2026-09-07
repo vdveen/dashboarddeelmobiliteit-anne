@@ -1,6 +1,7 @@
 import React from 'react';
 import Chart from 'react-apexcharts';
 import { ApexOptions } from 'apexcharts';
+import CsvDownloadButton from './CsvDownloadButton';
 
 export interface LineChartData {
   name: string;
@@ -20,6 +21,8 @@ export interface LineChartProps {
   unit?: string;
   /** Number of decimal places to show for values (defaults to 0) */
   precision?: number;
+  /** When provided, a CSV download button is shown next to the title */
+  onDownloadCsv?: () => void;
 }
 
 const TARGET_Y_TICK_COUNT = 5;
@@ -63,7 +66,8 @@ const LineChart: React.FC<LineChartProps> = ({
   height = 300,
   colors = ['#ef4444', '#3b82f6'],
   unit,
-  precision
+  precision,
+  onDownloadCsv
 }) => {
   // Validate inputs
   if (!series || series.length === 0 || !xAxisCategories || xAxisCategories.length === 0) {
@@ -347,7 +351,10 @@ const LineChart: React.FC<LineChartProps> = ({
   return (
     <div className="line-chart-container bg-white p-6" style={{ marginBottom: getBottomMargin(rotationAngle) }}>
       <div className="flex justify-between">
-        <h4 className="text-sm font-semibold mb-2">{title}</h4>
+        <div className="flex items-center gap-2 mb-2">
+          <h4 className="text-sm font-semibold">{title}</h4>
+          {onDownloadCsv && <CsvDownloadButton onClick={onDownloadCsv} />}
+        </div>
         {subtitle && <h4 className="text-sm font-semibold mb-2" style={{ color: '#AFAFAF' }}>{subtitle}</h4>}
         {!subtitle && formattedPrimaryLineAverage && (
           <h4 className="text-sm font-semibold mb-2" style={{ color: '#AFAFAF' }}>

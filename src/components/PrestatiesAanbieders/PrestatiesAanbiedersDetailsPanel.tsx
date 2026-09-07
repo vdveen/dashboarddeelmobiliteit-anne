@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { useLocation } from 'react-router-dom';
 import moment from 'moment';
@@ -6,6 +6,13 @@ import { StateType } from '../../types/StateType';
 import { fetchOperators, type OperatorData } from '../../api/operators';
 import { getPrettyVehicleTypeName, getPluralFormFactorName } from '../../helpers/vehicleTypes';
 import LineChart, { LineChartData } from '../Chart/LineChart';
+import CsvDownloadButton from '../Chart/CsvDownloadButton';
+import { toCsv, downloadCsvFile, slugifyForFilename } from '../../helpers/csv';
+import {
+  buildChartCsvColumns,
+  buildAllChartsCsvColumns,
+  type ChartData,
+} from './chartCsv';
 import { getKpiOverviewOperators } from '../../api/kpiOverview';
 import { findOperatorMatch } from '../../api/permitLimits';
 import Modal from '../Modal/Modal.jsx';
@@ -198,7 +205,7 @@ function PrestatiesAanbiedersDetailsPanel({ onClose, onToggleFullscreen, isFulls
     }
   }, [startDate, endDate]);
 
-  const [chartsData, setChartsData] = useState<Array<{ title: string; series: LineChartData[]; unit?: string; precision?: number }>>([]);
+  const [chartsData, setChartsData] = useState<ChartData[]>([]);
 
   useEffect(() => {
     if (!kpiData || !dateRange || dateRange.length === 0) {
@@ -304,11 +311,48 @@ function PrestatiesAanbiedersDetailsPanel({ onClose, onToggleFullscreen, isFulls
         });
       }
 
-      return { title: title || kpi_key, series, unit, precision };
+      return { kpiKey: kpi_key, title: title || kpi_key, series, unit, precision };
     });
 
     setChartsData(newChartsData);
   }, [kpiData, dateRange, operatorName, operatorCode, formFactorCode, propulsionTypeCode]);
+
+  const csvDates = useMemo(
+    () => dateRange.map((timestamp) => moment(timestamp).format('YYYY-MM-DD')),
+    [dateRange]
+  );
+
+  const buildCsvFilename = useCallback(
+    (subject: string) => {
+      const parts = [
+        'prestaties',
+        municipalityCode,
+        operatorCode,
+        formFactorCode,
+        subject,
+        moment(startDate).format('YYYY-MM-DD'),
+        moment(endDate).format('YYYY-MM-DD'),
+      ].filter(Boolean);
+      return parts.join('_');
+    },
+    [municipalityCode, operatorCode, formFactorCode, startDate, endDate]
+  );
+
+  const handleDownloadChartCsv = useCallback(
+    (chart: ChartData) => {
+      if (csvDates.length === 0) return;
+      const csv = toCsv(csvDates, buildChartCsvColumns(chart));
+      const filename = buildCsvFilename(slugifyForFilename(chart.title || chart.kpiKey));
+      downloadCsvFile(csv, filename);
+    },
+    [csvDates, buildCsvFilename]
+  );
+
+  const handleDownloadAllChartsCsv = useCallback(() => {
+    if (csvDates.length === 0 || chartsData.length === 0) return;
+    const csv = toCsv(csvDates, buildAllChartsCsvColumns(chartsData));
+    downloadCsvFile(csv, buildCsvFilename('alle-kpis'));
+  }, [csvDates, chartsData, buildCsvFilename]);
 
   const updateQueryParam = (key: string, value: string | null) => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -395,6 +439,14 @@ function PrestatiesAanbiedersDetailsPanel({ onClose, onToggleFullscreen, isFulls
           )}
         </div>
         <div className="prestaties-aanbieders-details-panel__actions">
+          {chartsData.length > 0 && (
+            <CsvDownloadButton
+              onClick={handleDownloadAllChartsCsv}
+              title="Download alle KPI's als CSV"
+              size={20}
+              className="prestaties-aanbieders-details-panel__csv-btn"
+            />
+          )}
           {onToggleFullscreen && (
             <button
               type="button"
@@ -476,6 +528,7 @@ function PrestatiesAanbiedersDetailsPanel({ onClose, onToggleFullscreen, isFulls
                 colors={chart.series.length > 1 ? ['#15AEEF', '#6b7280'] : ['#15AEEF']}
                 unit={chart.unit}
                 precision={chart.precision}
+                onDownloadCsv={() => handleDownloadChartCsv(chart)}
               />
             ))}
           </div>
