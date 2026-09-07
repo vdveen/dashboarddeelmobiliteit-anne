@@ -45,6 +45,17 @@ import {CustomizedXAxisTick, CustomizedYAxisTick} from './CustomizedAxisTick.jsx
 import {CustomizedTooltip} from './CustomizedTooltip.jsx';
 import InfoTooltip from '../InfoTooltip/InfoTooltip';
 import ChartSkeleton from './ChartSkeleton';
+import {
+  OperationalVehicleCountsByDay,
+  getOperationalVehicleCountsByDay
+} from '../../api/operationalVehicleStats';
+import {
+  NOT_DEFECT_KEY_SUFFIX,
+  addOperationalCountsToChartData,
+  darkenHexColor,
+  getDailyTimestamps,
+  getNotDefectSeriesKey
+} from './availableVehiclesChartUtils';
 
 const TOTAAL_KEY = 'Totaal';
 
@@ -76,6 +87,7 @@ function BeschikbareVoertuigenChart({
 
   // Define state variables
   const [vehiclesData, setVehiclesData] = useState([])
+  const [operationalVehiclesByDay, setOperationalVehiclesByDay] = useState<OperationalVehicleCountsByDay>({})
   const [isLoading, setIsLoading] = useState(false)
 
   // On updated filter: re-fetch data
@@ -87,11 +99,15 @@ function BeschikbareVoertuigenChart({
   // which used to cause duplicate refetches. The sub-references are kept
   // stable by md5-guarded reducer cases.
   useEffect(() => {
+    let cancelled = false;
+    const operationalVehiclesController = new AbortController();
+
     // Do not reload chart until you have 'zones'
     if(! metadata || ! metadata.zones || metadata.zones.length <= 0) {
       setVehiclesData([]);
+      setOperationalVehiclesByDay({});
       setIsLoading(false);
-      return;
+      return () => operationalVehiclesController.abort();
     }
     // If a plaats is selected but metadata.zones still belongs to a previous
     // plaats (i.e. no zone for the current gebied has loaded yet), skip the
@@ -99,18 +115,20 @@ function BeschikbareVoertuigenChart({
     // API returns NL-wide data.
     if(filter.gebied && !metadata.zones.some((z: any) => z.municipality === filter.gebied)) {
       setVehiclesData([]);
+      setOperationalVehiclesByDay({});
       setIsLoading(false);
-      return;
+      return () => operationalVehiclesController.abort();
     }
 
     async function fetchData() {
       try {
         // Get aggregated vehicle data
         const aggregatedVehicleData = await getAggregatedVehicleData(token, filter, zones, metadata);
-        if(! aggregatedVehicleData) return;
+        if(! aggregatedVehicleData || cancelled) return;
 
         // Set state
         setVehiclesData(aggregatedVehicleData);
+        setOperationalVehiclesByDay({});
 
         // Sum amount of vehicles per operator, used in FilteritemAanbieders component
         let operators;
@@ -121,16 +139,42 @@ function BeschikbareVoertuigenChart({
           operators = getOperatorStatsForChart(aggregatedVehicleData.availability_stats.values, metadata.aanbieders);
         }
         dispatch({type: 'SET_OPERATORSTATS_BESCHIKBAREVOERTUIGENCHART', payload: operators });
+        if (filter.ontwikkelingaggregatie === 'day') {
+          const aggregatedChartData = getAggregatedChartData(aggregatedVehicleData, filter, zones, aanbieders);
+          const dailyTimestamps = getDailyTimestamps(
+            aggregatedChartData,
+            filter.ontwikkelingaggregatie_tijd
+          );
+          const operationalCounts = await getOperationalVehicleCountsByDay(
+            token,
+            filter,
+            metadata,
+            dailyTimestamps,
+            operationalVehiclesController.signal
+          );
+          if (!cancelled) {
+            setOperationalVehiclesByDay(operationalCounts);
+          }
+        }
+      } catch (error: any) {
+        if (error?.name !== 'AbortError') {
+          console.error('Unable to load available vehicle chart data', error);
+        }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     }
     setIsLoading(true);
     fetchData();
+    return () => {
+      cancelled = true;
+      operationalVehiclesController.abort();
+    };
   }, [
     filter.ontwikkelingvan,
     filter.ontwikkelingtot,
     filter.ontwikkelingaggregatie,
+    filter.ontwikkelingaggregatie_tijd,
     filter.ontwikkelingaggregatie_function,
     filter.gebied,
     filter.zones,
@@ -146,12 +190,15 @@ function BeschikbareVoertuigenChart({
   
   // Populate chart data
   let chartData = getAggregatedChartData(vehiclesData, filter, zones, aanbieders);
+  chartData = addOperationalCountsToChartData(chartData, operationalVehiclesByDay);
 
   const getChartDataWithNiceDates = (data) => {
     if (!data?.length) return [];
     const aggregationLevel = filter.ontwikkelingaggregatie;
     const dateFormat = getDateFormat(aggregationLevel);
-    const providerKeys = Object.keys(data[0]).filter(k => k !== 'time' && k !== 'name');
+    const providerKeys = Object.keys(data[0]).filter(k =>
+      k !== 'time' && k !== 'name' && !k.endsWith(NOT_DEFECT_KEY_SUFFIX)
+    );
     const showTotaal = providerKeys.length > 1;
     return data.map(x => {
       const timeFormatted = moment(x.time ? x.time : x.name).format(dateFormat);
@@ -188,7 +235,9 @@ function BeschikbareVoertuigenChart({
     const allKeys = getUniqueProviderNames(chartDataWithNiceDates);
     const providerKeys = allKeys.filter(k => k !== 'time' && k !== 'name');
     const totaalIndex = providerKeys.indexOf(TOTAAL_KEY);
-    const providersOnly = providerKeys.filter(k => k !== TOTAAL_KEY);
+    const providersOnly = providerKeys.filter(k =>
+      k !== TOTAAL_KEY && !k.endsWith(NOT_DEFECT_KEY_SUFFIX)
+    );
     return { providersOnly, hasTotaal: totaalIndex >= 0 };
   };
 
@@ -196,13 +245,14 @@ function BeschikbareVoertuigenChart({
     const { providersOnly, hasTotaal } = getSeriesKeys();
     const series: React.ReactNode[] = [];
     providersOnly.forEach(x => {
+      const providerColor = getProviderColor(metadata.aanbieders, x);
       series.push(
         <Line
           key={x}
           type="monotone"
           dataKey={x}
           name={getPrettyProviderName(x)}
-          stroke={getProviderColor(metadata.aanbieders, x)}
+          stroke={providerColor}
           strokeWidth={2.5}
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -211,6 +261,24 @@ function BeschikbareVoertuigenChart({
           connectNulls
         />
       );
+      const notDefectKey = getNotDefectSeriesKey(x);
+      if (chartDataWithNiceDates.some((row) => row[notDefectKey] !== undefined)) {
+        series.push(
+          <Line
+            key={notDefectKey}
+            type="monotone"
+            dataKey={notDefectKey}
+            name={`${getPrettyProviderName(x)} (niet defect)`}
+            stroke={darkenHexColor(providerColor)}
+            strokeWidth={2.5}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            dot={false}
+            isAnimationActive={false}
+            connectNulls
+          />
+        );
+      }
     });
     if (hasTotaal && providersOnly.length > 1) {
       series.push(
@@ -245,7 +313,7 @@ function BeschikbareVoertuigenChart({
       <CartesianGrid strokeDasharray="3 0" vertical={false} />
       <XAxis dataKey="time" tick={<CustomizedXAxisTick />} />
       <YAxis tick={<CustomizedYAxisTick />} />
-      <Tooltip content={<CustomizedTooltip />} contentStyle={{ color: '#333333' }} />
+      <Tooltip content={<CustomizedTooltip showAutomaticTotal={false} />} contentStyle={{ color: '#333333' }} />
       {config?.sumTotal !== true && <Legend />}
       {renderLineSeries()}
     </LineChart>

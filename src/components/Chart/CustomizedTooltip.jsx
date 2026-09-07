@@ -26,13 +26,14 @@ const displayValue = (v) =>
   v == null ? '0' : (Number.isInteger(v) ? v.toString() : v.toFixed(2));
 
 const CustomizedTooltip = ({
-  active, payload, label, contentStyle = {}, itemValueFormatter
+  active, payload, label, contentStyle = {}, itemValueFormatter, showAutomaticTotal = true
 }: {
   active?: any,
   payload?: any,
   label?: any,
   contentStyle?: any,
-  itemValueFormatter?: any
+  itemValueFormatter?: any,
+  showAutomaticTotal?: boolean
 }) => {
   if (active && payload && payload.length) {
 
@@ -63,7 +64,7 @@ const CustomizedTooltip = ({
             </li>
           ))}
         </ul>
-        {!hasTotaalSeries && payload.length > 1 && (
+        {showAutomaticTotal && !hasTotaalSeries && payload.length > 1 && (
           <div className="my-0" style={{ color: tooltipTextColor }}>
             Totaal: {displayValue(sumValue())}
           </div>
