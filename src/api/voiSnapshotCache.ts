@@ -10,10 +10,10 @@ export class VoiSnapshotCache {
     this.entries.delete(key); this.entries.set(key, entry);
     return entry.data;
   }
-  put(key: string, data: VoiFeatureCollection) {
+  has(key: string) { return this.entries.has(key); }
+  put(key: string, data: VoiFeatureCollection, bytes: number) {
     this.entries.delete(key);
-    const bytes = new Blob([JSON.stringify(data)]).size;
-    if (bytes > this.maxBytes) return;
+    if (!Number.isFinite(bytes) || bytes < 0 || bytes > this.maxBytes) return;
     this.entries.set(key, { data, bytes });
     while (this.entries.size > this.maxFrames || Array.from(this.entries.values()).reduce((n, e) => n + e.bytes, 0) > this.maxBytes) {
       this.entries.delete(this.entries.keys().next().value);

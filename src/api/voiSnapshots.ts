@@ -16,6 +16,13 @@ export interface VoiFeatureCollection extends GeoJSON.FeatureCollection<GeoJSON.
   feature_count?: number;
 }
 
+export interface VoiSnapshotDownload {
+  data: VoiFeatureCollection;
+  bytes: number;
+}
+
+export const MAX_VOI_SNAPSHOT_BYTES = 20 * 1024 * 1024;
+
 const SNAPSHOT_NAME = /^voi-vehicles-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})Z\.geojson$/;
 const API_ROOT = (process.env.REACT_APP_VOI_API_URL || 'https://voi-snapshot-api-production.up.railway.app').replace(/\/$/, '');
 
@@ -92,12 +99,27 @@ export async function listVoiSnapshots(
 export async function downloadVoiSnapshot(
   snapshot: VoiSnapshot,
   signal?: AbortSignal
-): Promise<VoiFeatureCollection> {
+): Promise<VoiSnapshotDownload> {
   const response = await fetch(snapshot.downloadUrl, { signal });
   if (!response.ok) {
     throw new Error(`De meting kon niet worden geladen. Status ${response.status}.`);
   }
-  const geojson = await response.json() as VoiFeatureCollection;
+  const declaredBytes = Number(response.headers?.get('content-length'));
+  if (Number.isFinite(declaredBytes) && declaredBytes > MAX_VOI_SNAPSHOT_BYTES) {
+    await response.body?.cancel();
+    throw new Error('De meting is groter dan 20 MB.');
+  }
+  const raw = await response.text();
+  const bytes = new Blob([raw]).size;
+  if (bytes > MAX_VOI_SNAPSHOT_BYTES) {
+    throw new Error('De meting is groter dan 20 MB.');
+  }
+  let geojson: VoiFeatureCollection;
+  try {
+    geojson = JSON.parse(raw) as VoiFeatureCollection;
+  } catch {
+    throw new Error('De meting bevat geen geldige JSON.');
+  }
 
   if (geojson.type !== 'FeatureCollection' || !Array.isArray(geojson.features)) {
     throw new Error('De meting is geen geldige GeoJSON FeatureCollection.');
@@ -116,7 +138,7 @@ export async function downloadVoiSnapshot(
       || !Number.isFinite(coordinates[0]) || !Number.isFinite(coordinates[1])
       || Math.abs(coordinates[0]) > 180 || Math.abs(coordinates[1]) > 90;
   })) throw new Error('De meting bevat ongeldige puntgeometrie.');
-  return geojson;
+  return { data: geojson, bytes };
 }
 
 /** Counts vehicles per snapshot inside a lasso polygon. */

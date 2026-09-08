@@ -251,6 +251,7 @@ function VoiVehicleHistory() {
   const viewRef = useRef<VehicleView>('heatmap');
   const cacheRef = useRef(new VoiSnapshotCache());
   const listControllerRef = useRef<AbortController | null>(null);
+  const prefetchControllerRef = useRef<AbortController | null>(null);
   const wheelTimeRef = useRef(0);
 
   const [snapshots, setSnapshots] = useState<VoiSnapshot[]>([]);
@@ -293,7 +294,11 @@ function VoiVehicleHistory() {
 
   useEffect(() => {
     loadSnapshotList();
-    return () => { listControllerRef.current?.abort(); cacheRef.current.clear(); };
+    return () => {
+      listControllerRef.current?.abort();
+      prefetchControllerRef.current?.abort();
+      cacheRef.current.clear();
+    };
   }, [loadSnapshotList]);
 
   useEffect(() => {
@@ -350,10 +355,12 @@ function VoiVehicleHistory() {
     setError(null);
 
     const cached = cacheRef.current.get(selectedSnapshot.downloadUrl);
-    (cached ? Promise.resolve(cached) : downloadVoiSnapshot(selectedSnapshot, controller.signal))
-      .then((nextGeojson) => {
+    (cached
+      ? Promise.resolve({ data: cached, bytes: 0 })
+      : downloadVoiSnapshot(selectedSnapshot, controller.signal))
+      .then(({ data: nextGeojson, bytes }) => {
         if (!stillSelected) return;
-        cacheRef.current.put(selectedSnapshot.downloadUrl, nextGeojson);
+        if (!cached) cacheRef.current.put(selectedSnapshot.downloadUrl, nextGeojson, bytes);
         setDisplayedSnapshot(selectedSnapshot);
         dataRef.current = nextGeojson;
         setGeojson(nextGeojson);
@@ -373,6 +380,27 @@ function VoiVehicleHistory() {
 
     return () => { stillSelected = false; controller.abort(); };
   }, [selectedSnapshot, retry]);
+
+  useEffect(() => {
+    prefetchControllerRef.current?.abort();
+    prefetchControllerRef.current = null;
+    if (!isPlaying || displayedSnapshot !== selectedSnapshot) return;
+    const nextSnapshot = snapshots[selectedIndex + 1];
+    if (!nextSnapshot || cacheRef.current.has(nextSnapshot.downloadUrl)) return;
+
+    const controller = new AbortController();
+    prefetchControllerRef.current = controller;
+    downloadVoiSnapshot(nextSnapshot, controller.signal)
+      .then(({ data, bytes }) => {
+        if (!controller.signal.aborted) {
+          cacheRef.current.put(nextSnapshot.downloadUrl, data, bytes);
+        }
+      })
+      .catch(() => {
+        // A foreground load reports errors if this frame is selected.
+      });
+    return () => controller.abort();
+  }, [isPlaying, displayedSnapshot, selectedSnapshot, selectedIndex, snapshots]);
 
   useEffect(() => {
     if (!isPlaying || isLoadingSnapshot || error || displayedSnapshot !== selectedSnapshot) return;
