@@ -161,9 +161,12 @@ function FilterbarServiceAreas({
     }
   }, [availableOperators, visible_operators, dispatch]);
 
+  const [searchParams] = useSearchParams();
+  const historicalVersion = searchParams.get('version');
   const canDownloadServiceAreas = isLoggedIn && !! municipality && visible_operators && visible_operators.length > 0;
 
   const handleDownloadServiceAreas = async () => {
+    if (historicalVersion) return;
     setIsDownloading(true);
 
     try {
@@ -224,14 +227,15 @@ function FilterbarServiceAreas({
           </label>
         </div>)}
 
+        {historicalVersion && <p className="text-sm">Historische wijzigingen zijn geen volledig servicegebied. Kies de huidige versie om GeoJSON te downloaden.</p>}
         {canDownloadServiceAreas && <Button
           variant="outline"
           size="sm"
           className="mt-2"
-          disabled={isDownloading}
+          disabled={isDownloading || !!historicalVersion}
           onClick={handleDownloadServiceAreas}
         >
-          {isDownloading ? 'Downloaden...' : 'Download gebieden (GeoJSON)'}
+          {isDownloading ? 'Downloaden...' : 'Download huidige gebieden (GeoJSON)'}
         </Button>}
       </Fieldset>
 

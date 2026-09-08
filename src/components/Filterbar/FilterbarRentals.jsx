@@ -43,6 +43,7 @@ function Filterbar({
     return state.authentication.user_data ? true : false;
   });
 
+  const hasImport = useSelector(state => !!state.rentals?.csv_data);
   const filter = useSelector((state: StateType) => {
     return state.filter;
   });
@@ -57,11 +58,11 @@ function Filterbar({
   const iszonespublic=displayMode===DISPLAYMODE_ZONES_PUBLIC;
   const isontwikkeling=displayMode===DISPLAYMODE_OTHER;
   
-  const showdatum=isrentals||ispark||!isLoggedIn;
-  const showduur=isrentals;
+  const showdatum=!hasImport && (isrentals||ispark||!isLoggedIn);
+  const showduur=isrentals&&!hasImport;
   const showparkeerduur=ispark;
-  const showafstand=isrentals;
-  const showherkomstbestemming=isrentals;
+  const showafstand=isrentals&&!hasImport;
+  const showherkomstbestemming=isrentals&&!hasImport;
   const showvantot=isontwikkeling;
   const showvervoerstype=isrentals||ispark||!isLoggedIn;
 
@@ -128,15 +129,15 @@ function Filterbar({
 
       { isLoggedIn && showvantot && <FilteritemDatumVanTot /> }
 
-      <Fieldset title="Plaats">
+      {!hasImport && <Fieldset title="Plaats">
         <FilteritemGebieden />
-      </Fieldset>
+      </Fieldset>}
 
-      <Fieldset title="Zones">
+      {!hasImport && <Fieldset title="Zones">
         <FilteritemZones 
           zonesToShow={zonesToShow}
         />
-      </Fieldset>
+      </Fieldset>}
 
       {isLoggedIn && showparkeerduur && <FilteritemMarkersParkeerduur />}
 
