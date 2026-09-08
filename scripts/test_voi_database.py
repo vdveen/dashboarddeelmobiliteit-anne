@@ -56,7 +56,7 @@ class DatabaseTest(unittest.TestCase):
             store_snapshot(connection, self.geojson, "test")
             store_snapshot(connection, to_geojson(
                 {"park_events": []}, self.captured - timedelta(days=30)), "test")
-        self.assertEqual(len(self.client.get("/index.json?from=2026-01-01T00:00:00Z").get_json()), 2)
+        self.assertEqual(len(self.client.get("/index.json?from=2026-08-08T00:00:00Z&to=2026-09-07T23:00:00Z").get_json()), 2)
         self.assertEqual(len(self.client.get(
             "/index.json?from=2026-09-07T00:00:00Z&to=2026-09-07T23:00:00Z").get_json()), 1)
         self.assertEqual(self.client.get("/index.json?from=yesterday").status_code, 400)

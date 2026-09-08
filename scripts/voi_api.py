@@ -14,6 +14,7 @@ from scripts.voi_availability import (
 from scripts.voi_database import connect
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
 
 
 @app.after_request
@@ -32,6 +33,11 @@ def invalid_request(error):
     return jsonify(error=str(error)), 400
 
 
+@app.errorhandler(413)
+def request_too_large(_error):
+    return jsonify(error="Request or result exceeds the configured limit"), 413
+
+
 @app.errorhandler(psycopg.Error)
 def database_error(error):
     app.logger.error("Snapshot database request failed (%s)", type(error).__name__)
@@ -42,7 +48,10 @@ def database_error(error):
 def health():
     with connect(readonly=True) as connection:
         connection.execute("SELECT 1").fetchone()
-    return jsonify(status="ok")
+        latest = connection.execute("SELECT max(captured_at) FROM voi_snapshots").fetchone()[0]
+    age = max(0, int((datetime.now(timezone.utc) - latest).total_seconds())) if latest else None
+    return jsonify(status="ok", latest_capture=iso_timestamp(latest) if latest else None,
+                   age_seconds=age, stale=age is None or age > 30 * 60)
 
 
 @app.get("/index.json")
@@ -51,9 +60,11 @@ def index():
     with connect(readonly=True) as connection:
         rows = connection.execute(
             "SELECT captured_at FROM voi_snapshots WHERE captured_at BETWEEN %s AND %s"
-            " ORDER BY captured_at",
+            " ORDER BY captured_at LIMIT 4501",
             (start, end),
         ).fetchall()
+    if len(rows) > 4500:
+        abort(413)
     return jsonify([
         {"captured_at": iso_timestamp(row[0]),
          "path": f"snapshots/voi-vehicles-{filename_timestamp(row[0])}.geojson"}
@@ -81,9 +92,11 @@ def snapshot(name):
         rows = connection.execute(
             """SELECT objectid, system_id, form_factor, is_non_operational,
                       is_reserved, is_available, ST_AsGeoJSON(geom)::json
-               FROM voi_positions WHERE captured_at = %s""" + filters[available] + " ORDER BY objectid",
+               FROM voi_positions WHERE captured_at = %s""" + filters[available] + " ORDER BY objectid LIMIT 100001",
             (captured_at,),
         ).fetchall()
+    if len(rows) > 100000:
+        abort(413)
     return jsonify(type="FeatureCollection", title=meta[0], captured_at=iso_timestamp(captured_at),
                    operator="voi", feature_count=len(rows), features=[
                        {"type": "Feature", "id": row[0], "geometry": row[6], "properties": {

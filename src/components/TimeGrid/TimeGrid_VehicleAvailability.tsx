@@ -19,6 +19,7 @@ import {
 import TimeGrid from './TimeGrid';
 
 import {themes} from '../../themes';
+import { getAclOrganisationType } from '../../helpers/authentication';
 
 function TimeGridVehicleAvailability({}) {
 
@@ -27,6 +28,9 @@ function TimeGridVehicleAvailability({}) {
   // Get redux state vars
   const filter = useSelector((state: StateType) => state.filter);
   const token = useSelector((state: StateType) => (state.authentication.user_data && state.authentication.user_data.token)||null)
+  const organisationType = useSelector((state: StateType) =>
+    getAclOrganisationType(state.authentication?.user_data?.acl)
+  );
   const metadata = useSelector((state: StateType) => state.metadata)
   const zones = useSelector((state: StateType) => { return (state.metadata && state.metadata.zones) ? state.metadata.zones : []; });
 
@@ -43,7 +47,8 @@ function TimeGridVehicleAvailability({}) {
       token,
       customFilter,
       zones,
-      metadata
+      metadata,
+      organisationType
     );
     // Set state
     // setVehiclesData(aggregatedVehicleData);
@@ -78,7 +83,8 @@ function TimeGridVehicleAvailability({}) {
     metadata?.zones,
     metadata?.gebieden,
     metadata?.vehicle_types,
-    token
+    token,
+    organisationType
   ]);
 
   return <div className="TimeGrid_VehicleAvailability">

@@ -66,7 +66,16 @@ const initialState = {
 }
 
 export default function filter(state = initialState, action) {
+  // Only a UI or URL action marks a choice as explicit. Metadata
+  // reconciliation uses the same action types without this flag.
+  if (action.meta?.explicit === true) {
+    state = { ...state, public_defaults_applied: true };
+  }
   switch(action.type) {
+    case 'SET_RENTALS_CSV_DATA':
+      return { ...state, csv_previous_direction: state.csv_previous_direction || state.herkomstbestemming, herkomstbestemming: 'herkomst' };
+    case 'CLEAR_RENTALS_CSV_DATA':
+      return { ...state, herkomstbestemming: state.csv_previous_direction || 'herkomstbestemming', csv_previous_direction: undefined };
     case 'SET_FILTER_VISIBLE': {
       // console.log('reducer filter set filter visible %s', action.payload)
       return {
@@ -472,20 +481,16 @@ export default function filter(state = initialState, action) {
       };
     }
     case 'LOGIN':
-    // RESET_FILTER is only dispatched right after a successful login
-    case 'RESET_FILTER': {
-      // Logged in users start with a random municipality selected,
-      // to prevent a slow website on initial load
-      return {
-        ...initialState,
-        gebied: randomInitialMunicipality()
-      };
-    }
-    case 'LOGOUT': {
-      // console.log('logout - reset filter to public defaults')
-      return initialState;
-    }
+    case 'RESET_FILTER':
+      // A successful login keeps the current view. ACL loading reconciles it
+      // against the new account.
+      return { ...state, public_defaults_applied: true };
+    case 'LOGOUT':
+      // Zone and municipality ids may be private. Keep local display choices,
+      // but start the public view without an account-owned location scope.
+      return { ...state, gebied: '', zones: '', public_defaults_applied: true };
     case 'APPLY_PUBLIC_DEFAULT_FILTERS': {
+      if (state.public_defaults_applied) return state;
       // One-time default for the public map view: no municipality filter
       // and only the given operators active (all others excluded)
       return {
@@ -500,7 +505,8 @@ export default function filter(state = initialState, action) {
       // console.log('import filter', action.payload.filter)
       return {
         ...state,
-        ...action.payload.filter
+        ...action.payload.filter,
+        public_defaults_applied: true
       }
     }
     default:

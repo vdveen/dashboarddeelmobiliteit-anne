@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import SlideBox from '../SlideBox/SlideBox.jsx';
 
 import {getParkEventsStats} from '../../api/parkEventsStats.js';
+import { getAclOrganisationType } from '../../helpers/authentication';
 
 import {StateType} from '../../types/StateType';
 
@@ -42,6 +43,9 @@ function MetaStats(props) {
     }
     return null;
   });
+  const organisationType = useSelector((state: StateType) =>
+    getAclOrganisationType(state.authentication?.user_data?.acl)
+  );
   const filter = useSelector(state => state.filter)
   const metadata = useSelector(state => state.metadata)
 
@@ -54,13 +58,15 @@ function MetaStats(props) {
     async function gogogo() {
       const result = await getParkEventsStats(token, {
         filter: filter,
-        metadata: metadata
+        metadata: metadata,
+        organisationType
       });
       setMetaStatsData(result);
     }
     gogogo();
   }, [
     token,
+    organisationType,
     metadata,
     metadata.zones,
     filter,

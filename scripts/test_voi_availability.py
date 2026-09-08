@@ -87,6 +87,7 @@ class ValidatePolygonTest(unittest.TestCase):
 
     def test_rejects_more_than_the_vertex_cap(self):
         ring = [[5.0 + index / 1e6, 52.0] for index in range(MAX_POLYGON_VERTICES + 1)]
+        ring.append(ring[0])
         with self.assertRaisesRegex(ValidationError, "limit is 5000"):
             validate_polygon({"type": "Polygon", "coordinates": [ring]})
 

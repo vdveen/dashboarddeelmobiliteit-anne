@@ -16,6 +16,13 @@ export interface VoiFeatureCollection extends GeoJSON.FeatureCollection<GeoJSON.
   feature_count?: number;
 }
 
+export interface VoiSnapshotDownload {
+  data: VoiFeatureCollection;
+  bytes: number;
+}
+
+export const MAX_VOI_SNAPSHOT_BYTES = 20 * 1024 * 1024;
+
 const SNAPSHOT_NAME = /^voi-vehicles-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})Z\.geojson$/;
 const API_ROOT = (process.env.REACT_APP_VOI_API_URL || 'https://voi-snapshot-api-production.up.railway.app').replace(/\/$/, '');
 
@@ -27,7 +34,7 @@ export function parseVoiSnapshotEntry(entry: VoiSnapshotIndexEntry): VoiSnapshot
 
   const capturedAt = `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}Z`;
   const capturedTime = Date.parse(capturedAt);
-  if (!Number.isFinite(capturedTime)) return null;
+  if (!Number.isFinite(capturedTime) || new Date(capturedTime).toISOString().replace('.000Z', 'Z') !== capturedAt) return null;
 
   return {
     name,
@@ -37,7 +44,9 @@ export function parseVoiSnapshotEntry(entry: VoiSnapshotIndexEntry): VoiSnapshot
 }
 
 export function snapshotsFromIndex(entries: VoiSnapshotIndexEntry[]): VoiSnapshot[] {
-  return entries
+  if (!Array.isArray(entries)) throw new Error('Ongeldige lijst met metingen.');
+  const unique = new Map(entries.map(entry => [entry?.path, entry]));
+  return Array.from(unique.values())
     .map(parseVoiSnapshotEntry)
     .filter((snapshot): snapshot is VoiSnapshot => snapshot !== null)
     .sort((left, right) => left.capturedAt.localeCompare(right.capturedAt));
@@ -90,18 +99,46 @@ export async function listVoiSnapshots(
 export async function downloadVoiSnapshot(
   snapshot: VoiSnapshot,
   signal?: AbortSignal
-): Promise<VoiFeatureCollection> {
+): Promise<VoiSnapshotDownload> {
   const response = await fetch(snapshot.downloadUrl, { signal });
   if (!response.ok) {
     throw new Error(`De meting kon niet worden geladen. Status ${response.status}.`);
   }
-  const geojson = await response.json() as VoiFeatureCollection;
+  const declaredBytes = Number(response.headers?.get('content-length'));
+  if (Number.isFinite(declaredBytes) && declaredBytes > MAX_VOI_SNAPSHOT_BYTES) {
+    await response.body?.cancel();
+    throw new Error('De meting is groter dan 20 MB.');
+  }
+  const raw = await response.text();
+  const bytes = new Blob([raw]).size;
+  if (bytes > MAX_VOI_SNAPSHOT_BYTES) {
+    throw new Error('De meting is groter dan 20 MB.');
+  }
+  let geojson: VoiFeatureCollection;
+  try {
+    geojson = JSON.parse(raw) as VoiFeatureCollection;
+  } catch {
+    throw new Error('De meting bevat geen geldige JSON.');
+  }
 
   if (geojson.type !== 'FeatureCollection' || !Array.isArray(geojson.features)) {
     throw new Error('De meting is geen geldige GeoJSON FeatureCollection.');
   }
 
-  return geojson;
+  if (geojson.features.length > 100000 || (geojson.feature_count !== undefined && geojson.feature_count !== geojson.features.length)) {
+    throw new Error('De meting bevat een ongeldig aantal waarnemingen.');
+  }
+  if (geojson.captured_at && Date.parse(geojson.captured_at) !== Date.parse(snapshot.capturedAt)) {
+    throw new Error('Het tijdstip van de meting komt niet overeen met de selectie.');
+  }
+  if (geojson.features.some(feature => {
+    const coordinates = feature?.geometry?.coordinates;
+    return feature?.type !== 'Feature' || feature.geometry?.type !== 'Point'
+      || !Array.isArray(coordinates) || coordinates.length < 2
+      || !Number.isFinite(coordinates[0]) || !Number.isFinite(coordinates[1])
+      || Math.abs(coordinates[0]) > 180 || Math.abs(coordinates[1]) > 90;
+  })) throw new Error('De meting bevat ongeldige puntgeometrie.');
+  return { data: geojson, bytes };
 }
 
 /** Counts vehicles per snapshot inside a lasso polygon. */

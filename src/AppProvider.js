@@ -13,6 +13,7 @@ import thunk from 'redux-thunk';
 import appReducer from './reducers';
 import { sanitizeActiveDataLayers, sanitizeDataLayerOrder, sanitizeOverlayLayers } from './reducers/layers';
 import App from './App';
+import { validatePersistedState } from './helpers/persistedState';
 
 const composeEnhancers = window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ || compose;
 
@@ -30,34 +31,9 @@ if (theState) {
   }
 }
 
-// Validate and clean persisted state to prevent reload loops
-const validatePersistedState = (state) => {
-  if (!state || !state.authentication || !state.authentication.user_data) {
-    return {};
-  }
-
-  // Check if token exists and is not expired
-  const userData = state.authentication.user_data;
-  if (!userData.token) {
-    // Clear authentication if no token
-    return {
-      ...state,
-      authentication: { user_data: null }
-    };
-  }
-
-  // Optional: Add token expiration check if your API provides expiration info
-  // if (userData.token_expires && new Date(userData.token_expires) < new Date()) {
-  //   return {
-  //     ...state,
-  //     authentication: { user_data: null }
-  //   };
-  // }
-
-  return state;
-};
-
 persistedState = validatePersistedState(persistedState);
+// A saved choice takes precedence even when older versions omitted the marker.
+if (persistedState.filter) persistedState.filter.public_defaults_applied = true;
 
 // The data-layer UI uses radio-button behaviour (one layer per display mode).
 // Older persisted states may contain multiple active layers; sanitize them.
@@ -124,7 +100,10 @@ store.subscribe(() => {
     created: storeState.created ? storeState.created : moment().unix(),
     last_update: moment().unix(),
     authentication: storeState.authentication,
-    filter: storeState.filter,
+    // CSV rows are session-only, so persist the direction from before import.
+    filter: { ...storeState.filter,
+      herkomstbestemming: storeState.filter.csv_previous_direction || storeState.filter.herkomstbestemming,
+      csv_previous_direction: undefined },
     layers: storeState.layers,
     ui: storeState.ui,
     policy_hubs: storeState.policy_hubs,

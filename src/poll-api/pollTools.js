@@ -18,15 +18,13 @@ export const getAclOperatorSystemIds = (metadata) => {
 };
 
 /**
- * Operator scope for stats requests. Single-ACL-operator accounts (e.g. a
- * municipality/province with one operator data-access grant) must always be
- * scoped to that operator or the backend refuses the request; other accounts
- * get the full public operators list. Mirrors appendOperatorsScope in
- * createFilterparameters.
+ * Keep the historical single-grant restriction. Multiple grants restrict an
+ * operator account, while government and admin accounts use the public list
+ * so a newly added operator is not hidden by delayed menu ACL metadata.
  */
-export const getOperatorsScopeForStats = (metadata) => {
+export const getOperatorsScopeForStats = (metadata, organisationType) => {
   const aclSystemIds = getAclOperatorSystemIds(metadata);
-  if (aclSystemIds.length === 1) {
+  if (aclSystemIds.length === 1 || (organisationType === 'OPERATOR' && aclSystemIds.length > 0)) {
     return aclSystemIds;
   }
   return (metadata?.aanbieders || [])
@@ -129,16 +127,12 @@ export const createFilterparameters = (displayMode, filter, metadata, options) =
 
   const hasOperatorsParam = () => filterparams.some((p) => p.startsWith('operators='));
 
-  // Operator-type accounts (single operator in /menu/acl) must always be
-  // scoped to their own operator. For municipality / admin accounts we want
-  // the request to reflect the full NL-wide /operators list so newly added
-  // operators (e.g. 'voi') are included even when /menu/acl lags behind.
-  // The backend enforces data ACL based on the auth token + zone_ids.
+  // Grant scope is independent of organisation type and local display filters.
   const appendOperatorsScope = () => {
     if (hasOperatorsParam()) {
       return;
     }
-    const scope = getOperatorsScopeForStats(metadata);
+    const scope = getOperatorsScopeForStats(metadata, options.organisationType);
     if (scope.length > 0) {
       filterparams.push('operators=' + scope.join(','));
     }
@@ -160,9 +154,7 @@ export const createFilterparameters = (displayMode, filter, metadata, options) =
     // filtering is done client side
   }
 
-  // For operator-type accounts the request must always be scoped to their own
-  // operator, even when filtering is done client-side. Other accounts get the
-  // full public operators list (see appendOperatorsScope).
+  // Always retain the complete ACL grant scope, including multiple providers.
   appendOperatorsScope();
 
   // Add vehicle type filter

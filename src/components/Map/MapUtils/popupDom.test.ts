@@ -26,7 +26,7 @@ function expectLiteral(root: HTMLElement, value: string) {
 }
 
 test('an imported provider reaches the actual rental click handler as text', () => {
-  const row = parseRentalsCsv(`system_id,lat,lon,start_time,end_time\n${malicious},52,4,,`).rows[0];
+  const row = parseRentalsCsv(`system_id,lat,lon,start_time,end_time\n${malicious},52,4,2026-09-01T00:00:00Z,`).rows[0];
   const handlers = {};
   const map = { on: jest.fn((event, layer, handler) => { handlers[`${event}:${layer}`] = handler; }), off: jest.fn() };
   initPopupLogic(map, [], true, options.filterDate);

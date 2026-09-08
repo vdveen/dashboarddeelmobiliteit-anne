@@ -191,12 +191,12 @@ function DashboardBeleidszones() {
 
   const handleViewPreviousVersion = () => {
     if (prevZone?.zone_id) {
-      dispatch({ type: 'SET_FILTER_ZONES', payload: String(prevZone.zone_id) });
+      dispatch({ type: 'SET_FILTER_ZONES', payload: String(prevZone.zone_id), meta: { explicit: true } });
     }
   };
   const handleViewCurrentVersion = () => {
     if (currentZone?.zone_id) {
-      dispatch({ type: 'SET_FILTER_ZONES', payload: String(currentZone.zone_id) });
+      dispatch({ type: 'SET_FILTER_ZONES', payload: String(currentZone.zone_id), meta: { explicit: true } });
     }
   };
 
