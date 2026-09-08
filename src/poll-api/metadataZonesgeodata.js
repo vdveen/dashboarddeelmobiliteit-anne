@@ -1,3 +1,4 @@
+import { scopedMetadataStore } from './requestScope';
 import {isLoggedIn, shouldTreatMunicipalitiesAsNlWide} from '../helpers/authentication.js';
 
 export const getEmptyZonesGeodataPayload = () => {
@@ -109,6 +110,7 @@ const buildGeodataFromDashboardZones = (metadata, store, state, shouldZoom) => {
 };
 
 export const updateZonesgeodata = (store) => {
+  store = scopedMetadataStore(store, 'updateZonesgeodata');
   try {
     if (store === undefined) return false;
 

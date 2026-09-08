@@ -29,6 +29,7 @@ import {
   resolveOperatorSystemId,
 } from '../../helpers/prestatiesAanbiedersViewMode';
 import './PrestatiesAanbiedersDetailsPanel.css';
+import { getAclOrganisationType } from '../../helpers/authentication';
 
 interface PrestatiesAanbiedersDetailsPanelProps {
   onClose: () => void;
@@ -41,6 +42,9 @@ const LOADING_INDICATOR_DELAY_MS = 200;
 
 function PrestatiesAanbiedersDetailsPanel({ onClose, onToggleFullscreen, isFullscreen = false }: PrestatiesAanbiedersDetailsPanelProps) {
   const gebieden = useSelector((state: StateType) => state.metadata.gebieden);
+  const organisationType = useSelector((state: StateType) =>
+    getAclOrganisationType(state.authentication?.user_data?.acl)
+  );
   const aclOperators = useSelector((state: StateType) => state.metadata.aclOperators ?? []);
   const metadataLoaded = useSelector((state: StateType) =>
     Boolean(state.metadata?.metadata_loaded)
@@ -87,7 +91,7 @@ function PrestatiesAanbiedersDetailsPanel({ onClose, onToggleFullscreen, isFulls
     aclOperators,
     queryParams.get('system_id') || queryParams.get('operator')
   );
-  const isOperatorScope = isOperatorPrestatiesView(aclOperators);
+  const isOperatorScope = isOperatorPrestatiesView(aclOperators, organisationType);
   const formFactorCode = queryParams.get('form_factor');
   const propulsionTypeCode = queryParams.get('propulsion_type');
   const startDateParam = queryParams.get('start_date');
@@ -119,6 +123,7 @@ function PrestatiesAanbiedersDetailsPanel({ onClose, onToggleFullscreen, isFulls
     if (!metadataLoaded || !token || !formFactorCode || !operatorCode) return;
     if (!isOperatorScope && !municipalityCode) return;
 
+    let cancelled = false;
     const fetchKpiData = async () => {
       setLoading(true);
       setError(null);
@@ -128,6 +133,7 @@ function PrestatiesAanbiedersDetailsPanel({ onClose, onToggleFullscreen, isFulls
         // the filter lets this fetch share a URL (and the in-flight dedup cache)
         // with the overview fetch in usePermitData when scopes align.
         const params = buildScopedKpiOverviewParams(aclOperators, {
+          organisationType,
           operatorSystemId: operatorCode,
           municipality: municipalityCode,
           start_date: moment(startDate).format('YYYY-MM-DD'),
@@ -137,16 +143,18 @@ function PrestatiesAanbiedersDetailsPanel({ onClose, onToggleFullscreen, isFulls
           throw new Error('KPI overview request missing required query params');
         }
         const data = await getKpiOverviewOperators(token, params);
-        setKpiData(data);
+        if (!cancelled) setKpiData(data);
       } catch (err: any) {
+        if (cancelled) return;
         console.error('Error fetching KPI data:', err);
         setError(err.message || 'Failed to fetch KPI data');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchKpiData();
+    return () => { cancelled = true; };
   }, [
     metadataLoaded,
     token,
@@ -156,6 +164,7 @@ function PrestatiesAanbiedersDetailsPanel({ onClose, onToggleFullscreen, isFulls
     startDate,
     endDate,
     isOperatorScope,
+    organisationType,
     aclOperators,
   ]);
 

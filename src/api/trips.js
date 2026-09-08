@@ -7,10 +7,13 @@ import { dedupedFetch } from './dedupedFetch';
 // ontwikkelingvan/ontwikkelingtot period. Operator filtering is done
 // client-side by the caller, so toggling an aanbieder does not refetch
 // this (potentially large) trip list.
-export const getTripsWithDistance = async (token, filter, metadata) => {
+export const getTripsWithDistance = async (token, filter, metadata, signal, organisationType) => {
   let url = `${process.env.REACT_APP_MAIN_API_URL}/dashboard-api/v2/trips/origins`;
 
-  const filterParams = createFilterparameters(DISPLAYMODE_OTHER, filter, metadata, { is_logged_in: true });
+  const filterParams = createFilterparameters(DISPLAYMODE_OTHER, filter, metadata, {
+    is_logged_in: true,
+    organisationType,
+  });
   if(filterParams.length > 0) url += "?" + filterParams.join("&");
 
   // Get API response (deduped: concurrent identical requests share a single network call)
@@ -18,7 +21,8 @@ export const getTripsWithDistance = async (token, filter, metadata) => {
     headers: {
       "authorization": `Bearer ${token}`,
       'mode':'no-cors'
-    }
+    },
+    signal,
   });
   const responseJson = await response.json();
 

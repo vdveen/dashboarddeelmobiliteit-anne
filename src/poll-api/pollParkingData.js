@@ -1,10 +1,11 @@
+import { requestScope } from './requestScope';
 import moment from 'moment';
 import {
   createFilterparameters,
   convertDurationToBin,
   abortableFetch
 } from './pollTools.js';
-import { isLoggedIn, isAdmin } from '../helpers/authentication.js';
+import { getAclOrganisationType, isLoggedIn, isAdmin } from '../helpers/authentication.js';
 import { DISPLAYMODE_PARK } from '../reducers/layers.js';
 import {
   OPERATIONAL_STATUS_ALL,
@@ -19,9 +20,8 @@ var timerid_parkingdata;
 // theFetch: Variabele used for managing fetch calls
 let theFetch = null;
 
-// URL of the request currently in flight, so an identical request can reuse
-// it instead of aborting and starting over (see doApiCall)
-let theFetchUrl = null;
+// Identity of the request currently in flight, including its account.
+let theFetchScope = null;
 
 // Variable to keep track of vehicles response
 // Only do a new fetch() if needed
@@ -30,6 +30,7 @@ let activeVehicles;
 // Variable to keep track of filter changes
 // Only do a new fetch() if needed
 let existingFilter;
+let activeScope;
 
 // Does a vehicle pass the operational_status filter of the Aanbod map?
 // Vehicles without a known status count as operational, like the map icons do.
@@ -164,11 +165,7 @@ const processVehiclesResult = (state, vehicles) => {
   })
 }
 
-const doApiCall = (
-  state,
-  callback
-) => {
-
+const requestForState = (state) => {
   const canfetchdata = state && isLoggedIn(state)  && state.filter && state.authentication.user_data.token;
   const is_admin = isAdmin(state);
 
@@ -178,7 +175,8 @@ const doApiCall = (
   let options = {};
   let filterparams = createFilterparameters(DISPLAYMODE_PARK, state.filter, state.metadata, {
     show_global: is_admin,
-    is_logged_in: isLoggedIn(state)
+    is_logged_in: isLoggedIn(state),
+    organisationType: getAclOrganisationType(state.authentication?.user_data?.acl),
   });
 
   // Set query params for guests
@@ -200,11 +198,21 @@ const doApiCall = (
       };
     }
   }
-  
-  // If a request for this exact URL is already in flight, let it finish
+  return { url, options };
+};
+
+const doApiCall = (
+  state,
+  callback,
+  request = requestForState(state)
+) => {
+  const { url, options } = request;
+  const owner = requestScope(state, url);
+
+  // If this account already owns an identical request, let it finish
   // instead of aborting and re-issuing it: the response is processed with the
   // then-current store state, so the result is the same either way.
-  if(theFetch && theFetchUrl === url) {
+  if(theFetch && theFetchScope === owner) {
     return;
   }
 
@@ -221,49 +229,36 @@ const doApiCall = (
   // Now do a new fetch
   const thisFetch = abortableFetch(url, options);
   theFetch = thisFetch;
-  theFetchUrl = url;
+  theFetchScope = owner;
+  const isCurrent = () => {
+    const currentState = store_parkingdata.getState();
+    return theFetch === thisFetch
+      && requestScope(currentState, requestForState(currentState).url) === owner;
+  };
+
 
   // Only clear the in-flight tracking if it still points at this request
   // (a newer request may have replaced it in the meantime)
   const clearFetchTracking = () => {
     if(theFetch === thisFetch) {
       theFetch = null;
-      theFetchUrl = null;
+      theFetchScope = null;
     }
   };
 
-  thisFetch.ready.then(function(response) {
-    if(! response.ok) {
-      clearFetchTracking();
-      console.error("unable to fetch: %o", response);
-      return false
-    }
-
-    response.json().then(function(vehicles) {
-      if(isLoggedIn(state)) {
-        vehicles = vehicles.park_events
-      } else {
-        vehicles = vehicles.vehicles_in_public_space
-      }
-      // Process with the *current* store state (not the state at request
-      // time), so client-side filters that changed while the request was in
-      // flight are applied to the result.
-      callback(store_parkingdata.getState(), vehicles);
-    }).catch(ex=>{
-      console.error("unable to decode JSON");
-    }).finally(()=>{
-      clearFetchTracking();
-      // Stop loading
-      store_parkingdata.dispatch({type: 'SHOW_LOADING', payload: false});
-    })
-  }).catch(ex=>{
-    // If this request was aborted because a newer one replaced it, leave the
-    // loading state to the newer request
-    if(theFetch !== thisFetch) return;
+  thisFetch.ready.then(async response => {
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    if (!isCurrent()) return;
+    const values = isLoggedIn(state) ? data.park_events : data.vehicles_in_public_space;
+      if (!Array.isArray(values)) throw new Error('Invalid vehicle response');
+      callback(store_parkingdata.getState(), values);
+  }).catch(error => {
+    if (isCurrent() && error.name !== 'AbortError') console.error('Unable to load map data', error.message);
+  }).finally(() => {
+    if (theFetch !== thisFetch) return;
     clearFetchTracking();
-    // Stop loading
-    store_parkingdata.dispatch({type: 'SHOW_LOADING', payload: false});
-    console.error("fetch error - unable to fetch JSON from %s", url);
+    store_parkingdata.dispatch({ type: 'SHOW_LOADING', payload: false });
   });
 
 }
@@ -277,6 +272,18 @@ const updateParkingData = async () => {
     
     // Wait for zone data
     const state = store_parkingdata.getState();
+    const request = requestForState(state);
+    const scope = requestScope(state, request.url);
+    if (scope !== activeScope) {
+      activeScope = scope;
+      activeVehicles = undefined;
+      existingFilter = undefined;
+      const hadRequest = !!theFetch;
+      theFetch?.abort(); theFetch = null; theFetchScope = null;
+      if (hadRequest) store_parkingdata.dispatch({ type: 'SHOW_LOADING', payload: false });
+      store_parkingdata.dispatch({ type: 'CLEAR_VEHICLES' });
+    }
+
     if(! state) return;
 
     // const canfetchdata = state && isLoggedIn(state)  && state.filter && state.authentication.user_data.token;
@@ -288,7 +295,7 @@ const updateParkingData = async () => {
     existingFilter = state.filter;
 
     if(doFetchVehicles || (! activeVehicles && ! theFetch)) {
-      doApiCall(state, processVehiclesResult);
+      doApiCall(state, processVehiclesResult, request);
     } else if(activeVehicles) {
       // Regenerate geoJson without querying API
       processVehiclesResult(state, activeVehicles);
@@ -304,6 +311,7 @@ const updateParkingData = async () => {
 }
 
 export const initUpdateParkingData = (_store) => {
+  if (store_parkingdata !== _store) { theFetch?.abort(); theFetch = null; theFetchScope = null; activeScope = undefined; }
   store_parkingdata = _store;
   if(! store_parkingdata) { console.log('No store yet.'); return; }
   if(timerid_parkingdata) { clearTimeout(timerid_parkingdata); }

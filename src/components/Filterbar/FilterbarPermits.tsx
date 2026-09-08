@@ -31,6 +31,7 @@ import {
   resolvePrestatiesViewMode,
 } from '../../helpers/prestatiesAanbiedersViewMode';
 import { RadioButton } from '../ui/radio-button';
+import { getAclOrganisationType } from '../../helpers/authentication';
 
 interface FilterbarPermitsProps {
   hideLogo: boolean;
@@ -64,6 +65,9 @@ function FilterbarPermits({
     return (state.metadata && state.metadata.aanbieders) ? state.metadata.aanbieders : [];
   });
 
+  const organisationType = useSelector((state: StateType) =>
+    getAclOrganisationType(state.authentication?.user_data?.acl)
+  );
   const aclOperators = useSelector((state: StateType) => {
     return (state.metadata && state.metadata.aclOperators) ? state.metadata.aclOperators : [];
   });
@@ -95,9 +99,9 @@ function FilterbarPermits({
   const [searchParams, setSearchParams] = useSearchParams();
 
   const urlView = searchParams.get(PRESTATIES_VIEW_URL_PARAM);
-  const viewMode = resolvePrestatiesViewMode(aclOperators, isAdmin, urlView);
+  const viewMode = resolvePrestatiesViewMode(aclOperators, isAdmin, urlView, organisationType);
   const isMunicipalityView = viewMode === 'municipality';
-  const adminCanToggleView = canToggleViewMode(isAdmin, aclOperators);
+  const adminCanToggleView = canToggleViewMode(isAdmin, aclOperators, organisationType);
   const operatorSystemId = resolveOperatorSystemId(
     aclOperators,
     searchParams.get('system_id') || searchParams.get('operator')

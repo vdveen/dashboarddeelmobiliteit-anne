@@ -67,6 +67,7 @@ import { updateStreetVisibilityForSatellite } from './MapUtils/backgroundLayerMa
 import { getProviderColorForProvider } from '../../helpers/providers';
 import { isOperatorPrestatiesView } from '../../helpers/prestatiesAanbiedersViewMode';
 import SelectionTool from '../SelectionTool/SelectionTool';
+import { getAclOrganisationType } from '../../helpers/authentication';
 import {
   selectDataLayerOrder,
   selectOverlayLayers,
@@ -105,6 +106,9 @@ const MapComponent = (props): JSX.Element => {
   const stateLayers = useSelector((state: StateType) => state.layers || null);
   const isLoggedIn = useSelector((state: StateType) => state.authentication.user_data ? true : false);
   const providers = useSelector((state: StateType) => (state.metadata && state.metadata.aanbieders) ? state.metadata.aanbieders : []);
+  const organisationType = useSelector((state: StateType) =>
+    getAclOrganisationType(state.authentication?.user_data?.acl)
+  );
   const aclOperators = useSelector((state: StateType) =>
     state.metadata?.aclOperators ? state.metadata.aclOperators : []
   );
@@ -696,7 +700,7 @@ const MapComponent = (props): JSX.Element => {
 
     const hidePopupProviderTitle =
       location.pathname === '/stats/prestaties-aanbieders' &&
-      isOperatorPrestatiesView(aclOperators);
+      isOperatorPrestatiesView(aclOperators, organisationType);
 
     initPopupLogic(
       map.current,
@@ -709,6 +713,8 @@ const MapComponent = (props): JSX.Element => {
     didInitSourcesAndLayers,
     providers,
     aclOperators,
+    organisationType,
+    userData,
     filter.datum,
     location.pathname,
   ])

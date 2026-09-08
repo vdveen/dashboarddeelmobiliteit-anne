@@ -31,6 +31,7 @@ describe('getOperationalVehicleCountsByDay', () => {
         aanbieders: [{ system_id: 'voi' }, { system_id: 'check' }],
         vehicle_types: []
       },
+      null,
       [
         { day: '2026-09-01', timestamp: '2026-09-01T00:00:00.000Z' },
         { day: '2026-09-01', timestamp: '2026-09-01T00:00:00.000Z' }
