@@ -111,7 +111,6 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/m
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
 
-#
 ## Validate a pull request
 
 Use Node 24 and run `npm ci`, `npm test -- --watchAll=false --runInBand`, `npm run typecheck`, and `npm run build`. The PR workflow runs these commands without deployment credentials.
