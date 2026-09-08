@@ -6,7 +6,7 @@ from pathlib import Path
 import psycopg
 
 from scripts.collect_voi_vehicles import (
-    DEFAULT_API_URL, fetch_payload, to_geojson, utc_now,
+    DEFAULT_API_URL, fetch_payload, floor_to_interval, to_geojson, utc_now,
 )
 
 
@@ -51,8 +51,9 @@ def store_snapshot(connection, geojson, source_url):
 
 
 def main():
-    # Query the exact hour even if Railway starts the container a little late.
-    captured_at = utc_now().replace(minute=0, second=0)
+    # Query the exact 10-minute boundary even if Railway starts the container
+    # a little late. The snapshot primary key then stays one row per boundary.
+    captured_at = floor_to_interval(utc_now())
     source_url = os.environ.get("VOI_API_URL", DEFAULT_API_URL)
     geojson = to_geojson(fetch_payload(source_url, captured_at, timeout=30), captured_at)
     with connect() as connection:

@@ -43,9 +43,40 @@ export function snapshotsFromIndex(entries: VoiSnapshotIndexEntry[]): VoiSnapsho
     .sort((left, right) => left.capturedAt.localeCompare(right.capturedAt));
 }
 
-export async function listVoiSnapshots(signal?: AbortSignal): Promise<VoiSnapshot[]> {
+export interface VoiAvailabilityPoint {
+  captured_at: string;
+  total: number;
+  /** Vehicles the source reported as operational (is_non_operational false). */
+  operational: number;
+  non_operational: number;
+  /** Vehicles without a reported status. Snapshots before 2026-09-08T09:00Z are all unknown. */
+  unknown: number;
+}
+
+export interface VoiAvailabilitySeries {
+  from: string;
+  to: string;
+  series: VoiAvailabilityPoint[];
+}
+
+export type VoiLassoPolygon = GeoJSON.Polygon | GeoJSON.MultiPolygon;
+
+function windowQuery(from?: string, to?: string): string {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const query = params.toString();
+  return query ? `?${query}` : '';
+}
+
+/** Lists snapshots. The API defaults to the last seven days when no window is given. */
+export async function listVoiSnapshots(
+  signal?: AbortSignal,
+  from?: string,
+  to?: string
+): Promise<VoiSnapshot[]> {
   const response = await fetch(
-    `${API_ROOT}/index.json`,
+    `${API_ROOT}/index.json${windowQuery(from, to)}`,
     { signal }
   );
 
@@ -71,4 +102,30 @@ export async function downloadVoiSnapshot(
   }
 
   return geojson;
+}
+
+/** Counts vehicles per snapshot inside a lasso polygon. */
+export async function fetchVoiAvailability(
+  polygon: VoiLassoPolygon,
+  from?: string,
+  to?: string,
+  signal?: AbortSignal
+): Promise<VoiAvailabilitySeries> {
+  const response = await fetch(`${API_ROOT}/availability`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ polygon, from, to }),
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Het meetarchief gaf status ${response.status}.`);
+  }
+
+  const data = await response.json() as VoiAvailabilitySeries;
+  if (!Array.isArray(data?.series)) {
+    throw new Error('Het beschikbaarheidsantwoord bevat geen reeks.');
+  }
+
+  return data;
 }
