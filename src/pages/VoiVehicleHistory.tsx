@@ -337,7 +337,12 @@ function VoiVehicleHistory() {
   }, [vehicleView]);
 
   useEffect(() => {
-    if (!selectedSnapshot) return;
+    if (!selectedSnapshot) {
+      dataRef.current = EMPTY_GEOJSON;
+      setGeojson(EMPTY_GEOJSON); setDisplayedSnapshot(null);
+      if (mapLoadedRef.current && mapRef.current) setVehicleData(mapRef.current, EMPTY_GEOJSON);
+      return;
+    }
 
     let stillSelected = true;
     const controller = new AbortController();
@@ -475,7 +480,7 @@ function VoiVehicleHistory() {
       >
         <div className="VoiVehicleHistory-current">
           <div>
-            <div className="VoiVehicleHistory-currentLabel">Geselecteerde meting</div>
+            <div className="VoiVehicleHistory-currentLabel">Getoonde meting</div>
             <time dateTime={displayedSnapshot?.capturedAt}>
               {displayedSnapshot ? formatDateTime(displayedSnapshot.capturedAt) : 'Nog geen meting geladen'}
             </time>
