@@ -68,21 +68,30 @@ class DatabaseTest(unittest.TestCase):
         with connect() as connection:
             store_snapshot(connection, self.geojson, "test")
             store_snapshot(connection, to_geojson({"park_events": []}, empty_at), "test")
+            # A legacy position from before the source reported a status.
+            connection.execute(
+                """INSERT INTO voi_positions (captured_at, system_id, is_non_operational, geom)
+                   VALUES (%s, 'voi', NULL, ST_SetSRID(ST_MakePoint(5.1, 52.1), 4326))""",
+                (empty_at,))
         around = {"type": "Polygon", "coordinates": [[[5.0, 52.0], [5.2, 52.0],
                                                       [5.2, 52.2], [5.0, 52.2], [5.0, 52.0]]]}
         window = {"from": "2026-09-07T00:00:00Z", "to": "2026-09-07T23:00:00Z"}
         data = self.client.post("/availability", json={"polygon": around, **window}).get_json()
         self.assertEqual(data["from"], "2026-09-07T00:00:00Z")
         # The empty snapshot keeps the series gapless.
+        # A NULL is_non_operational counts as unknown, never as operational.
         self.assertEqual(data["series"], [
-            {"captured_at": "2026-09-07T11:00:00Z", "total": 0, "operational": 0, "non_operational": 0},
-            {"captured_at": "2026-09-07T12:00:00Z", "total": 3, "operational": 2, "non_operational": 1},
+            {"captured_at": "2026-09-07T11:00:00Z", "total": 1,
+             "operational": 0, "non_operational": 0, "unknown": 1},
+            {"captured_at": "2026-09-07T12:00:00Z", "total": 3,
+             "operational": 2, "non_operational": 1, "unknown": 0},
         ])
 
         elsewhere = {"type": "Polygon", "coordinates": [[[0.0, 0.0], [0.1, 0.0],
                                                          [0.1, 0.1], [0.0, 0.1], [0.0, 0.0]]]}
         outside = self.client.post("/availability", json={"polygon": elsewhere, **window}).get_json()
         self.assertEqual([point["total"] for point in outside["series"]], [0, 0])
+        self.assertEqual([point["unknown"] for point in outside["series"]], [0, 0])
 
         get_response = self.client.get(
             "/availability?polygon=" + json.dumps(around) + "&from=" + window["from"] + "&to=" + window["to"])

@@ -122,8 +122,9 @@ def availability():
             raise ValidationError("polygon is not a valid geometry")
         rows = connection.execute(
             """SELECT s.captured_at,
-                      count(p.objectid) FILTER (WHERE p.is_non_operational IS NOT TRUE) AS operational,
+                      count(p.objectid) FILTER (WHERE p.is_non_operational IS FALSE) AS operational,
                       count(p.objectid) FILTER (WHERE p.is_non_operational) AS non_operational,
+                      count(p.objectid) FILTER (WHERE p.is_non_operational IS NULL) AS unknown,
                       count(p.objectid) AS total
                FROM voi_snapshots s
                LEFT JOIN voi_positions p
@@ -136,7 +137,8 @@ def availability():
     response = jsonify(**{
         "from": iso_timestamp(start), "to": iso_timestamp(end),
         "series": [{"captured_at": iso_timestamp(row[0]), "operational": row[1],
-                    "non_operational": row[2], "total": row[3]} for row in rows],
+                    "non_operational": row[2], "unknown": row[3], "total": row[4]}
+                   for row in rows],
     })
     response.headers["Cache-Control"] = "no-store"
     return response

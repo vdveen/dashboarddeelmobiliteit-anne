@@ -36,8 +36,9 @@ ArcGIS Pro and QGIS can run the availability aggregate directly, without the HTT
 
 ```sql
 SELECT s.captured_at,
-       count(p.objectid) FILTER (WHERE p.is_non_operational IS NOT TRUE) AS operational,
+       count(p.objectid) FILTER (WHERE p.is_non_operational IS FALSE) AS operational,
        count(p.objectid) FILTER (WHERE p.is_non_operational) AS non_operational,
+       count(p.objectid) FILTER (WHERE p.is_non_operational IS NULL) AS unknown,
        count(p.objectid) AS total
 FROM voi_snapshots s
 LEFT JOIN voi_positions p
@@ -61,7 +62,7 @@ The archive preserves nullable `is_non_operational`, `is_reserved`, and `is_avai
 
 `GET /index.json` lists snapshot paths in time order. It accepts optional `from` and `to` ISO-8601 UTC parameters and defaults to the last seven days when neither is given; `?from=` alone runs to now. An unparseable timestamp or a reversed window returns HTTP 400. `GET /snapshots/voi-vehicles-YYYY-MM-DDTHH-MM-SSZ.geojson` returns a GeoJSON FeatureCollection. Add `?available=true`, `?available=false`, or `?available=unknown` to filter availability. All HTTP database transactions are read-only. The API exposes no collection or SQL execution endpoint.
 
-`POST /availability` counts vehicles per snapshot inside a polygon, for a lasso selection in the viewer. The JSON body takes `polygon` (a WGS84 GeoJSON `Polygon` or `MultiPolygon`), plus optional `from` and `to` with the same default window as the index. `GET /availability?polygon=<geojson>&from=&to=` accepts the same arguments for quick testing. The API rejects another geometry type, a polygon that fails `ST_IsValid`, or more than 5000 vertices with HTTP 400 and a message. The response is `{"from": iso, "to": iso, "series": [{"captured_at": iso, "total": n, "operational": n, "non_operational": n}]}`, where `operational` counts `is_non_operational IS NOT TRUE`. Snapshots with no matching vehicle appear with zero counts, so the series has no gaps. The response is `Cache-Control: no-store`, and the endpoint answers an `OPTIONS` preflight with `Content-Type` allowed.
+`POST /availability` counts vehicles per snapshot inside a polygon, for a lasso selection in the viewer. The JSON body takes `polygon` (a WGS84 GeoJSON `Polygon` or `MultiPolygon`), plus optional `from` and `to` with the same default window as the index. `GET /availability?polygon=<geojson>&from=&to=` accepts the same arguments for quick testing. The API rejects another geometry type, a polygon that fails `ST_IsValid`, or more than 5000 vertices with HTTP 400 and a message. The response is `{"from": iso, "to": iso, "series": [{"captured_at": iso, "total": n, "operational": n, "non_operational": n, "unknown": n}]}`. The three status counts partition `total`: `operational` counts `is_non_operational IS FALSE`, `non_operational` counts `IS TRUE`, and `unknown` counts `IS NULL`. Snapshots collected before 2026-09-08T09:00Z stored no status, so their vehicles all count as unknown rather than operational. Snapshots with no matching vehicle appear with zero counts, so the series has no gaps. The response is `Cache-Control: no-store`, and the endpoint answers an `OPTIONS` preflight with `Content-Type` allowed.
 
 ```
 curl -s -X POST https://voi-snapshot-api-production.up.railway.app/availability \

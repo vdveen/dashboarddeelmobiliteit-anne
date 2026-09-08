@@ -46,8 +46,11 @@ export function snapshotsFromIndex(entries: VoiSnapshotIndexEntry[]): VoiSnapsho
 export interface VoiAvailabilityPoint {
   captured_at: string;
   total: number;
+  /** Vehicles the source reported as operational (is_non_operational false). */
   operational: number;
   non_operational: number;
+  /** Vehicles without a reported status. Snapshots before 2026-09-08T09:00Z are all unknown. */
+  unknown: number;
 }
 
 export interface VoiAvailabilitySeries {

@@ -57,7 +57,7 @@ describe('fetchVoiAvailability', () => {
     const body = {
       from: '2026-09-01T00:00:00Z',
       to: '2026-09-08T00:00:00Z',
-      series: [{ captured_at: '2026-09-07T12:00:00Z', total: 3, operational: 2, non_operational: 1 }],
+      series: [{ captured_at: '2026-09-07T12:00:00Z', total: 4, operational: 2, non_operational: 1, unknown: 1 }],
     };
     const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => body });
     global.fetch = fetchMock as unknown as typeof fetch;
