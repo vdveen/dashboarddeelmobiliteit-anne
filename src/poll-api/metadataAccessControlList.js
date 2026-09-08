@@ -158,6 +158,8 @@ export const initAccessControlList = (store_accesscontrollist)  => {
           // Handle authentication errors by clearing the user data
           if (response.status === 401 || response.status === 403) {
             console.warn("Authentication failed, clearing user data");
+            // Release this request before CLEAR_USER changes its ownership token.
+            store_accesscontrollist.dispatch({ type: 'SHOW_LOADING', payload: false });
             store_accesscontrollist.dispatch({ type: 'CLEAR_USER' });
             
             // Fall back to public data (operators come from the API).

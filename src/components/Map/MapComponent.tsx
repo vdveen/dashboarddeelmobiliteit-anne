@@ -710,6 +710,8 @@ const MapComponent = (props): JSX.Element => {
     didInitSourcesAndLayers,
     providers,
     aclOperators,
+    organisationType,
+    userData,
     filter.datum,
     location.pathname,
   ])
