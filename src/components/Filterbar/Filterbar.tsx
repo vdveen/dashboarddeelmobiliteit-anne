@@ -264,7 +264,7 @@ function Filterbar({
           )}
 
           {isLoggedIn && showparkeerduur && (
-            <Fieldset title="Toon alleen defecte voertuigen?">
+            <Fieldset title="Defecte voertuigen">
               <FilteritemNonOperationalVehicles />
             </Fieldset>
           )}
