@@ -77,7 +77,41 @@ describe('fetchVoiAvailability', () => {
   });
 
   it('reports an error status from the archive', async () => {
-    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 400 }) as unknown as typeof fetch;
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 500 }) as unknown as typeof fetch;
+
+    await expect(fetchVoiAvailability(polygon)).rejects.toThrow('status 500');
+  });
+
+  it('explains a self-intersecting polygon in Dutch', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: 'polygon is not a valid geometry' }),
+    }) as unknown as typeof fetch;
+
+    await expect(fetchVoiAvailability(polygon)).rejects.toThrow(
+      'De getekende vorm overlapt zichzelf. Teken het gebied opnieuw.'
+    );
+  });
+
+  it('passes an unmapped validation message through', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: 'from must not be later than to' }),
+    }) as unknown as typeof fetch;
+
+    await expect(fetchVoiAvailability(polygon)).rejects.toThrow(
+      'De selectie is ongeldig: from must not be later than to'
+    );
+  });
+
+  it('falls back to the status when a 400 has no readable body', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => { throw new SyntaxError('not json'); },
+    }) as unknown as typeof fetch;
 
     await expect(fetchVoiAvailability(polygon)).rejects.toThrow('status 400');
   });

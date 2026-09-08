@@ -17,6 +17,9 @@ import {
   VoiSnapshot,
 } from '../api/voiSnapshots';
 import { Button } from '../components/ui/button';
+import VoiAreaControls from '../components/VoiAvailability/VoiAreaControls';
+import VoiAvailabilityChart from '../components/VoiAvailability/VoiAvailabilityChart';
+import useMapPolygonDraw from '../components/VoiAvailability/useMapPolygonDraw';
 
 import './VoiVehicleHistory.css';
 
@@ -265,6 +268,10 @@ function VoiVehicleHistory() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [vehicleView, setVehicleViewState] = useState<VehicleView>('heatmap');
   const [error, setError] = useState<string | null>(null);
+  const [map, setMap] = useState<maplibregl.Map | null>(null);
+  const [chartOpen, setChartOpen] = useState(true);
+
+  const area = useMapPolygonDraw(map);
 
   const selectedSnapshot = snapshots[selectedIndex] ?? null;
 
@@ -322,6 +329,7 @@ function VoiVehicleHistory() {
     map.on('load', () => {
       if (mapRef.current !== map) return;
       addVehicleLayers(map);
+      setMap(map);
       mapLoadedRef.current = true;
       setVehicleData(map, dataRef.current);
       setVehicleView(map, viewRef.current);
@@ -330,9 +338,15 @@ function VoiVehicleHistory() {
     return () => {
       mapLoadedRef.current = false;
       mapRef.current = null;
+      setMap(null);
       map.remove();
     };
   }, []);
+
+  // A freshly drawn area re-opens the chart after the user closed it.
+  useEffect(() => {
+    if (area.polygon) setChartOpen(true);
+  }, [area.polygon]);
 
   useEffect(() => {
     viewRef.current = vehicleView;
@@ -490,6 +504,14 @@ function VoiVehicleHistory() {
             </div>
           </div>
         )}
+        <VoiAreaControls
+          mode={area.mode}
+          pointCount={area.pointCount}
+          hasPolygon={area.polygon !== null}
+          onStart={area.start}
+          onFinish={area.finish}
+          onClear={area.clear}
+        />
       </header>
 
       {error && (
@@ -499,6 +521,14 @@ function VoiVehicleHistory() {
             <ReloadIcon /> Opnieuw
           </Button>
         </div>
+      )}
+
+      {chartOpen && (
+        <VoiAvailabilityChart
+          polygon={area.polygon}
+          selectedCapturedAt={displayedSnapshot?.capturedAt}
+          onClose={() => setChartOpen(false)}
+        />
       )}
 
       <section
