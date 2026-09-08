@@ -526,7 +526,7 @@ function VoiVehicleHistory() {
       {chartOpen && (
         <VoiAvailabilityChart
           polygon={area.polygon}
-          selectedCapturedAt={selectedSnapshot?.capturedAt}
+          selectedCapturedAt={displayedSnapshot?.capturedAt}
           onClose={() => setChartOpen(false)}
         />
       )}

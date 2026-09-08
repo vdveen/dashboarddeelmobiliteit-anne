@@ -35,7 +35,11 @@ import './VoiAvailability.css';
 
 export interface VoiAvailabilityChartProps {
   polygon: GeoJSON.Polygon | null;
-  /** Capture time of the snapshot shown on the map, marked in the chart. */
+  /**
+   * Capture time of the snapshot whose vehicles are actually drawn on the map,
+   * marked in the chart. While another frame loads, the map keeps showing this
+   * one, so the marker follows the geometry rather than the slider.
+   */
   selectedCapturedAt?: string | null;
   onClose: () => void;
 }
