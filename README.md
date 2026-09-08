@@ -111,33 +111,11 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/m
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
 
-### Deployment
+#
+## Validate a pull request
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+Use Node 24 and run `npm ci`, `npm test -- --watchAll=false --runInBand`, `npm run typecheck`, and `npm run build`. The PR workflow runs these commands without deployment credentials.
 
-### `yarn build` fails to minify
+`npm run typecheck` checks the explicit boundary modules listed in `tsconfig.checked.json`. The full inherited source still includes TypeScript annotations inside JSX files and is not claimed to pass standalone TypeScript. Expand the checked module list as those imports are repaired. The obsolete Create React App “learn react” example test was removed; component and behavior suites remain.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
-
-### HB matrix API documentation
-
-- https://api.deelfietsdashboard.nl/od-api/openapi.json
-- https://api.deelfietsdashboard.nl/od-api/docs
-
-## Tailwind/craco/react-create-script
-
-https://stackoverflow.com/a/68093779
-
-en
-
-https://stackoverflow.com/a/72483401 (craco ^7.0.0-alpha.3)
-
-of TAILWIND_MODE=watch craco start
-
-## Dashboard Deelmobiliteit in the media
-
-- November 2023: ['CROW en Check trekken ten strijde tegen parkeeroverlast'](https://www.verkeersnet.nl/mobiliteitsbeleid/50485/crow-en-check-trekken-ten-strijde-tegen-parkeeroverlast/)
-- Juli 2023: [Data deelauto's en OV-fietsen nodig in Dashboard Deelmobiliteit](https://www.verkeersnet.nl/actueel/48898/crow-data-deelautos-en-ov-fietsen-nodig-in-dashboard-deelmobiliteit/) ([LinkedIn](https://www.linkedin.com/feed/update/urn:li:activity:7082639797185335296/))
-- [Januari 2023: The state of shared mobility: Bike sharing in 2023 - fresk.digital](https://fresk.digital/en/shared-mobility-report)
-- [October 2022: Nieuwe tool helpt overlast deelvoertuigen te beperken](https://www.verkeersnet.nl/actueel/44883/nieuwe-tool-helpt-overlast-deelvoertuigen-te-beperken/)
-- [July 2022: Alle scooters naar het SMÈRRIG Zomerfestival](https://observablehq.com/@geodan/data-uit-deelmobiliteit-en-evenementen)
+Railway deploys main. Infrastructure dependencies live in `.railway/package.json`; see [.railway/README.md](.railway/README.md). GitHub Pages deployment scripts and the unpinned resolution hook are removed. The lockfile and npm overrides pin dependency resolution.
