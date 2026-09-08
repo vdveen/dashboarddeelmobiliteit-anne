@@ -120,6 +120,7 @@ function PrestatiesAanbiedersDetailsPanel({ onClose, onToggleFullscreen, isFulls
     if (!metadataLoaded || !token || !formFactorCode || !operatorCode) return;
     if (!isOperatorScope && !municipalityCode) return;
 
+    let cancelled = false;
     const fetchKpiData = async () => {
       setLoading(true);
       setError(null);
@@ -139,16 +140,18 @@ function PrestatiesAanbiedersDetailsPanel({ onClose, onToggleFullscreen, isFulls
           throw new Error('KPI overview request missing required query params');
         }
         const data = await getKpiOverviewOperators(token, params);
-        setKpiData(data);
+        if (!cancelled) setKpiData(data);
       } catch (err: any) {
+        if (cancelled) return;
         console.error('Error fetching KPI data:', err);
         setError(err.message || 'Failed to fetch KPI data');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchKpiData();
+    return () => { cancelled = true; };
   }, [
     metadataLoaded,
     token,
@@ -158,6 +161,7 @@ function PrestatiesAanbiedersDetailsPanel({ onClose, onToggleFullscreen, isFulls
     startDate,
     endDate,
     isOperatorScope,
+    organisationType,
     aclOperators,
   ]);
 

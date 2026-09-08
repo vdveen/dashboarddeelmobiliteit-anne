@@ -22,3 +22,14 @@ test('multiple data grants scope requests without changing a known municipality 
   expect(isOperatorPrestatiesView([aclOperators[0]], 'MUNICIPALITY')).toBe(false);
   expect(isOperatorPrestatiesView(aclOperators, 'OPERATOR')).toBe(true);
 });
+test('metadata from an old selection cannot dispatch after its owner changes', () => {
+  const { scopedMetadataStore } = require('./requestScope');
+  let state = { authentication: { user_data: { token: 'a' } }, filter: { gebied: 'old' } };
+  const store = { getState: () => state, dispatch: jest.fn() };
+  const older = scopedMetadataStore(store, 'zones');
+  state = { ...state, filter: { gebied: 'new' } };
+  older.dispatch({ type: 'SET_ZONES', payload: ['old'] });
+  const current = scopedMetadataStore(store, 'zones');
+  current.dispatch({ type: 'SET_ZONES', payload: ['new'] });
+  expect(store.dispatch).toHaveBeenCalledTimes(1);
+});

@@ -1,3 +1,4 @@
+import { scopedMetadataStore } from './requestScope';
 import { getEmptyZonesGeodataPayload } from './metadataZonesgeodata';
 import {isLoggedIn, shouldTreatMunicipalitiesAsNlWide} from '../helpers/authentication.js';
 
@@ -8,6 +9,7 @@ import {isLoggedIn, shouldTreatMunicipalitiesAsNlWide} from '../helpers/authenti
 // }
 
 export const updateZones = async (store_zones) => {
+  store_zones = scopedMetadataStore(store_zones, 'updateZones');
   try {
     if(undefined===store_zones) {
       console.log("no redux state available yet - skipping zones update");
