@@ -1,4 +1,5 @@
 import moment from 'moment-timezone';
+import { REPORTING_TIMEZONE } from './stats/time';
 
 export const MAX_CSV_BYTES = 10 * 1024 * 1024;
 const MAX_ROWS = 50000;
@@ -38,8 +39,12 @@ function timestamp(value, required) {
   if (!value && !required) return null;
   // Dashboard exports may use a PostgreSQL +02 suffix.
   const normalized = value.replace(/([+-]\d{2})$/, '$1:00');
-  if (!/(Z|[+-]\d{2}:\d{2})$/i.test(normalized)) throw new Error('tijdstip vereist een tijdzone');
-  const parsed = moment.parseZone(normalized, moment.ISO_8601, true);
+  const hasExplicitOffset = /(Z|[+-]\d{2}:\d{2})$/i.test(normalized);
+  // The documented park_events export omits an offset. Interpret that format
+  // as Amsterdam time, while preserving an offset when the file supplies one.
+  const parsed = hasExplicitOffset
+    ? moment.parseZone(normalized, moment.ISO_8601, true)
+    : moment.tz(normalized, moment.ISO_8601, true, REPORTING_TIMEZONE);
   if (!parsed.isValid()) throw new Error('ongeldig tijdstip');
   return parsed.toISOString();
 }
@@ -77,7 +82,7 @@ export function parseRentalsCsv(csvText) {
         start_time, end_time, form_factor: values.form_factor || null, propulsion_type: values.propulsion_type || null };
     } catch (error) { throw new Error(`Regel ${line}: ${error.message}. Import is niet gewijzigd.`); }
   });
-  return { rows, skipped: 0 };
+  return { rows };
 }
 
 export function importedParkingPoints(rows, filter) {
@@ -87,6 +92,7 @@ export function importedParkingPoints(rows, filter) {
     if (excludedProviders.includes(row.system_id) || excludedTypes.includes(row.form_factor)) return [];
     return [{ type: 'Feature', properties: { id: `import-${index}`, system_id: row.system_id,
       form_factor: row.form_factor, observation_kind: 'parking', in_public_space_since: row.start_time,
-      end_time: row.end_time, distance_in_meters: null }, geometry: { type: 'Point', coordinates: [row.lon, row.lat] } }];
+      end_time: row.end_time, distance_bin: 0, distance_in_meters: null },
+      geometry: { type: 'Point', coordinates: [row.lon, row.lat] } }];
   }) };
 }

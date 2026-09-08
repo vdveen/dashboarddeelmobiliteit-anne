@@ -36,13 +36,12 @@ export default function FilteritemRuweDataImport() {
     reader.onload = () => {
       if (readerRef.current !== reader) return;
       try {
-        const { rows, skipped } = parseRentalsCsv(reader.result);
+        const { rows } = parseRentalsCsv(reader.result);
         dispatch({
           type: 'SET_RENTALS_CSV_DATA',
           payload: {
             fileName: file.name,
-            rows: rows,
-            skipped: skipped
+            rows: rows
           }
         });
         dispatch({ type: 'LAYER_SET_SINGLE_DATA_LAYER', payload: { displayMode: 'displaymode-rentals', layerName: 'verhuurdata-voertuigen' } });
@@ -94,7 +93,6 @@ export default function FilteritemRuweDataImport() {
           </div>
           <div>
             {csvData.rows.length} parkeerwaarnemingen geladen
-            {csvData.skipped > 0 && `, ${csvData.skipped} rijen overgeslagen`}
           </div>
           <div className="mt-1">
             <small>
