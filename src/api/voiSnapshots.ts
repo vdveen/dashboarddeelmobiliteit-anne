@@ -27,7 +27,7 @@ export function parseVoiSnapshotEntry(entry: VoiSnapshotIndexEntry): VoiSnapshot
 
   const capturedAt = `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}Z`;
   const capturedTime = Date.parse(capturedAt);
-  if (!Number.isFinite(capturedTime)) return null;
+  if (!Number.isFinite(capturedTime) || new Date(capturedTime).toISOString().replace('.000Z', 'Z') !== capturedAt) return null;
 
   return {
     name,
@@ -37,7 +37,9 @@ export function parseVoiSnapshotEntry(entry: VoiSnapshotIndexEntry): VoiSnapshot
 }
 
 export function snapshotsFromIndex(entries: VoiSnapshotIndexEntry[]): VoiSnapshot[] {
-  return entries
+  if (!Array.isArray(entries)) throw new Error('Ongeldige lijst met metingen.');
+  const unique = new Map(entries.map(entry => [entry?.path, entry]));
+  return Array.from(unique.values())
     .map(parseVoiSnapshotEntry)
     .filter((snapshot): snapshot is VoiSnapshot => snapshot !== null)
     .sort((left, right) => left.capturedAt.localeCompare(right.capturedAt));
@@ -70,5 +72,18 @@ export async function downloadVoiSnapshot(
     throw new Error('De meting is geen geldige GeoJSON FeatureCollection.');
   }
 
+  if (geojson.features.length > 100000 || (geojson.feature_count !== undefined && geojson.feature_count !== geojson.features.length)) {
+    throw new Error('De meting bevat een ongeldig aantal waarnemingen.');
+  }
+  if (geojson.captured_at && Date.parse(geojson.captured_at) !== Date.parse(snapshot.capturedAt)) {
+    throw new Error('Het tijdstip van de meting komt niet overeen met de selectie.');
+  }
+  if (geojson.features.some(feature => {
+    const coordinates = feature?.geometry?.coordinates;
+    return feature?.type !== 'Feature' || feature.geometry?.type !== 'Point'
+      || !Array.isArray(coordinates) || coordinates.length < 2
+      || !Number.isFinite(coordinates[0]) || !Number.isFinite(coordinates[1])
+      || Math.abs(coordinates[0]) > 180 || Math.abs(coordinates[1]) > 90;
+  })) throw new Error('De meting bevat ongeldige puntgeometrie.');
   return geojson;
 }

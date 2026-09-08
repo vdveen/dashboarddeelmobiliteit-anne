@@ -1,3 +1,4 @@
+import { VoiSnapshotCache } from '../api/voiSnapshotCache';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -248,10 +249,14 @@ function VoiVehicleHistory() {
   const mapLoadedRef = useRef(false);
   const dataRef = useRef<VoiFeatureCollection>(EMPTY_GEOJSON);
   const viewRef = useRef<VehicleView>('heatmap');
-  const cacheRef = useRef(new Map<string, Promise<VoiFeatureCollection>>());
+  const cacheRef = useRef(new VoiSnapshotCache());
+  const listControllerRef = useRef<AbortController | null>(null);
   const wheelTimeRef = useRef(0);
 
   const [snapshots, setSnapshots] = useState<VoiSnapshot[]>([]);
+  const [displayedSnapshot, setDisplayedSnapshot] = useState<VoiSnapshot | null>(null);
+  const [retry, setRetry] = useState(0);
+  const [failedKind, setFailedKind] = useState<'list' | 'snapshot'>('list');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [geojson, setGeojson] = useState<VoiFeatureCollection>(EMPTY_GEOJSON);
   const [isLoadingList, setIsLoadingList] = useState(true);
@@ -262,37 +267,33 @@ function VoiVehicleHistory() {
 
   const selectedSnapshot = snapshots[selectedIndex] ?? null;
 
-  const loadSnapshot = useCallback((snapshot: VoiSnapshot) => {
-    const cached = cacheRef.current.get(snapshot.downloadUrl);
-    if (cached) return cached;
-
-    const request = downloadVoiSnapshot(snapshot).catch((requestError) => {
-      cacheRef.current.delete(snapshot.downloadUrl);
-      throw requestError;
-    });
-    cacheRef.current.set(snapshot.downloadUrl, request);
-    return request;
-  }, []);
-
   const loadSnapshotList = useCallback(async () => {
+    listControllerRef.current?.abort();
+    const controller = new AbortController();
+    listControllerRef.current = controller;
+    setIsPlaying(false);
     setIsLoadingList(true);
     setError(null);
     try {
-      const nextSnapshots = await listVoiSnapshots();
+      const nextSnapshots = await listVoiSnapshots(controller.signal);
+      if (controller.signal.aborted) return;
       setSnapshots(nextSnapshots);
       setSelectedIndex(Math.max(0, nextSnapshots.length - 1));
       if (nextSnapshots.length === 0) {
         setError('Er zijn nog geen openbare Voi-metingen beschikbaar.');
       }
     } catch (listError) {
+      if (controller.signal.aborted) return;
+      setFailedKind('list');
       setError(listError instanceof Error ? listError.message : 'De metingen konden niet worden geladen.');
     } finally {
-      setIsLoadingList(false);
+      if (!controller.signal.aborted) setIsLoadingList(false);
     }
   }, []);
 
   useEffect(() => {
     loadSnapshotList();
+    return () => { listControllerRef.current?.abort(); cacheRef.current.clear(); };
   }, [loadSnapshotList]);
 
   useEffect(() => {
@@ -339,12 +340,16 @@ function VoiVehicleHistory() {
     if (!selectedSnapshot) return;
 
     let stillSelected = true;
+    const controller = new AbortController();
     setIsLoadingSnapshot(true);
     setError(null);
 
-    loadSnapshot(selectedSnapshot)
+    const cached = cacheRef.current.get(selectedSnapshot.downloadUrl);
+    (cached ? Promise.resolve(cached) : downloadVoiSnapshot(selectedSnapshot, controller.signal))
       .then((nextGeojson) => {
         if (!stillSelected) return;
+        cacheRef.current.put(selectedSnapshot.downloadUrl, nextGeojson);
+        setDisplayedSnapshot(selectedSnapshot);
         dataRef.current = nextGeojson;
         setGeojson(nextGeojson);
         if (mapLoadedRef.current && mapRef.current) {
@@ -353,6 +358,7 @@ function VoiVehicleHistory() {
       })
       .catch((snapshotError) => {
         if (!stillSelected) return;
+        setFailedKind('snapshot');
         setError(snapshotError instanceof Error ? snapshotError.message : 'De meting kon niet worden geladen.');
         setIsPlaying(false);
       })
@@ -360,29 +366,15 @@ function VoiVehicleHistory() {
         if (stillSelected) setIsLoadingSnapshot(false);
       });
 
-    const nextSnapshot = snapshots[selectedIndex + 1];
-    if (nextSnapshot) loadSnapshot(nextSnapshot).catch(() => undefined);
-
-    return () => {
-      stillSelected = false;
-    };
-  }, [selectedSnapshot, selectedIndex, snapshots, loadSnapshot]);
+    return () => { stillSelected = false; controller.abort(); };
+  }, [selectedSnapshot, retry]);
 
   useEffect(() => {
-    if (!isPlaying || snapshots.length < 2) return undefined;
-
-    const timer = window.setInterval(() => {
-      setSelectedIndex((currentIndex) => {
-        if (currentIndex >= snapshots.length - 1) {
-          setIsPlaying(false);
-          return currentIndex;
-        }
-        return currentIndex + 1;
-      });
-    }, 900);
-
-    return () => window.clearInterval(timer);
-  }, [isPlaying, snapshots.length]);
+    if (!isPlaying || isLoadingSnapshot || error || displayedSnapshot !== selectedSnapshot) return;
+    if (selectedIndex >= snapshots.length - 1) { setIsPlaying(false); return; }
+    const timer = window.setTimeout(() => setSelectedIndex(index => index + 1), 900);
+    return () => window.clearTimeout(timer);
+  }, [isPlaying, isLoadingSnapshot, error, displayedSnapshot, selectedSnapshot, selectedIndex, snapshots.length]);
 
   const selectPrevious = useCallback(() => {
     setIsPlaying(false);
@@ -413,7 +405,7 @@ function VoiVehicleHistory() {
   const timelineEnd = snapshots[snapshots.length - 1];
   const statusText = useMemo(() => {
     if (isLoadingList) return 'Metingen ophalen...';
-    if (isLoadingSnapshot) return 'Meting laden...';
+    if (isLoadingSnapshot) return `Meting laden: ${selectedSnapshot ? formatDateTime(selectedSnapshot.capturedAt) : ''}. De kaart toont de laatst geladen meting.`;
     if (!selectedSnapshot) return 'Geen meting geselecteerd';
     return `${featureCount.toLocaleString('nl-NL')} voertuigen`;
   }, [featureCount, isLoadingList, isLoadingSnapshot, selectedSnapshot]);
@@ -470,7 +462,7 @@ function VoiVehicleHistory() {
       {error && (
         <div className="VoiVehicleHistory-error" role="alert">
           <span>{error}</span>
-          <Button variant="outline" size="sm" onClick={loadSnapshotList}>
+          <Button variant="outline" size="sm" onClick={() => failedKind === 'snapshot' ? setRetry(value => value + 1) : loadSnapshotList()}>
             <ReloadIcon /> Opnieuw
           </Button>
         </div>
@@ -484,8 +476,8 @@ function VoiVehicleHistory() {
         <div className="VoiVehicleHistory-current">
           <div>
             <div className="VoiVehicleHistory-currentLabel">Geselecteerde meting</div>
-            <time dateTime={selectedSnapshot?.capturedAt}>
-              {selectedSnapshot ? formatDateTime(selectedSnapshot.capturedAt) : 'Geen metingen'}
+            <time dateTime={displayedSnapshot?.capturedAt}>
+              {displayedSnapshot ? formatDateTime(displayedSnapshot.capturedAt) : 'Nog geen meting geladen'}
             </time>
           </div>
           <div className="VoiVehicleHistory-position">
@@ -542,11 +534,11 @@ function VoiVehicleHistory() {
             </div>
           </div>
 
-          {selectedSnapshot && (
+          {displayedSnapshot && (
             <a
               className="VoiVehicleHistory-download"
-              href={selectedSnapshot.downloadUrl}
-              download={selectedSnapshot.name}
+              href={displayedSnapshot.downloadUrl}
+              download={displayedSnapshot.name}
               aria-label="Download de geselecteerde meting"
               title="Download GeoJSON"
             >
