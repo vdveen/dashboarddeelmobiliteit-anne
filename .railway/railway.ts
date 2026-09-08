@@ -54,12 +54,14 @@ export default defineRailway(() => {
     build,
     deploy: {
       startCommand: "python3 -m scripts.voi_database",
-      cronSchedule: "0 * * * *",
+      cronSchedule: "*/10 * * * *",
       restartPolicyType: "NEVER",
       multiRegionConfig: { "europe-west4-drams3a": { numReplicas: 1 } },
     },
     env: {
       DATABASE_URL: storage.env.DATABASE_URL,
+      // Set in the Railway UI. Never commit the key value.
+      DASHBOARDDEELMOB_KEY: preserve(),
     },
   });
 
