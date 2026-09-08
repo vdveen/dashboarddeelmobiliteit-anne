@@ -1,6 +1,12 @@
 Op de [Aanbod-kaart](https://dashboarddeelmobiliteit.nl/map/park) zie je eenvoudig welke voertuigen niet-operationeel ('defect') zijn.
 
-Klik in het linkermenu op de knop **Defecte voertuigen** om alleen defecte voertuigen op de kaart te tonen.
+Onder **Defecte voertuigen** in het linkermenu kies je welke voertuigen de kaart toont:
+
+- **Alle**: alle voertuigen, met het totale aantal voertuigen in de geselecteerde gemeente.
+- **Defect**: alleen defecte voertuigen, met het aantal en het percentage van alle voertuigen.
+- **Niet-defect**: alleen voertuigen die niet defect zijn, met het aantal en het percentage van alle voertuigen.
+
+De aantallen volgen de overige filters (aanbieders, parkeerduur, datum en gebied), zodat de percentages altijd optellen tot 100% van de voertuigen in de gekozen weergave.
 
 Bekijk de voertuigiconen op de kaart: als er een uitroepteken bij een voertuig staat is/was het een defect voertuig op de geselecteerde datum/tijd.
 
