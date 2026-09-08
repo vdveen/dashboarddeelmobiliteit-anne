@@ -52,6 +52,8 @@ function RitlengteChart(props) {
   });
 
   const [trips, setTrips] = useState([])
+  const [error, setError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
   const [isLoading, setIsLoading] = useState(false)
 
   // See BeschikbareVoertuigenChart for the rationale behind the
@@ -62,6 +64,9 @@ function RitlengteChart(props) {
   // filtering happens client-side on the fetched trip list, so toggling an
   // aanbieder does not refetch the (potentially large) trips response.
   useEffect(() => {
+    setTrips([]);
+    setError(null);
+    const controller = new AbortController();
     // Do not reload chart until you have 'zones'
     if(! metadata || ! metadata.zones || metadata.zones.length <= 0) {
       setTrips([]);
@@ -79,17 +84,19 @@ function RitlengteChart(props) {
     async function fetchData() {
       try {
         const responseJson = await getTripsWithDistance(
-          token, filter, metadata, undefined, organisationType
+          token, filter, metadata, controller.signal, organisationType
         );
         if(didCancel) return;
         setTrips((responseJson && responseJson.trip_origins) ? responseJson.trip_origins : []);
+      } catch (error) {
+        if (!didCancel) setError(error instanceof Error ? error.message : 'Ritafstanden konden niet worden geladen.');
       } finally {
         if(! didCancel) setIsLoading(false);
       }
     }
     setIsLoading(true);
     fetchData();
-    return () => { didCancel = true; };
+    return () => { didCancel = true; controller.abort(); };
   }, [
     filter.ontwikkelingvan,
     filter.ontwikkelingtot,
@@ -102,7 +109,8 @@ function RitlengteChart(props) {
     metadata.gebieden,
     metadata.vehicle_types,
     token,
-    organisationType
+    organisationType,
+    retry
   ]);
 
   // Bin trips into 1 km wide distance bins, counted per aanbieder
@@ -113,7 +121,7 @@ function RitlengteChart(props) {
     const providers = new Set<string>();
     trips.forEach((trip: any) => {
       const distance = trip.distance_in_meters;
-      if(typeof distance !== 'number' || distance < 0) return;
+      if(typeof distance !== 'number' || !Number.isFinite(distance) || distance < 0) return;
       if(aanbiedersexclude.includes(trip.system_id)) return;
       const bin = Math.min(Math.floor(distance / 1000), MAX_BIN_KM);
       if(! counts[bin]) counts[bin] = {};
@@ -199,7 +207,7 @@ function RitlengteChart(props) {
 
           <div className="flex justify-center flex-col ml-2">
             <InfoTooltip className="mx-2 inline-block">
-              Verdeling van de afgelegde afstand per verhuring binnen de huidige selectie, in stappen van 1 km. Ritten langer dan {MAX_BIN_KM} km vallen in de laatste staaf.
+              Verdeling van de afgelegde afstand per verhuring binnen de huidige selectie, in stappen van 1 km. Ritten van {MAX_BIN_KM} km of langer vallen in de laatste staaf.
             </InfoTooltip>
           </div>
 
@@ -207,7 +215,7 @@ function RitlengteChart(props) {
       </div>
 
       <div className="relative" style={{ width: '100%', height: '400px' }}>
-        {isLoading && ! hasData ? (
+        {error ? <div role="alert">{error} <button type="button" onClick={() => setRetry(value => value + 1)}>Opnieuw proberen</button></div> : isLoading && ! hasData ? (
           <ChartSkeleton height="100%" />
         ) : ! hasData ? (
           <div className="flex h-full items-center justify-center text-gray-500">
