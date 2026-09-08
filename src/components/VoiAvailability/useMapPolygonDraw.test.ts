@@ -23,14 +23,28 @@ function createFakeMap() {
     };
   };
 
+  const listeners: Record<string, Array<() => void>> = {};
+  let styleLoaded = true;
+
   const map = {
     dragPan: handler(),
     touchZoomRotate: handler(),
     doubleClickZoom: handler(),
     getCanvas: () => canvas,
-    isStyleLoaded: () => true,
-    on: jest.fn(),
-    off: jest.fn(),
+    isStyleLoaded: () => styleLoaded,
+    on: jest.fn((event: string, listener: () => void) => {
+      (listeners[event] ||= []).push(listener);
+    }),
+    once: jest.fn((event: string, listener: () => void) => {
+      const wrapped = () => {
+        listeners[event] = (listeners[event] || []).filter((entry) => entry !== wrapped);
+        listener();
+      };
+      (listeners[event] ||= []).push(wrapped);
+    }),
+    off: jest.fn((event: string, listener: () => void) => {
+      listeners[event] = (listeners[event] || []).filter((entry) => entry !== listener);
+    }),
     addSource: (id: string, options: { data: unknown }) => {
       sourceData[id] = options.data;
       sources.set(id, { setData: (data: unknown) => { sourceData[id] = data; } });
@@ -43,8 +57,17 @@ function createFakeMap() {
     unproject: ([x, y]: [number, number]) => ({ lng: x / 100, lat: y / 100 }),
   };
 
-  return { map: map as unknown as MapLibreMap, canvas, layers, sourceData };
+  return {
+    map: map as unknown as MapLibreMap,
+    canvas,
+    layers,
+    sourceData,
+    setStyleLoaded: (value: boolean) => { styleLoaded = value; },
+    emit: (event: string) => { [...(listeners[event] || [])].forEach((listener) => listener()); },
+  };
 }
+
+const canvasPoints = (_map: MapLibreMap): [number, number][] => [[10, 10], [90, 10], [90, 90]];
 
 const pointerEvent = (type: string, clientX: number, clientY: number) =>
   new MouseEvent(type, { clientX, clientY, button: 0, bubbles: true, cancelable: true });
@@ -133,4 +156,32 @@ test('drops a drawing with too few distinct points', () => {
 
   expect(result.current.polygon).toBeNull();
   expect(result.current.mode).toBeNull();
+});
+
+test('adds its layers once the style settles when the map arrives mid-change', () => {
+  // The Voi monitor hands the map over inside its own `load` handler, right
+  // after adding vehicle layers. The style still reports itself as unloaded
+  // then, and no further `load` or `styledata` follows on an idle map.
+  const { map, layers, sourceData, setStyleLoaded, emit } = createFakeMap();
+  setStyleLoaded(false);
+
+  const { result } = renderHook(() => useMapPolygonDraw(map));
+
+  expect(layers.has('voi-area-fill')).toBe(false);
+
+  setStyleLoaded(true);
+  act(() => { emit('idle'); });
+
+  expect(layers.has('voi-area-fill')).toBe(true);
+  expect(layers.has('voi-area-line')).toBe(true);
+
+  // The shape drawn before the layers existed still reaches the map.
+  act(() => { result.current.start('polygon'); });
+  act(() => {
+    canvasPoints(map).forEach(([x, y]) => {
+      map.getCanvas().dispatchEvent(pointerEvent('pointerdown', x, y));
+    });
+  });
+
+  expect((sourceData['voi-area-draw'] as { features: unknown[] }).features).toHaveLength(1);
 });
