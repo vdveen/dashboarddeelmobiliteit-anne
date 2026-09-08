@@ -12,9 +12,18 @@ test('uses Amsterdam calendar bounds across DST and propagates HTTP failures and
   expect(params.get('end_time')).toBe('2026-03-29T22:00:00.000Z');
   expect(init.signal).toBe(signal);
 });
-test('rejects excessive periods and unscoped requests before fetching', async () => {
+test('rejects excessive periods before fetching', async () => {
   global.fetch = jest.fn();
   await expect(getTripsWithDistance('test', { ...filter, ontwikkelingtot: '2026-09-01' }, {})).rejects.toThrow('31');
-  await expect(getTripsWithDistance('test', { ...filter, zones: '' }, {})).rejects.toThrow('plaats');
   expect(global.fetch).not.toHaveBeenCalled();
+});
+test('allows the authenticated all-places request within the response budgets', async () => {
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: true,
+    headers: { get: () => null },
+    body: null,
+    text: async () => JSON.stringify({ trip_origins: [] })
+  });
+  await expect(getTripsWithDistance('test', { ...filter, zones: '' }, {})).resolves.toEqual({ trip_origins: [] });
+  expect(global.fetch.mock.calls[0][0]).not.toContain('zone_ids=');
 });

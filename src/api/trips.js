@@ -7,7 +7,7 @@ export const MAX_TRIP_DAYS = 31;
 export const MAX_TRIP_BYTES = 10 * 1024 * 1024;
 export const MAX_TRIPS = 50000;
 
-/** Raw trips require a local selection and a bounded period, never a nationwide year. */
+/** Raw trips require an authenticated, bounded period. */
 export const getTripsWithDistance = async (token, filter, metadata, signal) => {
   if (!token) throw new Error('Log in om ritafstanden te bekijken.');
   const start = moment.tz(filter.ontwikkelingvan, REPORTING_TIMEZONE).startOf('day');
@@ -16,7 +16,6 @@ export const getTripsWithDistance = async (token, filter, metadata, signal) => {
     throw new Error(`Kies voor ritafstanden een periode van maximaal ${MAX_TRIP_DAYS} dagen.`);
   }
   const params = new URLSearchParams(createFilterparameters(DISPLAYMODE_OTHER, filter, metadata, { is_logged_in: true }).join('&'));
-  if (!params.get('zone_ids')) throw new Error('Kies een plaats of zone om ritafstanden te laden.');
   params.set('start_time', start.toISOString());
   params.set('end_time', end.toISOString());
   const response = await fetch(`${process.env.REACT_APP_MAIN_API_URL}/dashboard-api/v2/trips/origins?${params}`, {

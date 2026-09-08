@@ -1,5 +1,6 @@
 
-import moment from 'moment';
+import moment from 'moment-timezone';
+import { REPORTING_TIMEZONE } from '../helpers/stats/time';
 import {
   DISPLAYMODE_PARK,
   DISPLAYMODE_RENTALS,
@@ -204,26 +205,20 @@ export const createFilterparameters = (displayMode, filter, metadata, options) =
   }
 
   if (isOntwikkelingData) {
-    let van = undefined;
-    let tot = undefined;
+    let van;
+    let tot;
     if (filter.ontwikkelingvan && filter.ontwikkelingtot) {
-      van = new Date(filter.ontwikkelingvan);
-      tot = new Date(moment(filter.ontwikkelingtot).add(1, 'day'));
+      van = moment.tz(filter.ontwikkelingvan, REPORTING_TIMEZONE).startOf('day');
+      tot = moment.tz(filter.ontwikkelingtot, REPORTING_TIMEZONE).startOf('day').add(1, 'day');
     }
 
-    if (!van || !tot) {
-      van = new Date();
-      // take now, strip hours, add 24 h
-      tot = new Date((new Date()).toDateString());
-      van.setDate(tot.getDate() - 7); // go back 1 week
+    if (!van?.isValid() || !tot?.isValid()) {
+      tot = moment.tz(REPORTING_TIMEZONE).startOf('day').add(1, 'day');
+      van = tot.clone().subtract(7, 'days');
     }
 
-    // toISOString(true) keeps local timezone://momentjs.com/docs/#/displaying/as-iso-string/
-    // Date format to create: 2020-12-31T23:00:00Z
-    // let ts1 = van.toISOString().replace(/.\d+Z$/g, "Z"); // use current time without decimals
-    // let ts2 = tot.toISOString().replace(/.\d+Z$/g, "Z"); // use current time without decimals
-    let ts1 = moment(van).format('YYYY-MM-DDTHH:mm:ss') + 'Z'; // use current time without decimals
-    let ts2 = moment(tot).format('YYYY-MM-DDTHH:mm:ss') + 'Z'; // use current time without decimals
+    const ts1 = van.toISOString().replace('.000Z', 'Z');
+    const ts2 = tot.toISOString().replace('.000Z', 'Z');
     filterparams.push("start_time=" + ts1 + "&end_time=" + ts2)
   }
 
