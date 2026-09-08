@@ -61,9 +61,8 @@ const SelectionTool = ({ map, vehicles }: SelectionToolProps): JSX.Element => {
 
   const finishSelection = useCallback(() => {
     if (points.current.length < MIN_POINTS) { clearSelection(); return; }
-    countSelection();
     setActiveMode(null);
-  }, [clearSelection, countSelection]);
+  }, [clearSelection]);
 
   const startSelection = (mode: SelectionMode) => {
     clearSelection();
@@ -198,8 +197,8 @@ const SelectionTool = ({ map, vehicles }: SelectionToolProps): JSX.Element => {
   }, [activeMode, finishSelection, clearSelection, map, updateSelectionSource]);
 
   useEffect(() => {
-    if (!activeMode && vehicleCount !== null) countSelection();
-  }, [vehicles?.data, activeMode, vehicleCount, countSelection]);
+    if (!activeMode && points.current.length >= MIN_POINTS) countSelection();
+  }, [vehicles?.data, activeMode, countSelection]);
 
   return <MapControlsPortal map={map} corner="bottom-right" order={-2}>
     <div className="SelectionTool">
