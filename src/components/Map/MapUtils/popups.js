@@ -52,6 +52,7 @@ export const initPopupLogic = (
     // When a click event occurs on a feature in the places layer, open a popup at the
     // location of the feature, with its external values rendered as text.
     function clickHandler (e) {
+      if (theMap.getCanvas?.()?.dataset?.selectionDrawing === 'true') return;
       // Remove popups
       if(popup) popup.remove();
       // Remove popups in an other way,
@@ -88,8 +89,8 @@ export const initPopupLogic = (
         : createVehiclePopup(properties, providers, options);
       popup = new maplibregl.Popup().setLngLat(coordinates).setDOMContent(contents).addTo(theMap);
     }
-    const enter = () => { theMap.getCanvas().style.cursor = 'pointer'; };
-    const leave = () => { theMap.getCanvas().style.cursor = ''; };
+    const enter = () => { if (theMap.getCanvas().dataset.selectionDrawing !== 'true') theMap.getCanvas().style.cursor = 'pointer'; };
+    const leave = () => { if (theMap.getCanvas().dataset.selectionDrawing !== 'true') theMap.getCanvas().style.cursor = ''; };
     for (const [event, handler] of [['click', clickHandler], ['mouseenter', enter], ['mouseleave', leave]]) {
       theMap.on(event, layerName, handler);
       cleanups.push(() => theMap.off(event, layerName, handler));

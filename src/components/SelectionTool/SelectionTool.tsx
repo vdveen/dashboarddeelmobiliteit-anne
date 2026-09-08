@@ -125,6 +125,8 @@ const SelectionTool = ({ map, vehicles }: SelectionToolProps): JSX.Element => {
     if (!map || !activeMode) return;
 
     const canvas = map.getCanvas();
+    const previousDrawing = canvas.dataset.selectionDrawing;
+    canvas.dataset.selectionDrawing = 'true';
     const previousCursor = canvas.style.cursor;
     const previousTouchAction = canvas.style.touchAction;
     const interactions = [map.dragPan, map.touchZoomRotate, map.doubleClickZoom]
@@ -187,6 +189,8 @@ const SelectionTool = ({ map, vehicles }: SelectionToolProps): JSX.Element => {
       window.removeEventListener('pointercancel', onCancel);
       window.removeEventListener('blur', onCancel);
       document.removeEventListener('keydown', onKey);
+      if (previousDrawing === undefined) delete canvas.dataset.selectionDrawing;
+      else canvas.dataset.selectionDrawing = previousDrawing;
       canvas.style.cursor = previousCursor;
       canvas.style.touchAction = previousTouchAction;
       interactions.forEach(({ handler, enabled }) => enabled ? handler.enable() : handler.disable());

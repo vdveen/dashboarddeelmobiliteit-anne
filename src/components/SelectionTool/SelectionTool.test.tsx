@@ -35,3 +35,23 @@ test('keeps drawing handlers stable across points and restores exact interaction
   expect(map.layers.size).toBe(0);
   expect(map.sources.size).toBe(0);
 });
+
+test('lasso stays in drawing mode between pointer moves and finishes outside the canvas', () => {
+  const map = mapStub();
+  render(<SelectionTool map={map} vehicles={{ data: { features: [] } }} />);
+  fireEvent.click(screen.getByLabelText('Voertuigen selecteren'));
+  fireEvent.click(screen.getByText('Lasso'));
+  const pointer = (target, type, x, y) => {
+    const event = new MouseEvent(type, { clientX: x, clientY: y, button: 0, bubbles: true });
+    Object.defineProperty(event, 'pointerId', { value: 1 });
+    fireEvent(target, event);
+  };
+  pointer(map.canvas, 'pointerdown', 0, 0);
+  pointer(window, 'pointermove', 1, 0);
+  pointer(window, 'pointermove', 0, 1);
+  expect(map.dragPan.isEnabled()).toBe(false);
+  expect(map.dragPan.enable).not.toHaveBeenCalled();
+  pointer(window, 'pointerup', 0, 1);
+  expect(screen.getByRole('status')).toHaveTextContent('0 voertuigen');
+  expect(map.dragPan.isEnabled()).toBe(true);
+});
