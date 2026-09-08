@@ -14,7 +14,7 @@ The database is managed as a Docker service because Railway's database helper do
 
 The viewer defaults to `https://voi-snapshot-api-production.up.railway.app`. Set `REACT_APP_VOI_API_URL` when deploying a viewer against another API address.
 
-Keep database credentials in Railway service variables. No GitHub write credential is needed. The previous GitHub archive is no longer updated or read. Its history is not imported.
+Keep database credentials in Railway service variables. `voi-vehicle-monitor` also needs the `DASHBOARDDEELMOB_KEY` service variable, set in the Railway UI with the Dashboard Deelmobiliteit API key. `railway.ts` preserves it, so a config plan does not wipe it. Never commit the key, print it, or put it in a URL; the collector sends it as an `apikey` request header. The key used for local validation lives in `/home/exedev/.env` outside the repository. No GitHub write credential is needed. The previous GitHub archive is no longer updated or read. Its history is not imported.
 
 ## Inspect collection
 
@@ -34,9 +34,11 @@ Filter a snapshot with `captured_at = TIMESTAMPTZ '2026-09-07 12:00:00+00'`. Fil
 
 ## Interpret availability
 
-The public `vehicles_in_public_space` endpoint currently supplies only `system_id`, `form_factor`, and `location`. It supplies neither stable vehicle identifiers nor availability. Each `objectid` identifies an observation, not a vehicle across snapshots.
+The collector reads the authenticated `park_events` endpoint, which requires `timestamp` and `operators` query parameters and an `apikey` header. Anonymous access returns HTTP 403, and a request without `timestamp` returns HTTP 500. Every vehicle carries `is_non_operational`, so each snapshot records the non-operational share. `is_non_operational` includes low battery and other reasons for being unavailable, not just physical defects.
 
-The dashboard uses `is_non_operational` from the authenticated `park_events` endpoint. Its definition includes low battery and other reasons for being unavailable, not just physical defects. Anonymous access to that endpoint returns HTTP 403.
+`is_reserved` and `is_available` are still absent, so they stay null unless `is_non_operational` is true, which forces `is_available` false. Each `objectid` identifies an observation, not a vehicle across snapshots; the endpoint's `bike_id` is not stored.
+
+The public `vehicles_in_public_space` endpoint is no longer used. It supplies only `system_id`, `form_factor`, and `location`, and ignores the API key.
 
 The archive preserves nullable `is_non_operational`, `is_reserved`, and `is_available` fields when supplied. Missing values remain SQL NULL and GeoJSON null. Explicit non-operational or reserved status implies unavailable. A non-defect vehicle is not automatically classified as available. Until the source supplies status, the available-only filter returns no positions.
 

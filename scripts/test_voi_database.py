@@ -16,9 +16,10 @@ class DatabaseTest(unittest.TestCase):
             initialize(connection)
             connection.execute("TRUNCATE voi_positions, voi_snapshots RESTART IDENTITY")
         self.captured = datetime(2026, 9, 7, 12, tzinfo=timezone.utc)
-        self.geojson = to_geojson({"vehicles_in_public_space": [
-            {"system_id": "voi", "form_factor": "bicycle",
-             "location": {"latitude": 52.1, "longitude": 5.1}, **status}
+        self.geojson = to_geojson({"park_events": [
+            {"system_id": "voi", "form_factor": "bicycle", "bike_id": "voi:jp4v",
+             "location": {"latitude": 52.1, "longitude": 5.1},
+             "is_non_operational": False, **status}
             for status in ({}, {"is_available": True}, {"is_non_operational": True})
         ]}, self.captured)
         self.client = app.test_client()
@@ -35,7 +36,7 @@ class DatabaseTest(unittest.TestCase):
         data = response.get_json()
         self.assertEqual(data["feature_count"], 3)
         self.assertEqual(data["features"][0]["geometry"]["coordinates"], [5.1, 52.1])
-        self.assertIsNone(data["features"][0]["properties"]["is_non_operational"])
+        self.assertIs(data["features"][0]["properties"]["is_non_operational"], False)
         for value in ("true", "false", "unknown"):
             self.assertEqual(self.client.get(url + "?available=" + value).get_json()["feature_count"], 1)
         self.assertEqual(self.client.post(url).status_code, 405)

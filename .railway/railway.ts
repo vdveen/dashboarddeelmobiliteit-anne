@@ -60,6 +60,8 @@ export default defineRailway(() => {
     },
     env: {
       DATABASE_URL: storage.env.DATABASE_URL,
+      // Set in the Railway UI. Never commit the key value.
+      DASHBOARDDEELMOB_KEY: preserve(),
     },
   });
 

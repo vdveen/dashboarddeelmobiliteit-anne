@@ -17,7 +17,9 @@
 - Use a project-scoped `RAILWAY_TOKEN` for unattended Railway commands. Never commit a Railway token or account credentials.
 - `.railway/railway.ts` defines the `voi-vehicle-monitor` cron service as a named partial. Follow `.railway/README.md` to plan and apply it after the user authenticates the CLI.
 - `voi-vehicle-monitor` collects on the hour (`0 * * * *`) into `voi-postgis`, a PostgreSQL/PostGIS database with a persistent volume. `voi-snapshot-api` serves the viewer through a read-only HTTP API. No GitHub deploy key is needed.
-- Keep `DATABASE_URL` and database credentials in Railway. Never print or commit their values. Availability columns are nullable because the public source currently omits status. Do not treat unknown status as available.
+- Keep `DATABASE_URL` and database credentials in Railway. Never print or commit their values.
+- `voi-vehicle-monitor` reads the authenticated `park_events` endpoint and needs the `DASHBOARDDEELMOB_KEY` service variable set in the Railway UI. Never commit, log, or print the key. The collector sends it as an `apikey` header, so it never reaches a stored URL. The key for local validation lives in `/home/exedev/.env`, outside the repository; keep it there.
+- Every snapshot now stores `is_non_operational`. `is_reserved` and `is_available` stay nullable because the source still omits them. Do not treat unknown status as available.
 
 ## Commit and push changes
 
