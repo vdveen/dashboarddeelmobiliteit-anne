@@ -38,6 +38,13 @@ const dispatchCachedAanbieders = (store_accesscontrollist) => {
   return false;
 };
 
+const aclRequests = new WeakMap();
+const captureOwner = store => {
+  const generation = aclRequests.get(store);
+  const token = store.getState().authentication?.user_data?.token;
+  return () => aclRequests.get(store) === generation && store.getState().authentication?.user_data?.token === token;
+};
+
 const publicGebiedenRequests = new WeakMap();
 
 const toGebiedOptions = (municipalities) => {
@@ -89,10 +96,12 @@ const loadPublicGebieden = (store_accesscontrollist) => {
 // nothing is cached, we leave aanbieders as-is so the app keeps working with
 // whatever is already in state.
 const dispatchPublicAanbiedersFromApi = (store_accesscontrollist) => {
+  const isCurrent = captureOwner(store_accesscontrollist);
   // Always refresh from the network on app init so a stale localStorage entry
   // (or a prior in-memory cache) cannot block the full operators list.
   return fetchOperators({ refresh: true })
     .then((operators) => {
+      if (!isCurrent()) return;
       if (operators && operators.length > 0) {
         store_accesscontrollist.dispatch({ type: 'SET_AANBIEDERS', payload: operators });
       }
@@ -111,8 +120,11 @@ export const initAccessControlList = (store_accesscontrollist)  => {
     
     // A newer ACL load owns the municipality options, even for the same user.
     publicGebiedenRequests.delete(store_accesscontrollist);
+    aclRequests.set(store_accesscontrollist, Symbol());
+    const isCurrent = captureOwner(store_accesscontrollist);
     const state = store_accesscontrollist.getState();
     if(!isLoggedIn(state)) {
+      store_accesscontrollist.dispatch({ type: 'SET_ACL_OPERATORS', payload: [] });
       // console.log("initialize ACL Data (not logged in)")
 
       loadPublicGebieden(store_accesscontrollist);
@@ -139,6 +151,7 @@ export const initAccessControlList = (store_accesscontrollist)  => {
       dispatchPublicAanbiedersFromApi(store_accesscontrollist);
 
       fetch(url, options).then((response) => {
+        if (!isCurrent()) return;
         if(!response.ok) {
           console.error("unable to fetch: %o", response);
           
@@ -157,8 +170,9 @@ export const initAccessControlList = (store_accesscontrollist)  => {
           return false
         }
 
-        response.json()
+        return response.json()
           .then((metadata) => {
+            if (!isCurrent()) return;
             // items -> {"name": "Cykl","system_id": "cykl"}
             // console.log("dispatch gebieden ", metadata.municipalities);
             store_accesscontrollist.dispatch({ type: 'SET_ACL_OPERATORS', payload: metadata.operators || [] });
@@ -218,6 +232,7 @@ export const initAccessControlList = (store_accesscontrollist)  => {
             store_accesscontrollist.dispatch({ type: 'SET_METADATA_LOADED', payload: true});
           })
         }).catch(ex=>{
+          if (!isCurrent()) return;
           console.error("unable to decode JSON", ex);
 
           // Handle network errors by falling back to public data (operators
@@ -227,6 +242,7 @@ export const initAccessControlList = (store_accesscontrollist)  => {
           store_accesscontrollist.dispatch({ type: 'SET_VEHICLE_TYPES', payload: cPublicVoertuigTypes});
           store_accesscontrollist.dispatch({ type: 'SET_METADATA_LOADED', payload: true});
         }).finally(()=>{
+          if (!isCurrent()) return;
           store_accesscontrollist.dispatch({type: 'SHOW_LOADING', payload: false});
         })
         return true;

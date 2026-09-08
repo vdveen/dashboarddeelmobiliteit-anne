@@ -1,3 +1,4 @@
+import { requestScope } from './requestScope';
 import moment from 'moment';
 import {
   createFilterparameters,
@@ -25,6 +26,7 @@ let activeVehicles;
 // Variable to keep track of filter changes
 // Only do a new fetch() if needed
 let existingFilter;
+let activeScope;
 
 const processVehiclesResult = (state, vehicles) => {
   activeVehicles = vehicles;
@@ -186,6 +188,9 @@ const doApiCall = (
   const thisFetch = abortableFetch(url, options);
   theFetch = thisFetch;
   theFetchUrl = url;
+  const owner = requestScope(state);
+  const isCurrent = () => theFetch === thisFetch && requestScope(store_parkingdata.getState()) === owner;
+
 
   // Only clear the in-flight tracking if it still points at this request
   // (a newer request may have replaced it in the meantime)
@@ -196,38 +201,19 @@ const doApiCall = (
     }
   };
 
-  thisFetch.ready.then(function(response) {
-    if(! response.ok) {
-      clearFetchTracking();
-      console.error("unable to fetch: %o", response);
-      return false
-    }
-
-    response.json().then(function(vehicles) {
-      if(isLoggedIn(state)) {
-        vehicles = vehicles.park_events
-      } else {
-        vehicles = vehicles.vehicles_in_public_space
-      }
-      // Process with the *current* store state (not the state at request
-      // time), so client-side filters that changed while the request was in
-      // flight are applied to the result.
-      callback(store_parkingdata.getState(), vehicles);
-    }).catch(ex=>{
-      console.error("unable to decode JSON");
-    }).finally(()=>{
-      clearFetchTracking();
-      // Stop loading
-      store_parkingdata.dispatch({type: 'SHOW_LOADING', payload: false});
-    })
-  }).catch(ex=>{
-    // If this request was aborted because a newer one replaced it, leave the
-    // loading state to the newer request
-    if(theFetch !== thisFetch) return;
+  thisFetch.ready.then(async response => {
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    if (!isCurrent()) return;
+    const values = isLoggedIn(state) ? data.park_events : data.vehicles_in_public_space;
+      if (!Array.isArray(values)) throw new Error('Invalid vehicle response');
+      callback(store_parkingdata.getState(), values);
+  }).catch(error => {
+    if (isCurrent() && error.name !== 'AbortError') console.error('Unable to load map data', error.message);
+  }).finally(() => {
+    if (theFetch !== thisFetch) return;
     clearFetchTracking();
-    // Stop loading
-    store_parkingdata.dispatch({type: 'SHOW_LOADING', payload: false});
-    console.error("fetch error - unable to fetch JSON from %s", url);
+    store_parkingdata.dispatch({ type: 'SHOW_LOADING', payload: false });
   });
 
 }
@@ -241,6 +227,17 @@ const updateParkingData = async () => {
     
     // Wait for zone data
     const state = store_parkingdata.getState();
+    const scope = requestScope(state);
+    if (scope !== activeScope) {
+      activeScope = scope;
+      activeVehicles = undefined;
+      existingFilter = undefined;
+      const hadRequest = !!theFetch;
+      theFetch?.abort(); theFetch = null; theFetchUrl = null;
+      if (hadRequest) store_parkingdata.dispatch({ type: 'SHOW_LOADING', payload: false });
+      store_parkingdata.dispatch({ type: 'CLEAR_VEHICLES' });
+    }
+
     if(! state) return;
 
     // const canfetchdata = state && isLoggedIn(state)  && state.filter && state.authentication.user_data.token;
@@ -253,7 +250,7 @@ const updateParkingData = async () => {
 
     if(doFetchVehicles || (! activeVehicles && ! theFetch)) {
       doApiCall(state, processVehiclesResult);
-    } else if(activeVehicles) {
+    } else if(activeVehicles && !theFetch) {
       // Regenerate geoJson without querying API
       processVehiclesResult(state, activeVehicles);
     }
@@ -268,6 +265,7 @@ const updateParkingData = async () => {
 }
 
 export const initUpdateParkingData = (_store) => {
+  if (store_parkingdata !== _store) { theFetch?.abort(); theFetch = null; activeScope = undefined; }
   store_parkingdata = _store;
   if(! store_parkingdata) { console.log('No store yet.'); return; }
   if(timerid_parkingdata) { clearTimeout(timerid_parkingdata); }

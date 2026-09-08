@@ -16,16 +16,10 @@ export const getAclOperatorSystemIds = (metadata) => {
     .filter(Boolean);
 };
 
-/**
- * Operator scope for stats requests. Single-ACL-operator accounts (e.g. a
- * municipality/province with one operator data-access grant) must always be
- * scoped to that operator or the backend refuses the request; other accounts
- * get the full public operators list. Mirrors appendOperatorsScope in
- * createFilterparameters.
- */
+/** Data grants scope requests independently of organisation role, including multiple grants. */
 export const getOperatorsScopeForStats = (metadata) => {
   const aclSystemIds = getAclOperatorSystemIds(metadata);
-  if (aclSystemIds.length === 1) {
+  if (aclSystemIds.length > 0) {
     return aclSystemIds;
   }
   return (metadata?.aanbieders || [])

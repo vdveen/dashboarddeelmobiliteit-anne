@@ -21,6 +21,7 @@ function DashboardPrestatiesAanbieders(props: DashboardPrestatiesAanbiedersProps
   const aanbieders = useSelector((state: StateType) =>
     state.metadata?.aanbieders ? state.metadata.aanbieders : []
   );
+  const organisationType = useSelector((state: StateType) => state.authentication?.user_data?.acl?.organisation_type || state.authentication?.user_data?.acl?.type_of_organisation);
   const aclOperators = useSelector((state: StateType) =>
     state.metadata?.aclOperators ? state.metadata.aclOperators : []
   );
@@ -35,9 +36,9 @@ function DashboardPrestatiesAanbieders(props: DashboardPrestatiesAanbiedersProps
   const navigate = useNavigate();
 
   const urlView = searchParams.get(PRESTATIES_VIEW_URL_PARAM);
-  const viewMode = resolvePrestatiesViewMode(aclOperators, isAdmin, urlView);
+  const viewMode = resolvePrestatiesViewMode(aclOperators, isAdmin, urlView, organisationType);
   const isMunicipalityView = viewMode === 'municipality';
-  const adminCanToggle = canToggleViewMode(isAdmin, aclOperators);
+  const adminCanToggle = canToggleViewMode(isAdmin, aclOperators, organisationType);
 
   const urlSystemId = searchParams.get('system_id');
   const urlOperator = searchParams.get('operator');

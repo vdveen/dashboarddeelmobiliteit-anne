@@ -64,6 +64,7 @@ function FilterbarPermits({
     return (state.metadata && state.metadata.aanbieders) ? state.metadata.aanbieders : [];
   });
 
+  const organisationType = useSelector((state: StateType) => state.authentication?.user_data?.acl?.organisation_type || state.authentication?.user_data?.acl?.type_of_organisation);
   const aclOperators = useSelector((state: StateType) => {
     return (state.metadata && state.metadata.aclOperators) ? state.metadata.aclOperators : [];
   });
@@ -95,9 +96,9 @@ function FilterbarPermits({
   const [searchParams, setSearchParams] = useSearchParams();
 
   const urlView = searchParams.get(PRESTATIES_VIEW_URL_PARAM);
-  const viewMode = resolvePrestatiesViewMode(aclOperators, isAdmin, urlView);
+  const viewMode = resolvePrestatiesViewMode(aclOperators, isAdmin, urlView, organisationType);
   const isMunicipalityView = viewMode === 'municipality';
-  const adminCanToggleView = canToggleViewMode(isAdmin, aclOperators);
+  const adminCanToggleView = canToggleViewMode(isAdmin, aclOperators, organisationType);
   const operatorSystemId = resolveOperatorSystemId(
     aclOperators,
     searchParams.get('system_id') || searchParams.get('operator')

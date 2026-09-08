@@ -1,3 +1,4 @@
+import { requestScope } from './requestScope';
 // import moment from 'moment';
 import md5 from 'md5';
 import {
@@ -27,6 +28,7 @@ let activeRentals;
 // Variable to keep track of filter changes
 // Only do a new fetch() if needed
 let existingFilter;
+let activeScope;
 
 const processRentalsResult = (state, type, rentals) => {
   // Don't overwrite imported CSV data ('Ruwe data import') with API data
@@ -210,6 +212,9 @@ const doApiCall = (
   const thisFetch = abortableFetch(url, options);
   theFetch = thisFetch;
   theFetchUrl = url;
+  const owner = requestScope(state);
+  const isCurrent = () => theFetch === thisFetch && requestScope(store_verhuringendata.getState()) === owner;
+
 
   // Only clear the in-flight tracking if it still points at this request
   // (a newer request may have replaced it in the meantime)
@@ -220,35 +225,18 @@ const doApiCall = (
     }
   };
 
-  thisFetch.ready.then(function(response) {
-    if(!response.ok) {
-      clearFetchTracking();
-      store_verhuringendata.dispatch({type: 'SHOW_LOADING', payload: false});
-      console.error("unable to fetch: %o", response);
-      return false
-    }
-
-    response.json().then(function(data) {
-      const currentState = store_verhuringendata.getState();
-      const rentals = isLoggedIn(currentState) ? data : [];
-      // Process with the *current* store state (not the state at request
-      // time), so client-side filters that changed while the request was in
-      // flight are applied to the result.
-      callback(currentState, type, rentals);
-    }).catch(ex=>{
-      console.error("unable to decode JSON");
-    }).finally(()=>{
-      clearFetchTracking();
-      store_verhuringendata.dispatch({type: 'SHOW_LOADING', payload: false});
-    })
-
-  }).catch(ex=>{
-    // If this request was aborted because a newer one replaced it, leave the
-    // loading state to the newer request
-    if(theFetch !== thisFetch) return;
+  thisFetch.ready.then(async response => {
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    if (!isCurrent()) return;
+    if (!Array.isArray(data[`trip_${type}`])) throw new Error('Invalid trip response');
+      callback(store_verhuringendata.getState(), type, data);
+  }).catch(error => {
+    if (isCurrent() && error.name !== 'AbortError') console.error('Unable to load map data', error.message);
+  }).finally(() => {
+    if (theFetch !== thisFetch) return;
     clearFetchTracking();
-    store_verhuringendata.dispatch({type: 'SHOW_LOADING', payload: false});
-    console.error("fetch error - unable to fetch JSON from %s", url);
+    store_verhuringendata.dispatch({ type: 'SHOW_LOADING', payload: false });
   });
 
 }
@@ -263,6 +251,18 @@ const updateVerhuringenData = ()  => {
     
     // Wait for zone data
     const state = store_verhuringendata.getState();
+    const scope = requestScope(state);
+    if (scope !== activeScope) {
+      activeScope = scope;
+      activeRentals = undefined;
+      existingFilter = undefined;
+      const hadRequest = !!theFetch;
+      theFetch?.abort(); theFetch = null; theFetchUrl = null;
+      if (hadRequest) store_verhuringendata.dispatch({ type: 'SHOW_LOADING', payload: false });
+      store_verhuringendata.dispatch({ type: 'CLEAR_RENTALS_ORIGINS' });
+      store_verhuringendata.dispatch({ type: 'CLEAR_RENTALS_DESTINATIONS' });
+    }
+
     if(state.layers.displaymode!==DISPLAYMODE_RENTALS) {
       // console.log(`not viewing rentals data (viewing ${state.layers.displaymode}, need ${DISPLAYMODE_RENTALS}) - skip update`);
       return true;
@@ -300,7 +300,7 @@ const updateVerhuringenData = ()  => {
       const theType = state.filter.herkomstbestemming === 'bestemming' ? 'destinations' : 'origins';
       if(doFetchRentals || (! activeRentals && ! theFetch)) {
         doApiCall(state, theType, processRentalsResult);
-      } else if(activeRentals) {
+      } else if(activeRentals && !theFetch) {
         // Regenerate geoJson without querying API
         processRentalsResult(state, theType, activeRentals);
       }
@@ -322,6 +322,7 @@ export const forceUpdateVerhuringenData = () => {
 }
 
 export const initUpdateVerhuringenData = (_store) => {
+  if (store_verhuringendata !== _store) { theFetch?.abort(); theFetch = null; activeScope = undefined; }
   store_verhuringendata = _store;
   forceUpdateVerhuringenData();
 }
