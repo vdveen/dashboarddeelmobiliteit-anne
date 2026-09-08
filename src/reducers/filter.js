@@ -1,5 +1,39 @@
 import moment from 'moment';
 
+// Values of the operational_status filter on the Aanbod map
+export const OPERATIONAL_STATUS_ALL = 'all';
+export const OPERATIONAL_STATUS_NON_OPERATIONAL = 'non_operational';
+export const OPERATIONAL_STATUS_OPERATIONAL = 'operational';
+export const OPERATIONAL_STATUSES = [
+  OPERATIONAL_STATUS_ALL,
+  OPERATIONAL_STATUS_NON_OPERATIONAL,
+  OPERATIONAL_STATUS_OPERATIONAL
+];
+
+// Logged in users start with an initial municipality
+// This prevents a slow website on initial load
+const randomInitialMunicipality = () => {
+  const municipalitiesWithLotsOfVehicles = [
+    'GM0080',// Leeuwarden
+    'GM0014',// Groningen
+    // '',// Alkmaar
+    'GM0392',// Haarlem
+    'GM0034',// Almere
+    'GM0193',// Zwolle
+    'GM0402',// Hilversum
+    'GM0307',// Amersfoort
+    'GM0344',// Utrecht
+    'GM0200',// Apeldoorn
+    'GM0518',// Den Haag
+    'GM0599',// Rotterdam
+    'GM0758',// Breda,
+    'GM0855',// Tilburg
+    'GM0772'// Eindhoven
+  ];
+  const randomMunicipality = municipalitiesWithLotsOfVehicles[Math.floor(Math.random() * municipalitiesWithLotsOfVehicles.length)];
+  return randomMunicipality;
+}
+
 // The public map view (not logged in) starts without a municipality filter.
 // Once the operator list is loaded, only operator Voi is active by default
 // (see the APPLY_PUBLIC_DEFAULT_FILTERS effect in App.tsx).
@@ -13,7 +47,9 @@ const initialState = {
   intervalduur: 60 * 60 * 1000,
   aanbiedersexclude: "",
   parkeerduurexclude: "",
-  non_operational_only: false,
+  // Which vehicles to show on the Aanbod map, based on the operator's
+  // non_operational status: 'all', 'non_operational' or 'operational'
+  operational_status: OPERATIONAL_STATUS_ALL,
   voertuigtypesexclude: "",
   afstandexclude: "",
   herkomstbestemming: "herkomstbestemming",
@@ -89,10 +125,12 @@ export default function filter(state = initialState, action) {
           herkomstbestemming: action.payload
       };
     }
-    case 'SET_FILTER_NON_OPERATIONAL_ONLY': {
+    case 'SET_FILTER_OPERATIONAL_STATUS': {
       return {
         ...state,
-        non_operational_only: action.payload === true
+        operational_status: OPERATIONAL_STATUSES.includes(action.payload)
+          ? action.payload
+          : OPERATIONAL_STATUS_ALL
       };
     }
     case 'SET_FILTER_H3NIVEAU': {
