@@ -70,6 +70,7 @@ import SelectionTool from '../SelectionTool/SelectionTool';
 import { getAclOrganisationType } from '../../helpers/authentication';
 import {
   selectDataLayerOrder,
+  selectActiveDataLayers,
   selectOverlayLayers,
   isOverlayLayerEnabled
 } from '../../helpers/layerSelectors';
@@ -93,6 +94,7 @@ const MapComponent = (props): JSX.Element => {
     return state.layers ? state.layers.map_style : null;
   });
 
+  const activeDataLayers = useSelector(selectActiveDataLayers);
   const dataLayerOrder = useSelector(selectDataLayerOrder);
   const overlayLayers = useSelector(selectOverlayLayers);
 
@@ -702,7 +704,7 @@ const MapComponent = (props): JSX.Element => {
       location.pathname === '/stats/prestaties-aanbieders' &&
       isOperatorPrestatiesView(aclOperators, organisationType);
 
-    initPopupLogic(
+    return initPopupLogic(
       map.current,
       providers,
       canSeeVehicleId(),
@@ -827,7 +829,7 @@ const MapComponent = (props): JSX.Element => {
     {/* The map container (HTML element) */}
     <div ref={mapContainer} className={`map flex-1 ${filterbarOpen ? 'filter-open' : ''}`} />
     {/* Vehicle selection tool */}
-    <SelectionTool map={map.current} vehicles={vehicles} />
+    {displayMode === DISPLAYMODE_PARK && activeDataLayers[DISPLAYMODE_PARK]?.length > 0 && <SelectionTool map={map.current} vehicles={vehicles} />}
     {/* Isochrone layer */}
     {isLoggedIn ? <IsochroneTools map={map.current} /> : null}
     {/* Attribution (bottom-right control stack) */}
