@@ -46,7 +46,6 @@
     "md5": "^2.3.0",
     "moment": "^2.29.1",
     "moment-timezone": "^0.5.38",
-    "npm": "^8.4.0",
     "process": "^0.11.10",
     "ramda": "^0.28.0",
     "react": "18.2.0",
@@ -67,27 +66,22 @@
     "tailwind-merge": "^2.2.2",
     "tailwindcss-animate": "^1.0.7",
     "tw-elements": "^1.0.0-alpha12",
-    "typescript": "^4",
+    "typescript": "4.9.5",
     "vis-data": "^7.1.9",
     "vis-timeline": "^7.7.3",
     "web-vitals": "^1.0.1",
     "zod": "^3.22.4"
   },
-  "resolutions": {
-    "react-error-overlay": "6.1.0"
-  },
   "engines": {
-    "node": "v24.18.0"
+    "node": "24.x"
   },
   "scripts": {
     "build:style": "tailwind build -i src/styles/index.css -o src/styles/tailwind.css",
-    "preinstall": "npx npm-force-resolutions",
     "start": "NODE_OPTIONS=--no-deprecation craco start",
     "build": "craco build",
     "test": "craco test",
     "eject": "react-scripts eject",
-    "predeploy": "npm run build && cp CNAME build/CNAME",
-    "deploy": "gh-pages -d build"
+    "typecheck": "tsc -p tsconfig.checked.json"
   },
   "eslintConfig": {
     "extends": [
@@ -125,12 +119,16 @@
   "devDependencies": {
     "@craco/craco": "^7.1.0",
     "autoprefixer": "^10.4.14",
-    "gh-pages": "^3.2.3",
     "postcss": "^8.4.21",
     "postcss-flexbugs-fixes": "^5.0.2",
     "postcss-preset-env": "^8.0.1",
-    "railway": "3.11.0",
-    "react-error-overlay": "^6.0.9",
-    "tailwindcss": "^3.4.3"
+    "react-error-overlay": "6.1.0",
+    "tailwindcss": "^3.4.3",
+    "@types/node": "18.19.130",
+    "@types/react": "18.2.79",
+    "@types/react-dom": "18.2.25"
+  },
+  "overrides": {
+    "react-error-overlay": "6.1.0"
   }
 }
