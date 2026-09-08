@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowJs": false,
+    "strict": true,
+    "types": [
+      "node"
+    ],
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": [
+    "src/api/dedupedFetch.ts",
+    "src/helpers/csv.ts",
+    "src/helpers/popupDom.ts",
+    "src/helpers/stats/time.ts",
+    "src/components/Map/MapControls/MapControlsPortal.tsx"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
