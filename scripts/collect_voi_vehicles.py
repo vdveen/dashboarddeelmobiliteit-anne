@@ -26,6 +26,8 @@ from urllib.request import Request, urlopen
 
 DEFAULT_API_URL = "https://api.dashboarddeelmobiliteit.nl/dashboard-api/park_events"
 OPERATOR = "voi"
+MAX_RESPONSE_BYTES = 20 * 1024 * 1024
+MAX_POSITIONS = 100000
 API_KEY_ENV = "DASHBOARDDEELMOB_KEY"
 
 
@@ -83,6 +85,9 @@ def to_geojson(payload: Any, captured_at: datetime) -> dict[str, Any]:
     vehicles = payload.get("park_events")
     if not isinstance(vehicles, list):
         raise ValueError("API response has no park_events array")
+
+    if len(vehicles) > MAX_POSITIONS:
+        raise ValueError("Vehicle response exceeds the position limit")
 
     features = []
     for index, vehicle in enumerate(vehicles):
@@ -190,8 +195,13 @@ def fetch_payload(
     for attempt in range(1, 4):
         try:
             with urlopen(request, timeout=timeout) as response:
-                return json.load(response)
+                raw = response.read(MAX_RESPONSE_BYTES + 1)
+                if len(raw) > MAX_RESPONSE_BYTES:
+                    raise ValueError("Vehicle response exceeds 20 MB")
+                return json.loads(raw)
         except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as error:
+            if isinstance(error, HTTPError) and error.code not in (408, 429) and error.code < 500:
+                raise RuntimeError(f"Vehicle API rejected the request (HTTP {error.code})") from None
             last_error = error
             if isinstance(error, HTTPError) and error.code in (401, 403):
                 raise RuntimeError(
