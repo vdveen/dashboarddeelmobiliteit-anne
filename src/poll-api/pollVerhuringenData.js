@@ -1,5 +1,5 @@
 // import moment from 'moment';
-import md5 from 'md5';
+import { importedParkingPoints } from '../helpers/rentalsCsvImport';
 import {
   createFilterparameters,
   convertDistanceToBin,
@@ -102,66 +102,14 @@ const processRentalsResult = (state, type, rentals) => {
 // The CSV contains park_events without trip distance, so the afstand filter
 // does not apply; aanbieders- and voertuigtype-filters are applied client-side.
 const processCsvRentalsResult = (state, csvData) => {
-  let geoJson = {
-    "type":"FeatureCollection",
-    "features":[]
-  }
+  const geoJson = importedParkingPoints(csvData.rows, state.filter);
+  const operatorstats = Object.create(null);
+  csvData.rows.forEach(row => { operatorstats[row.system_id] = (operatorstats[row.system_id] || 0) + 1; });
+  store_verhuringendata.dispatch({ type: 'SET_RENTALS_ORIGINS', payload: geoJson });
+  store_verhuringendata.dispatch({ type: 'SET_RENTALS_ORIGINS_OPERATORSTATS', payload: operatorstats });
+  store_verhuringendata.dispatch({ type: 'SET_RENTALS_DESTINATIONS', payload: { type: 'FeatureCollection', features: [] } });
+  store_verhuringendata.dispatch({ type: 'SET_RENTALS_DESTINATIONS_OPERATORSTATS', payload: {} });
 
-  let operatorstats = {}
-  state.metadata.aanbieders.forEach(o => {
-    operatorstats[o.system_id || o.value]=0;
-  });
-
-  const aanbiedersexclude = state.filter.aanbiedersexclude.split(",") || [];
-  const voertuigtypesexclude = (state.filter.voertuigtypesexclude || '').split(",");
-
-  csvData.rows.forEach(v => {
-    let feature = {
-     "type":"Feature",
-     "properties":{
-        "id": md5(`${v.lat}${v.lon}`),
-        "system_id": v.system_id,
-        "form_factor": v.form_factor || null,
-        "arrival_time": v.start_time,
-        "departure_time": v.end_time,
-        "distance_bin": 0,
-        "distance_in_meters": null
-     },
-     "geometry":{
-        "type":"Point",
-        "coordinates": [
-           v.lon,
-           v.lat,
-           0.0
-        ]
-      }
-    }
-
-    if(operatorstats[v.system_id] === undefined) {
-      operatorstats[v.system_id] = 0;
-    }
-    operatorstats[v.system_id] += 1;
-
-    let markerVisible = aanbiedersexclude.includes(v.system_id) === false;
-    markerVisible = markerVisible && (!v.form_factor || voertuigtypesexclude.includes(v.form_factor) === false);
-    if(markerVisible) {
-      geoJson.features.push(feature);
-    }
-  });
-
-  // Fill both origins and destinations, so the imported data is visible
-  // in every rentals layer (points, clusters, heat map), regardless of
-  // the herkomst/bestemming setting
-  ['ORIGINS', 'DESTINATIONS'].forEach(type => {
-    store_verhuringendata.dispatch({
-      type: `SET_RENTALS_${type}`,
-      payload: geoJson
-    })
-    store_verhuringendata.dispatch({
-      type: `SET_RENTALS_${type}_OPERATORSTATS`,
-      payload: operatorstats
-    })
-  })
 }
 
 const doApiCall = (

@@ -45,6 +45,7 @@ export default function FilteritemRuweDataImport() {
             skipped: skipped
           }
         });
+        dispatch({ type: 'LAYER_SET_SINGLE_DATA_LAYER', payload: { displayMode: 'displaymode-rentals', layerName: 'verhuurdata-voertuigen' } });
         forceUpdateVerhuringenData();
       } catch (error) {
         setErrorMessage(error.message || 'Het CSV-bestand kon niet worden gelezen');

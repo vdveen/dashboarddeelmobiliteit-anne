@@ -48,17 +48,13 @@ function timestamp(value, required) {
 export function parseRentalsCsv(csvText) {
   if (typeof csvText !== 'string' || new Blob([csvText]).size > MAX_CSV_BYTES) throw new Error('CSV-bestand mag maximaal 10 MB zijn.');
   const text = csvText.replace(/^\uFEFF/, '');
-  let parsed;
-  for (const delimiter of [',', ';']) {
-    try {
-      const candidate = records(text, delimiter);
-      if (REQUIRED.every(name => candidate[0]?.fields.map(x => x.toLowerCase()).includes(name))) { parsed = candidate; break; }
-    } catch (error) {
-      // Try the other delimiter, then report its record error if neither works.
-      if (delimiter === ';') throw error;
-    }
-  }
-  if (!parsed) throw new Error(`Verwachte kolommen: ${REQUIRED.join(', ')}.`);
+  const headerLine = text.split(/\r\n|\r|\n/, 1)[0];
+  const delimiter = [',', ';'].find(candidate => {
+    try { return REQUIRED.every(name => records(headerLine, candidate)[0]?.fields.map(x => x.toLowerCase()).includes(name)); }
+    catch { return false; }
+  });
+  if (!delimiter) throw new Error(`Verwachte kolommen: ${REQUIRED.join(', ')}.`);
+  const parsed = records(text, delimiter);
   const header = parsed[0].fields.map(x => x.toLowerCase());
   if (new Set(header).size !== header.length || header.some(x => !x)) throw new Error('Kolomnamen moeten uniek en niet leeg zijn.');
   if (parsed.length < 2) throw new Error('Het CSV-bestand bevat geen datarijen.');
@@ -82,4 +78,15 @@ export function parseRentalsCsv(csvText) {
     } catch (error) { throw new Error(`Regel ${line}: ${error.message}. Import is niet gewijzigd.`); }
   });
   return { rows, skipped: 0 };
+}
+
+export function importedParkingPoints(rows, filter) {
+  const excludedProviders = (filter.aanbiedersexclude || '').split(',');
+  const excludedTypes = (filter.voertuigtypesexclude || '').split(',');
+  return { type: 'FeatureCollection', features: rows.flatMap((row, index) => {
+    if (excludedProviders.includes(row.system_id) || excludedTypes.includes(row.form_factor)) return [];
+    return [{ type: 'Feature', properties: { id: `import-${index}`, system_id: row.system_id,
+      form_factor: row.form_factor, observation_kind: 'parking', in_public_space_since: row.start_time,
+      end_time: row.end_time, distance_in_meters: null }, geometry: { type: 'Point', coordinates: [row.lon, row.lat] } }];
+  }) };
 }

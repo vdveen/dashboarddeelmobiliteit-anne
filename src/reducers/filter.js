@@ -55,6 +55,10 @@ const initialState = {
 
 export default function filter(state = initialState, action) {
   switch(action.type) {
+    case 'SET_RENTALS_CSV_DATA':
+      return { ...state, csv_previous_direction: state.csv_previous_direction || state.herkomstbestemming, herkomstbestemming: 'herkomst' };
+    case 'CLEAR_RENTALS_CSV_DATA':
+      return { ...state, herkomstbestemming: state.csv_previous_direction || 'herkomstbestemming', csv_previous_direction: undefined };
     case 'SET_FILTER_VISIBLE': {
       // console.log('reducer filter set filter visible %s', action.payload)
       return {

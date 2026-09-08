@@ -166,6 +166,7 @@ const DataLayerList = ({
   isOperatorUser,
   zonesVisible
 }: DataLayerListProps) => {
+  const hasCsvImport = useSelector((state: StateType) => !!state.rentals?.csv_data);
   const dispatch = useDispatch();
   const { setSingleLayer } = useDataLayer();
   const activeDataLayers = useSelector(selectActiveDataLayers);
@@ -239,6 +240,7 @@ const DataLayerList = ({
     }
     if (displayMode === DISPLAYMODE_RENTALS) {
       return isOperatorUser
+        || hasCsvImport
         ? RENTALS_OPTIONS.filter((option) => option.id !== DISPLAYMODE_VERHUURDATA_HB)
         : RENTALS_OPTIONS;
     }
