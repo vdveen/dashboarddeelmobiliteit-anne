@@ -13,7 +13,7 @@ import {
 export const partial = "voi-vehicle-monitor";
 
 export default defineRailway(() => {
-  const data = volume("voi-postgis-volume", { region: "europe-west4-drams3a", sizeMB: 5000 });
+  const data = volume("voi-postgis-volume", { region: "europe-west4-drams3a", sizeMB: 20000 });
   const storage = service("voi-postgis", {
     source: image("postgis/postgis:16-3.5"),
     volumeMounts: { "/var/lib/postgresql/data": data },
@@ -54,7 +54,7 @@ export default defineRailway(() => {
     build,
     deploy: {
       startCommand: "python3 -m scripts.voi_database",
-      cronSchedule: "0 * * * *",
+      cronSchedule: "*/10 * * * *",
       restartPolicyType: "NEVER",
       multiRegionConfig: { "europe-west4-drams3a": { numReplicas: 1 } },
     },

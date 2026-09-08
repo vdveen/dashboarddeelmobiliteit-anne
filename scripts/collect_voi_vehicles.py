@@ -45,6 +45,20 @@ def utc_now() -> datetime:
     return datetime.now(timezone.utc).replace(microsecond=0)
 
 
+SNAPSHOT_INTERVAL_MINUTES = 10
+
+
+def floor_to_interval(value: datetime, minutes: int = SNAPSHOT_INTERVAL_MINUTES) -> datetime:
+    """Round a timestamp down to the start of its interval.
+
+    The cron fires at :00, :10, ... but container startup delays the request
+    by seconds, so every snapshot asks for the exact boundary instead.
+    """
+    if minutes <= 0 or 60 % minutes:
+        raise ValueError("minutes must divide 60")
+    return value.replace(minute=value.minute - value.minute % minutes, second=0, microsecond=0)
+
+
 def iso_timestamp(value: datetime) -> str:
     return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 

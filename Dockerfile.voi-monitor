@@ -10,7 +10,7 @@ RUN addgroup -S collector \
 
 COPY scripts/voi-requirements.txt /app/scripts/voi-requirements.txt
 RUN pip install --no-cache-dir -r scripts/voi-requirements.txt
-COPY --chown=collector:collector scripts/collect_voi_vehicles.py scripts/voi_database.py scripts/voi_api.py scripts/voi_schema.sql /app/scripts/
+COPY --chown=collector:collector scripts/collect_voi_vehicles.py scripts/voi_database.py scripts/voi_api.py scripts/voi_availability.py scripts/voi_schema.sql /app/scripts/
 
 USER collector
 
