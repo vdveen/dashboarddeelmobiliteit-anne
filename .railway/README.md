@@ -10,6 +10,10 @@ Railway stores snapshots in PostgreSQL 16 with PostGIS 3.5 on a persistent volum
 4. Run `railway config plan`. Check that the plan affects only the Voi services and database.
 5. Run `railway config apply`.
 
+The database is managed as a Docker service because Railway's database helper does not recognize custom PostGIS images consistently. Its existing generated credentials are preserved. The PostGIS cluster uses `/var/lib/postgresql/data/postgis16` on the 5 GB persistent volume. The empty PostgreSQL cluster created by Railway during initial provisioning is not used. Do not change PGDATA or detach the volume on an existing archive.
+
+The viewer defaults to `https://voi-snapshot-api-production.up.railway.app`. Set `REACT_APP_VOI_API_URL` when deploying a viewer against another API address.
+
 Keep database credentials in Railway service variables. No GitHub write credential is needed. The previous GitHub archive is no longer updated or read. Its history is not imported.
 
 ## Inspect collection
@@ -21,6 +25,8 @@ Railway schedules the job at the start of each hour. Container startup can delay
 ## Query from QGIS or ArcGIS Pro
 
 Open the `voi-postgis` service in Railway. Use its public TCP connection host, port, database, username, and password for a PostgreSQL connection in your GIS application. Require SSL. Do not put database credentials in frontend settings or commit them.
+
+The current host is `mainline.proxy.rlwy.net`, port `45460`, database `railway`. Get the username and password from the service's Railway variables. The endpoint supports SSL with a self-signed certificate; select SSL mode `require`.
 
 Load `public.voi_positions`, with `objectid` as the unique integer ID and `geom` as the EPSG:4326 point geometry. In ArcGIS Pro, use a PostgreSQL database connection and query layer. This is a spatial database, not an Esri enterprise geodatabase. PostgreSQL and PostGIS version support depends on the installed ArcGIS release.
 
