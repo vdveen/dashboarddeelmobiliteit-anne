@@ -67,6 +67,7 @@ import { updateStreetVisibilityForSatellite } from './MapUtils/backgroundLayerMa
 import { getProviderColorForProvider } from '../../helpers/providers';
 import { isOperatorPrestatiesView } from '../../helpers/prestatiesAanbiedersViewMode';
 import SelectionTool from '../SelectionTool/SelectionTool';
+import { getAclOrganisationType } from '../../helpers/authentication';
 import {
   selectDataLayerOrder,
   selectOverlayLayers,
@@ -105,7 +106,9 @@ const MapComponent = (props): JSX.Element => {
   const stateLayers = useSelector((state: StateType) => state.layers || null);
   const isLoggedIn = useSelector((state: StateType) => state.authentication.user_data ? true : false);
   const providers = useSelector((state: StateType) => (state.metadata && state.metadata.aanbieders) ? state.metadata.aanbieders : []);
-  const organisationType = useSelector((state: StateType) => state.authentication?.user_data?.acl?.organisation_type || state.authentication?.user_data?.acl?.type_of_organisation);
+  const organisationType = useSelector((state: StateType) =>
+    getAclOrganisationType(state.authentication?.user_data?.acl)
+  );
   const aclOperators = useSelector((state: StateType) =>
     state.metadata?.aclOperators ? state.metadata.aclOperators : []
   );

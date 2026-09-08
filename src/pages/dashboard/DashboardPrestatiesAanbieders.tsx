@@ -13,6 +13,7 @@ import {
   resolveOperatorSystemId,
   resolvePrestatiesViewMode,
 } from '../../helpers/prestatiesAanbiedersViewMode';
+import { getAclOrganisationType } from '../../helpers/authentication';
 
 interface DashboardPrestatiesAanbiedersProps {}
 
@@ -21,7 +22,9 @@ function DashboardPrestatiesAanbieders(props: DashboardPrestatiesAanbiedersProps
   const aanbieders = useSelector((state: StateType) =>
     state.metadata?.aanbieders ? state.metadata.aanbieders : []
   );
-  const organisationType = useSelector((state: StateType) => state.authentication?.user_data?.acl?.organisation_type || state.authentication?.user_data?.acl?.type_of_organisation);
+  const organisationType = useSelector((state: StateType) =>
+    getAclOrganisationType(state.authentication?.user_data?.acl)
+  );
   const aclOperators = useSelector((state: StateType) =>
     state.metadata?.aclOperators ? state.metadata.aclOperators : []
   );

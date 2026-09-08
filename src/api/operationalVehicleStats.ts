@@ -22,6 +22,7 @@ const fetchOperationalVehicleCounts = async (
   token: string | null,
   filter: any,
   metadata: any,
+  organisationType: string | null,
   dailyTimestamp: DailyTimestamp,
   signal?: AbortSignal
 ): Promise<[string, Record<string, number>]> => {
@@ -30,7 +31,7 @@ const fetchOperationalVehicleCounts = async (
     DISPLAYMODE_PARK,
     filterForDay,
     metadata,
-    { is_logged_in: true }
+    { is_logged_in: true, organisationType }
   );
   const url = `${process.env.REACT_APP_MAIN_API_URL}/dashboard-api/park_events?${filterParams.join('&')}`;
   const response = await fetch(url, {
@@ -63,6 +64,7 @@ export const getOperationalVehicleCountsByDay = async (
   token: string | null,
   filter: any,
   metadata: any,
+  organisationType: string | null,
   dailyTimestamps: DailyTimestamp[],
   signal?: AbortSignal
 ): Promise<OperationalVehicleCountsByDay> => {
@@ -76,7 +78,9 @@ export const getOperationalVehicleCountsByDay = async (
     while (nextIndex < uniqueTimestamps.length) {
       const item = uniqueTimestamps[nextIndex];
       nextIndex += 1;
-      results.push(await fetchOperationalVehicleCounts(token, filter, metadata, item, signal));
+      results.push(await fetchOperationalVehicleCounts(
+        token, filter, metadata, organisationType, item, signal
+      ));
     }
   };
 

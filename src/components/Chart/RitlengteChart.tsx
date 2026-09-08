@@ -33,6 +33,7 @@ import {
   calculateRelativeTripPercentages,
   formatRelativeTripValue
 } from './ritlengteChartUtils';
+import { getAclOrganisationType } from '../../helpers/authentication';
 
 // Trips longer than this many km all land in one open-ended last bin
 // ('20+'), so a few long outliers don't stretch the X axis.
@@ -40,6 +41,9 @@ const MAX_BIN_KM = 20;
 
 function RitlengteChart(props) {
   const token = useSelector((state: StateType) => (state.authentication.user_data && state.authentication.user_data.token)||null)
+  const organisationType = useSelector((state: StateType) =>
+    getAclOrganisationType(state.authentication?.user_data?.acl)
+  );
   const filter = useSelector((state: StateType) => state.filter)
   const metadata = useSelector((state: StateType) => state.metadata)
 
@@ -74,7 +78,9 @@ function RitlengteChart(props) {
     let didCancel = false;
     async function fetchData() {
       try {
-        const responseJson = await getTripsWithDistance(token, filter, metadata);
+        const responseJson = await getTripsWithDistance(
+          token, filter, metadata, undefined, organisationType
+        );
         if(didCancel) return;
         setTrips((responseJson && responseJson.trip_origins) ? responseJson.trip_origins : []);
       } finally {
@@ -95,7 +101,8 @@ function RitlengteChart(props) {
     metadata.zones,
     metadata.gebieden,
     metadata.vehicle_types,
-    token
+    token,
+    organisationType
   ]);
 
   // Bin trips into 1 km wide distance bins, counted per aanbieder

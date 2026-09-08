@@ -29,6 +29,7 @@ import {
   archivedProviders,
 } from '../../helpers/providers.js';
 import { getOperatorsScopeForStats } from '../../poll-api/pollTools.js';
+import { getAclOrganisationType } from '../../helpers/authentication';
 
 interface BeleidszonesAvailabilityKpiProps {
   zoneId: number;
@@ -43,6 +44,9 @@ function BeleidszonesAvailabilityKpi({ zoneId, zoneName }: BeleidszonesAvailabil
   );
   const filter = useSelector((state: StateType) => state.filter);
   const metadata = useSelector((state: StateType) => state.metadata);
+  const organisationType = useSelector((state: StateType) =>
+    getAclOrganisationType(state.authentication?.user_data?.acl)
+  );
 
   const [threshold, setThreshold] = useState(1);
   const [windowStartHour, setWindowStartHour] = useState(8);
@@ -65,7 +69,7 @@ function BeleidszonesAvailabilityKpi({ zoneId, zoneName }: BeleidszonesAvailabil
     : filter.ontwikkelingvan;
 
   // Provider exclusions are applied locally; the fetched scope and account own the data.
-  const operatorScope = getOperatorsScopeForStats(metadata);
+  const operatorScope = getOperatorsScopeForStats(metadata, organisationType);
   const dataKey = JSON.stringify([zoneId, startDate, endDate, token, [...operatorScope].sort()]);
   const currentKey = useRef(dataKey);
   currentKey.current = dataKey;

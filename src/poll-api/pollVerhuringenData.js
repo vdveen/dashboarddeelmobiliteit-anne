@@ -6,7 +6,7 @@ import {
   convertDistanceToBin,
   abortableFetch
 } from './pollTools.js';
-import {isLoggedIn, isAdmin} from '../helpers/authentication.js';
+import {getAclOrganisationType, isLoggedIn, isAdmin} from '../helpers/authentication.js';
 import {shouldFetchVehicles} from './pollTools.js';
 
 import { DISPLAYMODE_RENTALS } from '../reducers/layers.js';
@@ -17,9 +17,8 @@ var timerid_verhuringendata = undefined;
 // Variable that will prevent simultaneous loading of fetch requests
 let theFetch = null;
 
-// URL of the request currently in flight, so an identical request can reuse
-// it instead of aborting and starting over (see doApiCall)
-let theFetchUrl = null;
+// Identity of the request currently in flight, including its account.
+let theFetchScope = null;
 
 // Variable to keep track of vehicles response
 // Only do a new fetch() if needed
@@ -166,12 +165,7 @@ const processCsvRentalsResult = (state, csvData) => {
   })
 }
 
-const doApiCall = (
-  state,
-  type,
-  callback
-) => {
-
+const requestForState = (state, type) => {
   const canfetchdata = isLoggedIn(state)&&state&&state.filter&&state.authentication.user_data.token;
   const is_admin = isAdmin(state);
 
@@ -185,7 +179,8 @@ const doApiCall = (
   if (canfetchdata) {
     let filterparams = createFilterparameters(DISPLAYMODE_RENTALS, state.filter, state.metadata, {
       show_global: is_admin,
-      is_logged_in: isLoggedIn(state)
+      is_logged_in: isLoggedIn(state),
+      organisationType: getAclOrganisationType(state.authentication?.user_data?.acl),
     });
     if (filterparams.length > 0) {
       url += "?" + filterparams.join("&");
@@ -194,11 +189,22 @@ const doApiCall = (
       headers: { authorization: "Bearer " + state.authentication.user_data.token }
     };
   }
-  
-  // If a request for this exact URL is already in flight, let it finish
+  return { url, options };
+};
+
+const doApiCall = (
+  state,
+  type,
+  callback,
+  request = requestForState(state, type)
+) => {
+  const { url, options } = request;
+  const owner = requestScope(state, url);
+
+  // If this account already owns an identical request, let it finish
   // instead of aborting and re-issuing it: the response is processed with the
   // then-current store state, so the result is the same either way.
-  if(theFetch && theFetchUrl === url) {
+  if(theFetch && theFetchScope === owner) {
     return;
   }
 
@@ -211,9 +217,12 @@ const doApiCall = (
   // Now do a new fetch
   const thisFetch = abortableFetch(url, options);
   theFetch = thisFetch;
-  theFetchUrl = url;
-  const owner = requestScope(state);
-  const isCurrent = () => theFetch === thisFetch && requestScope(store_verhuringendata.getState()) === owner;
+  theFetchScope = owner;
+  const isCurrent = () => {
+    const currentState = store_verhuringendata.getState();
+    return theFetch === thisFetch
+      && requestScope(currentState, requestForState(currentState, type).url) === owner;
+  };
 
 
   // Only clear the in-flight tracking if it still points at this request
@@ -221,7 +230,7 @@ const doApiCall = (
   const clearFetchTracking = () => {
     if(theFetch === thisFetch) {
       theFetch = null;
-      theFetchUrl = null;
+      theFetchScope = null;
     }
   };
 
@@ -251,13 +260,15 @@ const updateVerhuringenData = ()  => {
     
     // Wait for zone data
     const state = store_verhuringendata.getState();
-    const scope = requestScope(state);
+    const theType = state.filter.herkomstbestemming === 'bestemming' ? 'destinations' : 'origins';
+    const request = requestForState(state, theType);
+    const scope = requestScope(state, request.url);
     if (scope !== activeScope) {
       activeScope = scope;
       activeRentals = undefined;
       existingFilter = undefined;
       const hadRequest = !!theFetch;
-      theFetch?.abort(); theFetch = null; theFetchUrl = null;
+      theFetch?.abort(); theFetch = null; theFetchScope = null;
       if (hadRequest) store_verhuringendata.dispatch({ type: 'SHOW_LOADING', payload: false });
       store_verhuringendata.dispatch({ type: 'CLEAR_RENTALS_ORIGINS' });
       store_verhuringendata.dispatch({ type: 'CLEAR_RENTALS_DESTINATIONS' });
@@ -274,6 +285,7 @@ const updateVerhuringenData = ()  => {
       if(theFetch) {
         theFetch.abort();
         theFetch = null;
+        theFetchScope = null;
       }
       processCsvRentalsResult(state, state.rentals.csv_data);
       return true;
@@ -297,10 +309,9 @@ const updateVerhuringenData = ()  => {
       // Update active filter
       existingFilter = state.filter;
 
-      const theType = state.filter.herkomstbestemming === 'bestemming' ? 'destinations' : 'origins';
       if(doFetchRentals || (! activeRentals && ! theFetch)) {
-        doApiCall(state, theType, processRentalsResult);
-      } else if(activeRentals && !theFetch) {
+        doApiCall(state, theType, processRentalsResult, request);
+      } else if(activeRentals) {
         // Regenerate geoJson without querying API
         processRentalsResult(state, theType, activeRentals);
       }
@@ -322,7 +333,7 @@ export const forceUpdateVerhuringenData = () => {
 }
 
 export const initUpdateVerhuringenData = (_store) => {
-  if (store_verhuringendata !== _store) { theFetch?.abort(); theFetch = null; activeScope = undefined; }
+  if (store_verhuringendata !== _store) { theFetch?.abort(); theFetch = null; theFetchScope = null; activeScope = undefined; }
   store_verhuringendata = _store;
   forceUpdateVerhuringenData();
 }

@@ -29,6 +29,7 @@ import {
   resolveOperatorSystemId,
 } from '../../helpers/prestatiesAanbiedersViewMode';
 import './PrestatiesAanbiedersDetailsPanel.css';
+import { getAclOrganisationType } from '../../helpers/authentication';
 
 interface PrestatiesAanbiedersDetailsPanelProps {
   onClose: () => void;
@@ -41,7 +42,9 @@ const LOADING_INDICATOR_DELAY_MS = 200;
 
 function PrestatiesAanbiedersDetailsPanel({ onClose, onToggleFullscreen, isFullscreen = false }: PrestatiesAanbiedersDetailsPanelProps) {
   const gebieden = useSelector((state: StateType) => state.metadata.gebieden);
-  const organisationType = useSelector((state: StateType) => state.authentication?.user_data?.acl?.organisation_type || state.authentication?.user_data?.acl?.type_of_organisation);
+  const organisationType = useSelector((state: StateType) =>
+    getAclOrganisationType(state.authentication?.user_data?.acl)
+  );
   const aclOperators = useSelector((state: StateType) => state.metadata.aclOperators ?? []);
   const metadataLoaded = useSelector((state: StateType) =>
     Boolean(state.metadata?.metadata_loaded)

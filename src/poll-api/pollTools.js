@@ -16,10 +16,14 @@ export const getAclOperatorSystemIds = (metadata) => {
     .filter(Boolean);
 };
 
-/** Data grants scope requests independently of organisation role, including multiple grants. */
-export const getOperatorsScopeForStats = (metadata) => {
+/**
+ * Keep the historical single-grant restriction. Multiple grants restrict an
+ * operator account, while government and admin accounts use the public list
+ * so a newly added operator is not hidden by delayed menu ACL metadata.
+ */
+export const getOperatorsScopeForStats = (metadata, organisationType) => {
   const aclSystemIds = getAclOperatorSystemIds(metadata);
-  if (aclSystemIds.length > 0) {
+  if (aclSystemIds.length === 1 || (organisationType === 'OPERATOR' && aclSystemIds.length > 0)) {
     return aclSystemIds;
   }
   return (metadata?.aanbieders || [])
@@ -127,7 +131,7 @@ export const createFilterparameters = (displayMode, filter, metadata, options) =
     if (hasOperatorsParam()) {
       return;
     }
-    const scope = getOperatorsScopeForStats(metadata);
+    const scope = getOperatorsScopeForStats(metadata, options.organisationType);
     if (scope.length > 0) {
       filterparams.push('operators=' + scope.join(','));
     }

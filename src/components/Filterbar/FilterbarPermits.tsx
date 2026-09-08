@@ -31,6 +31,7 @@ import {
   resolvePrestatiesViewMode,
 } from '../../helpers/prestatiesAanbiedersViewMode';
 import { RadioButton } from '../ui/radio-button';
+import { getAclOrganisationType } from '../../helpers/authentication';
 
 interface FilterbarPermitsProps {
   hideLogo: boolean;
@@ -64,7 +65,9 @@ function FilterbarPermits({
     return (state.metadata && state.metadata.aanbieders) ? state.metadata.aanbieders : [];
   });
 
-  const organisationType = useSelector((state: StateType) => state.authentication?.user_data?.acl?.organisation_type || state.authentication?.user_data?.acl?.type_of_organisation);
+  const organisationType = useSelector((state: StateType) =>
+    getAclOrganisationType(state.authentication?.user_data?.acl)
+  );
   const aclOperators = useSelector((state: StateType) => {
     return (state.metadata && state.metadata.aclOperators) ? state.metadata.aclOperators : [];
   });
