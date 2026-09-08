@@ -1,0 +1,15 @@
+.filter-operational-status-button {
+  width: 33.333%;
+  min-height: 44px;
+  padding: 4px 2px;
+  justify-content: center;
+}
+
+.filter-operational-status-count {
+  margin-top: 2px;
+  font: normal normal 600 10px/12px Inter;
+  letter-spacing: 0px;
+  color: inherit;
+  opacity: 0.85;
+  white-space: nowrap;
+}
