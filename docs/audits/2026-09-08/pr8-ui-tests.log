@@ -1,0 +1,10 @@
+npm notice run dashboarddeelmobiliteit-app@0.1.0 test
+npm notice run craco test --watchAll=false --runInBand src/pages/VoiVehicleHistory.test.tsx
+PASS src/pages/VoiVehicleHistory.test.tsx
+  ✓ retains displayed identity during a slow selection and retries that frame after failure (487 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       1 passed, 1 total
+Snapshots:   0 total
+Time:        4.549 s
+Ran all test suites matching /src\/pages\/VoiVehicleHistory.test.tsx/i.

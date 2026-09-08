@@ -1,0 +1,42 @@
+test_missing_or_blank_key_is_an_error (test_collect_voi_vehicles.ApiKeyTest.test_missing_or_blank_key_is_an_error) ... ok
+test_reads_and_strips_the_key (test_collect_voi_vehicles.ApiKeyTest.test_reads_and_strips_the_key) ... ok
+test_operational_vehicle_keeps_unknown_availability (test_collect_voi_vehicles.AvailabilityTest.test_operational_vehicle_keeps_unknown_availability) ... ok
+test_rejects_missing_or_non_boolean_non_operational (test_collect_voi_vehicles.AvailabilityTest.test_rejects_missing_or_non_boolean_non_operational) ... ok
+test_unavailable_status_overrides_available (test_collect_voi_vehicles.AvailabilityTest.test_unavailable_status_overrides_available) ... ok
+test_does_not_retry_on_an_auth_error (test_collect_voi_vehicles.FetchPayloadTest.test_does_not_retry_on_an_auth_error) ... ok
+test_sends_the_key_as_an_apikey_header (test_collect_voi_vehicles.FetchPayloadTest.test_sends_the_key_as_an_apikey_header) ... ok
+test_converts_voi_positions_and_ignores_other_operators (test_collect_voi_vehicles.ToGeoJsonTest.test_converts_voi_positions_and_ignores_other_operators) ... ok
+test_keeps_non_operational_true (test_collect_voi_vehicles.ToGeoJsonTest.test_keeps_non_operational_true) ... ok
+test_rejects_a_vehicle_without_non_operational (test_collect_voi_vehicles.ToGeoJsonTest.test_rejects_a_vehicle_without_non_operational) ... ok
+test_rejects_an_invalid_coordinate (test_collect_voi_vehicles.ToGeoJsonTest.test_rejects_an_invalid_coordinate) ... ok
+test_rejects_an_unexpected_response_shape (test_collect_voi_vehicles.ToGeoJsonTest.test_rejects_an_unexpected_response_shape) ... ok
+test_uses_the_capture_time_in_the_filename (test_collect_voi_vehicles.WriteGeoJsonTest.test_uses_the_capture_time_in_the_filename) ... ok
+test_keeps_an_exact_boundary_unchanged (test_voi_availability.FloorToIntervalTest.test_keeps_an_exact_boundary_unchanged) ... ok
+test_rejects_an_interval_that_does_not_divide_an_hour (test_voi_availability.FloorToIntervalTest.test_rejects_an_interval_that_does_not_divide_an_hour) ... ok
+test_rounds_down_to_the_ten_minute_boundary (test_voi_availability.FloorToIntervalTest.test_rounds_down_to_the_ten_minute_boundary) ... ok
+test_reads_zulu_and_offset_timestamps_as_utc (test_voi_availability.ParseIsoTest.test_reads_zulu_and_offset_timestamps_as_utc) ... ok
+test_rejects_garbage (test_voi_availability.ParseIsoTest.test_rejects_garbage) ... ok
+test_defaults_to_the_last_seven_days (test_voi_availability.ParseWindowTest.test_defaults_to_the_last_seven_days) ... ok
+test_from_alone_runs_to_now (test_voi_availability.ParseWindowTest.test_from_alone_runs_to_now) ... ok
+test_rejects_a_reversed_window (test_voi_availability.ParseWindowTest.test_rejects_a_reversed_window) ... ok
+test_to_alone_keeps_a_seven_day_window (test_voi_availability.ParseWindowTest.test_to_alone_keeps_a_seven_day_window) ... ok
+test_accepts_a_json_string_and_unwraps_a_feature (test_voi_availability.ValidatePolygonTest.test_accepts_a_json_string_and_unwraps_a_feature) ... ok
+test_accepts_a_polygon_and_a_multipolygon (test_voi_availability.ValidatePolygonTest.test_accepts_a_polygon_and_a_multipolygon) ... ok
+test_rejects_a_malformed_ring (test_voi_availability.ValidatePolygonTest.test_rejects_a_malformed_ring) ... ok
+test_rejects_more_than_the_vertex_cap (test_voi_availability.ValidatePolygonTest.test_rejects_more_than_the_vertex_cap) ... ok
+test_rejects_other_geometry_types (test_voi_availability.ValidatePolygonTest.test_rejects_other_geometry_types) ... ok
+test_atomic_idempotent_snapshot_and_geojson_filters (test_voi_database.DatabaseTest.test_atomic_idempotent_snapshot_and_geojson_filters) ... ok
+test_availability_counts_per_snapshot_inside_the_polygon (test_voi_database.DatabaseTest.test_availability_counts_per_snapshot_inside_the_polygon) ... ok
+test_availability_rejects_bad_input_and_answers_preflight (test_voi_database.DatabaseTest.test_availability_rejects_bad_input_and_answers_preflight) ... ok
+test_index_window_filters_by_time (test_voi_database.DatabaseTest.test_index_window_filters_by_time) ... ok
+test_readonly_connection_rejects_writes (test_voi_database.DatabaseTest.test_readonly_connection_rejects_writes) ... ok
+test_rollback_leaves_no_partial_snapshot (test_voi_database.DatabaseTest.test_rollback_leaves_no_partial_snapshot) ... ok
+test_permanent_http_failure_does_not_retry (test_voi_reliability.ReliabilityTest.test_permanent_http_failure_does_not_retry) ... ok
+test_retry_exhaustion_is_bounded (test_voi_reliability.ReliabilityTest.test_retry_exhaustion_is_bounded) ... ok
+test_retry_keeps_original_payload_and_duplicate_result (test_voi_reliability.ReliabilityTest.test_retry_keeps_original_payload_and_duplicate_result) ... ok
+test_window_and_geometry_budgets (test_voi_reliability.ReliabilityTest.test_window_and_geometry_budgets) ... ok
+
+----------------------------------------------------------------------
+Ran 37 tests in 1.486s
+
+OK

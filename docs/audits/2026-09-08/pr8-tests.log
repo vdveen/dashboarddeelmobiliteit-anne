@@ -1,0 +1,37 @@
+npm notice run dashboarddeelmobiliteit-app@0.1.0 test
+npm notice run craco test --watchAll=false --runInBand src/api/voiSnapshots.test.ts src/api/voiSnapshotCache.test.ts src/pages/VoiVehicleHistory.test.tsx
+PASS src/api/voiSnapshots.test.ts
+PASS src/api/voiSnapshotCache.test.ts
+FAIL src/pages/VoiVehicleHistory.test.tsx
+  ● Test suite failed to run
+
+    Cannot find module '@radix-ui/primitive/is-development' from '../dashboarddeelmobiliteit-anne/node_modules/@radix-ui/react-slot/dist/index.js'
+
+    Require stack:
+      /home/exedev/dashboarddeelmobiliteit-anne/node_modules/@radix-ui/react-slot/dist/index.js
+      src/components/ui/button.tsx
+      src/pages/VoiVehicleHistory.tsx
+      src/pages/VoiVehicleHistory.test.tsx
+
+      1 | import * as React from "react"
+    > 2 | import { Slot } from "@radix-ui/react-slot"
+        | ^
+      3 | import { cva, type VariantProps } from "class-variance-authority"
+      4 |
+      5 | import { cn } from "../../lib/utils"
+
+      at Resolver.resolveModule (../dashboarddeelmobiliteit-anne/node_modules/jest-resolve/build/resolver.js:324:11)
+      at Object.<anonymous> (../dashboarddeelmobiliteit-anne/node_modules/@radix-ui/react-slot/src/merge-props.ts:1:32)
+      at Object.<anonymous> (src/components/ui/button.tsx:2:1)
+      at Object.<anonymous> (src/pages/VoiVehicleHistory.tsx:19:1)
+      at Object.<anonymous> (src/pages/VoiVehicleHistory.test.tsx:3:1)
+      at TestScheduler.scheduleTests (../dashboarddeelmobiliteit-anne/node_modules/@jest/core/build/TestScheduler.js:333:13)
+      at runJest (../dashboarddeelmobiliteit-anne/node_modules/@jest/core/build/runJest.js:404:19)
+      at _run10000 (../dashboarddeelmobiliteit-anne/node_modules/@jest/core/build/cli/index.js:320:7)
+      at runCLI (../dashboarddeelmobiliteit-anne/node_modules/@jest/core/build/cli/index.js:173:3)
+
+Test Suites: 1 failed, 2 passed, 3 total
+Tests:       7 passed, 7 total
+Snapshots:   0 total
+Time:        3.324 s, estimated 4 s
+Ran all test suites matching /src\/api\/voiSnapshots.test.ts|src\/api\/voiSnapshotCache.test.ts|src\/pages\/VoiVehicleHistory.test.tsx/i.

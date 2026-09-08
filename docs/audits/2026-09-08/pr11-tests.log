@@ -1,0 +1,22 @@
+npm notice run dashboarddeelmobiliteit-app@0.1.0 test
+npm notice run craco test --watchAll=false --runInBand
+PASS src/helpers/stats/availability-kpi.test.ts
+PASS src/components/Map/MapUtils/popupDom.test.ts
+PASS src/components/NewFeatureIndicator/NewFeatureIndicator.test.js
+PASS src/components/Chart/BeleidszonesAvailabilityKpi.test.tsx
+PASS src/components/PrestatiesAanbieders/chartCsv.test.ts
+PASS src/poll-api/metadataAccessControlList.test.js
+PASS src/helpers/csv.test.ts
+PASS src/helpers/authentication.test.js
+PASS src/components/Filterbar/FilteritemMarkers.test.js
+PASS src/api/operationalVehicleStats.test.ts
+PASS src/components/Chart/availableVehiclesChartUtils.test.ts
+PASS src/api/voiSnapshots.test.ts
+PASS src/components/Chart/ritlengteChartUtils.test.ts
+PASS src/helpers/layerSelectors.test.ts
+
+Test Suites: 14 passed, 14 total
+Tests:       66 passed, 66 total
+Snapshots:   0 total
+Time:        9.3 s
+Ran all test suites.

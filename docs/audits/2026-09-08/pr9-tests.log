@@ -1,0 +1,10 @@
+npm notice run dashboarddeelmobiliteit-app@0.1.0 test
+npm notice run craco test --watchAll=false --runInBand src/api/trips.test.js src/components/Chart/ritlengteChartUtils.test.ts
+PASS src/api/trips.test.js
+PASS src/components/Chart/ritlengteChartUtils.test.ts
+
+Test Suites: 2 passed, 2 total
+Tests:       5 passed, 5 total
+Snapshots:   0 total
+Time:        2.144 s
+Ran all test suites matching /src\/api\/trips.test.js|src\/components\/Chart\/ritlengteChartUtils.test.ts/i.

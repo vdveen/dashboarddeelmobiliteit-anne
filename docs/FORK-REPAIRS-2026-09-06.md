@@ -1,5 +1,7 @@
 # Fork repairs and remaining work
 
+Update, 2026-09-08: All remaining revised proposals are implemented as open PRs #14 through #21. See the [current assessment, PR mapping and validation limits](audits/2026-09-08/README.md). The dated assessment below is historical.
+
 Update, 2026-09-07: PRs #11, #12, and #13 are merged into the fork main at `8bc0184d`. The final check included today's `51c49558` chart change. All merges were conflict-free, the combined production build passed, and 63 tests passed with the same two inherited suite-loading failures. See [merge evidence](audits/2026-09-07/README.md). The following assessment records the earlier pre-merge state and remaining work.
 
 Audit proposals 1, 2, and 7 are implemented as separate PRs against `vdveen/dashboarddeelmobiliteit-anne:main`. They are open for review, not merged or deployed. All eight other proposals remain useful. Proposal 3 is smaller, and proposals 4 and 6 now have their prerequisites ready.
