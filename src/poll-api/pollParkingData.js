@@ -6,6 +6,11 @@ import {
 } from './pollTools.js';
 import { isLoggedIn, isAdmin } from '../helpers/authentication.js';
 import { DISPLAYMODE_PARK } from '../reducers/layers.js';
+import {
+  OPERATIONAL_STATUS_ALL,
+  OPERATIONAL_STATUS_NON_OPERATIONAL,
+  OPERATIONAL_STATUS_OPERATIONAL
+} from '../reducers/filter.js';
 import {shouldFetchVehicles} from './pollTools.js';
 
 var store_parkingdata;
@@ -25,6 +30,17 @@ let activeVehicles;
 // Variable to keep track of filter changes
 // Only do a new fetch() if needed
 let existingFilter;
+
+// Does a vehicle pass the operational_status filter of the Aanbod map?
+// Vehicles without a known status count as operational, like the map icons do.
+export const passesOperationalStatusFilter = (operationalStatus, vehicle) => {
+  const isNonOperational = vehicle.is_non_operational === true;
+  switch(operationalStatus) {
+    case OPERATIONAL_STATUS_NON_OPERATIONAL: return isNonOperational;
+    case OPERATIONAL_STATUS_OPERATIONAL: return ! isNonOperational;
+    default: return true;
+  }
+}
 
 const processVehiclesResult = (state, vehicles) => {
   activeVehicles = vehicles;
@@ -46,6 +62,15 @@ const processVehiclesResult = (state, vehicles) => {
   // applied here, so excluding a bin doesn't blank out its own count.
   let parkeerduurstats = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0};
 
+  // Number of vehicles per operational status, used for the counts in the
+  // Defecte voertuigen filter. Like parkeerduurstats, this filter's own
+  // selection is *not* applied, so 'all' is the total of the other two.
+  let operationalstats = {
+    [OPERATIONAL_STATUS_ALL]: 0,
+    [OPERATIONAL_STATUS_NON_OPERATIONAL]: 0,
+    [OPERATIONAL_STATUS_OPERATIONAL]: 0
+  };
+
   var start_time = moment(state.filter.datum);
   const start_time_ms = start_time.valueOf();
 
@@ -53,7 +78,7 @@ const processVehiclesResult = (state, vehicles) => {
   const aanbiedersexclude = state.filter.aanbiedersexclude.split(",") || [];
   // Get parkeerduur length to exclude
   const parkeerduurexclude = state.filter.parkeerduurexclude.split(",") || [];
-  const showOnlyNonOperational = state.filter.non_operational_only === true;
+  const operationalStatus = state.filter.operational_status || OPERATIONAL_STATUS_ALL;
   const loggedIn = isLoggedIn(state);
 
   vehicles.forEach(v => {
@@ -92,17 +117,22 @@ const processVehiclesResult = (state, vehicles) => {
     operatorstats[v.system_id || v.value]+=1;
 
     // Filter markers
-    let passesOtherFilters = aanbiedersexclude.includes(v.system_id || v.value) === false;
-    if (showOnlyNonOperational) {
-      passesOtherFilters = passesOtherFilters && v.is_non_operational === true;
-    }
+    const passesAanbiedersFilter = aanbiedersexclude.includes(v.system_id || v.value) === false;
+    const passesOperationalFilter = passesOperationalStatusFilter(operationalStatus, v);
+    const passesParkeerduurFilter = ! loggedIn || ! parkeerduurexclude.includes(duration_bin.toString());
 
-    if(passesOtherFilters && parkeerduurstats[duration_bin] !== undefined) {
+    if(passesAanbiedersFilter && passesOperationalFilter && parkeerduurstats[duration_bin] !== undefined) {
       parkeerduurstats[duration_bin]+=1;
     }
 
-    let markerVisible = passesOtherFilters
-      && (! loggedIn || !parkeerduurexclude.includes(duration_bin.toString()));
+    if(passesAanbiedersFilter && passesParkeerduurFilter) {
+      operationalstats[OPERATIONAL_STATUS_ALL]+=1;
+      operationalstats[v.is_non_operational === true
+        ? OPERATIONAL_STATUS_NON_OPERATIONAL
+        : OPERATIONAL_STATUS_OPERATIONAL]+=1;
+    }
+
+    let markerVisible = passesAanbiedersFilter && passesOperationalFilter && passesParkeerduurFilter;
     if(markerVisible) {
       geoJson.features.push(feature);
     }
@@ -125,6 +155,12 @@ const processVehiclesResult = (state, vehicles) => {
   store_parkingdata.dispatch({
     type: 'SET_VEHICLES_PARKEERDUURSTATS',
     payload: parkeerduurstats
+  })
+
+  // Update operational stats (= number of vehicles per operational status) in store
+  store_parkingdata.dispatch({
+    type: 'SET_VEHICLES_OPERATIONALSTATS',
+    payload: operationalstats
   })
 }
 
