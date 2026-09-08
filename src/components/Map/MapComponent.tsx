@@ -67,8 +67,10 @@ import { updateStreetVisibilityForSatellite } from './MapUtils/backgroundLayerMa
 import { getProviderColorForProvider } from '../../helpers/providers';
 import { isOperatorPrestatiesView } from '../../helpers/prestatiesAanbiedersViewMode';
 import SelectionTool from '../SelectionTool/SelectionTool';
+import { getAclOrganisationType } from '../../helpers/authentication';
 import {
   selectDataLayerOrder,
+  selectActiveDataLayers,
   selectOverlayLayers,
   isOverlayLayerEnabled
 } from '../../helpers/layerSelectors';
@@ -92,6 +94,7 @@ const MapComponent = (props): JSX.Element => {
     return state.layers ? state.layers.map_style : null;
   });
 
+  const activeDataLayers = useSelector(selectActiveDataLayers);
   const dataLayerOrder = useSelector(selectDataLayerOrder);
   const overlayLayers = useSelector(selectOverlayLayers);
 
@@ -105,6 +108,9 @@ const MapComponent = (props): JSX.Element => {
   const stateLayers = useSelector((state: StateType) => state.layers || null);
   const isLoggedIn = useSelector((state: StateType) => state.authentication.user_data ? true : false);
   const providers = useSelector((state: StateType) => (state.metadata && state.metadata.aanbieders) ? state.metadata.aanbieders : []);
+  const organisationType = useSelector((state: StateType) =>
+    getAclOrganisationType(state.authentication?.user_data?.acl)
+  );
   const aclOperators = useSelector((state: StateType) =>
     state.metadata?.aclOperators ? state.metadata.aclOperators : []
   );
@@ -370,7 +376,8 @@ const MapComponent = (props): JSX.Element => {
     else if(gm_code) {
       dispatch({
         type: 'SET_FILTER_GEBIED',
-        payload: gm_code
+        payload: gm_code,
+        meta: { explicit: true }
       })
     }
 
@@ -696,9 +703,9 @@ const MapComponent = (props): JSX.Element => {
 
     const hidePopupProviderTitle =
       location.pathname === '/stats/prestaties-aanbieders' &&
-      isOperatorPrestatiesView(aclOperators);
+      isOperatorPrestatiesView(aclOperators, organisationType);
 
-    initPopupLogic(
+    return initPopupLogic(
       map.current,
       providers,
       canSeeVehicleId(),
@@ -709,6 +716,8 @@ const MapComponent = (props): JSX.Element => {
     didInitSourcesAndLayers,
     providers,
     aclOperators,
+    organisationType,
+    userData,
     filter.datum,
     location.pathname,
   ])
@@ -821,7 +830,7 @@ const MapComponent = (props): JSX.Element => {
     {/* The map container (HTML element) */}
     <div ref={mapContainer} className={`map flex-1 ${filterbarOpen ? 'filter-open' : ''}`} />
     {/* Vehicle selection tool */}
-    <SelectionTool map={map.current} vehicles={vehicles} />
+    {displayMode === DISPLAYMODE_PARK && activeDataLayers[DISPLAYMODE_PARK]?.length > 0 && <SelectionTool map={map.current} vehicles={vehicles} />}
     {/* Isochrone layer */}
     {isLoggedIn ? <IsochroneTools map={map.current} /> : null}
     {/* Attribution (bottom-right control stack) */}

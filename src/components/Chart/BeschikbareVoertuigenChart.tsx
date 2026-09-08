@@ -56,6 +56,7 @@ import {
   getDailyTimestamps,
   getNotDefectSeriesKey
 } from './availableVehiclesChartUtils';
+import { getAclOrganisationType } from '../../helpers/authentication';
 
 const TOTAAL_KEY = 'Totaal';
 
@@ -72,6 +73,9 @@ function BeschikbareVoertuigenChart({
   
   // Get authentication token
   const token = useSelector((state: StateType) => (state.authentication.user_data && state.authentication.user_data.token)||null)
+  const organisationType = useSelector((state: StateType) =>
+    getAclOrganisationType(state.authentication?.user_data?.acl)
+  );
 
   // Get metadata
   const metadata = useSelector((state: StateType) => state.metadata)
@@ -123,7 +127,9 @@ function BeschikbareVoertuigenChart({
     async function fetchData() {
       try {
         // Get aggregated vehicle data
-        const aggregatedVehicleData = await getAggregatedVehicleData(token, filter, zones, metadata);
+        const aggregatedVehicleData = await getAggregatedVehicleData(
+          token, filter, zones, metadata, organisationType
+        );
         if(! aggregatedVehicleData || cancelled) return;
 
         // Set state
@@ -149,6 +155,7 @@ function BeschikbareVoertuigenChart({
             token,
             filter,
             metadata,
+            organisationType,
             dailyTimestamps,
             operationalVehiclesController.signal
           );
@@ -185,6 +192,7 @@ function BeschikbareVoertuigenChart({
     metadata.gebieden,
     metadata.vehicle_types,
     token,
+    organisationType,
     dispatch
   ]);
   

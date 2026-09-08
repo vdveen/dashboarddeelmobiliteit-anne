@@ -19,14 +19,15 @@ const parseZoneIdsFromFilter = (filter: { zones?: string }) => {
   return filter.zones.split(',').map((id) => parseInt(id.trim(), 10)).filter((n) => !isNaN(n));
 };
 
-export const getAggregatedRentalsData = async (token, filter, zones, metadata) => {
+export const getAggregatedRentalsData = async (token, filter, zones, metadata, organisationType?) => {
   let aggregatedVehicleData;
   const options = {
     filter: filter,
     metadata: metadata,
     aggregationLevel: filter.ontwikkelingaggregatie,
     aggregationTime: filter.ontwikkelingaggregatie_tijd,
-    aggregationFunction: filter.ontwikkelingaggregatie_function
+    aggregationFunction: filter.ontwikkelingaggregatie_function,
+    organisationType
   };
   if (doShowDetailledAggregatedData(filter, zones)) {
     const zoneIds = parseZoneIdsFromFilter(filter);
@@ -39,7 +40,7 @@ export const getAggregatedRentalsData = async (token, filter, zones, metadata) =
         endTime: tot.toISOString(),
         aggregationLevel: filter.ontwikkelingaggregatie,
         aggregationFunction: filter.ontwikkelingaggregatie_function || 'MAX',
-        operators: getOperatorsScopeForStats(metadata),
+        operators: getOperatorsScopeForStats(metadata, organisationType),
       });
     }
     if (!aggregatedVehicleData) {

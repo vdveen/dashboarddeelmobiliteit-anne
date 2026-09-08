@@ -38,8 +38,8 @@ const INTERVAL_MS = 5 * 60 * 1000;
 export const MAX_5M_PERIOD_DAYS = 90;
 
 export function availabilityPeriod(startDate: string, endDate: string) {
-  const requestedStart = moment.tz(startDate, 'YYYY-MM-DD', true, REPORTING_TIMEZONE);
-  const end = moment.tz(endDate, 'YYYY-MM-DD', true, REPORTING_TIMEZONE).add(1, 'day');
+  const requestedStart = moment.tz(startDate, moment.ISO_8601, true, REPORTING_TIMEZONE).startOf('day');
+  const end = moment.tz(endDate, moment.ISO_8601, true, REPORTING_TIMEZONE).startOf('day').add(1, 'day');
   if (!requestedStart.isValid() || !end.isValid() || !requestedStart.isBefore(end)) {
     throw new Error('Selecteer een geldige begin- en einddatum.');
   }

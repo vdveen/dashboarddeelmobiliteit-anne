@@ -1,3 +1,4 @@
+import { scopedMetadataStore } from './requestScope';
 /**
  * Fetches zones for /stats/beleidszones from MDS public/zones only.
  * Used when the user is on the beleidszones page.
@@ -18,6 +19,7 @@ function parseZoneIds(str) {
 }
 
 export const updateBeleidszonesZones = async (store) => {
+  store = scopedMetadataStore(store, 'updateBeleidszonesZones');
   try {
     if (!store) return false;
 

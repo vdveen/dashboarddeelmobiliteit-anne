@@ -7,10 +7,12 @@ tested without a database driver installed.
 from __future__ import annotations
 
 import json
+import math
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 DEFAULT_WINDOW_DAYS = 7
+MAX_WINDOW_DAYS = 31
 MAX_POLYGON_VERTICES = 5000
 POLYGON_TYPES = ("Polygon", "MultiPolygon")
 
@@ -48,6 +50,8 @@ def parse_window(from_value: Any, to_value: Any, now: datetime | None = None) ->
         start = end - timedelta(days=DEFAULT_WINDOW_DAYS)
     if start > end:
         raise ValidationError("from must not be later than to")
+    if end - start > timedelta(days=MAX_WINDOW_DAYS):
+        raise ValidationError(f"The maximum window is {MAX_WINDOW_DAYS} days")
     return start, end
 
 
@@ -59,6 +63,11 @@ def _count_ring(ring: Any) -> int:
                 or not all(isinstance(number, (int, float)) and not isinstance(number, bool)
                            for number in position[:2])):
             raise ValidationError("Polygon positions must be [longitude, latitude] numbers")
+    if ring[0][:2] != ring[-1][:2]:
+        raise ValidationError("Polygon rings must be closed")
+    for lon, lat, *_ in ring:
+        if not math.isfinite(lon) or not math.isfinite(lat) or abs(lon) > 180 or abs(lat) > 90:
+            raise ValidationError("Polygon coordinates must be finite WGS84 positions")
     return len(ring)
 
 

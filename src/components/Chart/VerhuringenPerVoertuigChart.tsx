@@ -38,6 +38,7 @@ import {
 import {CustomizedXAxisTick, CustomizedYAxisTick} from './CustomizedAxisTick.jsx';
 import ChartSkeleton from './ChartSkeleton';
 import './CustomizedTooltip.css';
+import { getAclOrganisationType } from '../../helpers/authentication';
 
 interface VerhuringenPerVoertuigChartProps {
   title?: string;
@@ -134,6 +135,9 @@ function VerhuringenPerVoertuigChart({title = 'Verhuringen per voertuig'}: Verhu
   const token = useSelector((state: StateType) =>
     state.authentication?.user_data?.token ? state.authentication.user_data.token : null
   );
+  const organisationType = useSelector((state: StateType) =>
+    getAclOrganisationType(state.authentication?.user_data?.acl)
+  );
   const filter = useSelector((state: StateType) => state.filter);
   const metadata = useSelector((state: StateType) => state.metadata);
   const aanbieders = useSelector((state: StateType) =>
@@ -171,8 +175,8 @@ function VerhuringenPerVoertuigChart({title = 'Verhuringen per voertuig'}: Verhu
     async function fetchData() {
       try {
         const [aggregatedVehicleData, aggregatedRentalsData] = await Promise.all([
-          getAggregatedVehicleData(token, filter, zones, metadata),
-          getAggregatedRentalsData(token, filter, zones, metadata)
+          getAggregatedVehicleData(token, filter, zones, metadata, organisationType),
+          getAggregatedRentalsData(token, filter, zones, metadata, organisationType)
         ]);
 
         if (aggregatedVehicleData) setVehiclesData(aggregatedVehicleData);
@@ -197,6 +201,7 @@ function VerhuringenPerVoertuigChart({title = 'Verhuringen per voertuig'}: Verhu
     metadata?.gebieden,
     metadata?.vehicle_types,
     token,
+    organisationType,
     zones
   ]);
 

@@ -79,10 +79,10 @@ function FilterbarBeleidszones({ hideLogo }: FilterbarBeleidszonesProps) {
     const urlZones = params.get('zones');
 
     if (urlGmCode && urlGmCode !== filterGebied) {
-      dispatch({ type: 'SET_FILTER_GEBIED', payload: urlGmCode });
+      dispatch({ type: 'SET_FILTER_GEBIED', payload: urlGmCode, meta: { explicit: true } });
     }
     if (urlZones) {
-      dispatch({ type: 'SET_FILTER_ZONES', payload: urlZones });
+      dispatch({ type: 'SET_FILTER_ZONES', payload: urlZones, meta: { explicit: true } });
     }
   }, [location.search]); // Only run when URL search changes (e.g. initial nav or back)
 

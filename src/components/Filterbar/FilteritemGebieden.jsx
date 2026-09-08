@@ -54,7 +54,8 @@ function FilteritemGebieden() {
     
     dispatch({
       type: 'SET_FILTER_GEBIED',
-      payload: ""
+      payload: "",
+      meta: { explicit: true }
     })
   }
   
@@ -64,7 +65,8 @@ function FilteritemGebieden() {
     // Call action
     dispatch({
       type: 'SET_FILTER_GEBIED',
-      payload: gebied
+      payload: gebied,
+      meta: { explicit: true }
     })
   }
   

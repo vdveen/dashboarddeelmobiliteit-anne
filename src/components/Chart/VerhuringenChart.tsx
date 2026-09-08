@@ -46,6 +46,7 @@ import {CustomizedXAxisTick, CustomizedYAxisTick} from '../Chart/CustomizedAxisT
 import {CustomizedTooltip} from '../Chart/CustomizedTooltip.jsx';
 import InfoTooltip from '../InfoTooltip/InfoTooltip';
 import ChartSkeleton from './ChartSkeleton';
+import { getAclOrganisationType } from '../../helpers/authentication';
 
 const TOTAAL_KEY = 'Totaal';
 
@@ -53,6 +54,9 @@ function VerhuringenChart(props) {
   const dispatch = useDispatch()
 
   const token = useSelector((state: StateType) => (state.authentication.user_data && state.authentication.user_data.token)||null)
+  const organisationType = useSelector((state: StateType) =>
+    getAclOrganisationType(state.authentication?.user_data?.acl)
+  );
   const filter = useSelector((state: StateType) => state.filter)
   const metadata = useSelector((state: StateType) => state.metadata)
 
@@ -88,7 +92,9 @@ function VerhuringenChart(props) {
     async function fetchData() {
       try {
         // Get aggregated vehicle data
-        const aggregatedData = await getAggregatedRentalsData(token, filter, zones, metadata);
+        const aggregatedData = await getAggregatedRentalsData(
+          token, filter, zones, metadata, organisationType
+        );
         if(! aggregatedData) return;
 
         // Set state
@@ -123,6 +129,7 @@ function VerhuringenChart(props) {
     metadata.gebieden,
     metadata.vehicle_types,
     token,
+    organisationType,
     dispatch
   ]);
   

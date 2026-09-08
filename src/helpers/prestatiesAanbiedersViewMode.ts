@@ -27,7 +27,8 @@ export const hasMunicipalityScope = (gebieden: GebiedOption[]): boolean => {
 };
 
 /**
- * Operator account: has exactly one operator in their ACL (their own).
+ * Organisation type determines the UI role. A single grant is only a legacy
+ * fallback when the backend supplies no organisation type.
  *
  * The backend ACL (/dashboard-api/menu/acl) returns:
  * - Municipality accounts: many operators (every provider serving their gebied)
@@ -39,8 +40,10 @@ export const hasMunicipalityScope = (gebieden: GebiedOption[]): boolean => {
  * /operators list is NL-wide and does not reflect the logged-in account scope.
  */
 export const isOperatorPrestatiesView = (
-  aclOperators: AanbiederOption[]
+  aclOperators: AanbiederOption[],
+  organisationType?: string | null
 ): boolean => {
+  if (organisationType) return organisationType === 'OPERATOR';
   if (aclOperators.length !== 1) return false;
   return Boolean(getAanbiederSystemId(aclOperators[0]));
 };
@@ -55,9 +58,10 @@ export const isOperatorPrestatiesView = (
 export const resolvePrestatiesViewMode = (
   aclOperators: AanbiederOption[],
   isAdmin: boolean,
-  urlView: string | null
+  urlView: string | null,
+  organisationType?: string | null
 ): PrestatiesViewMode => {
-  if (isOperatorPrestatiesView(aclOperators)) {
+  if (isOperatorPrestatiesView(aclOperators, organisationType)) {
     return 'operator';
   }
   if (isAdmin && urlView === 'operator') {
@@ -72,11 +76,12 @@ export const resolvePrestatiesViewMode = (
  */
 export const canToggleViewMode = (
   isAdmin: boolean,
-  aclOperators: AanbiederOption[]
+  aclOperators: AanbiederOption[],
+  organisationType?: string | null
 ): boolean => {
   if (!isAdmin) return false;
   // Operator-only accounts are pinned to operator view.
-  if (isOperatorPrestatiesView(aclOperators)) return false;
+  if (isOperatorPrestatiesView(aclOperators, organisationType)) return false;
   return true;
 };
 
@@ -143,6 +148,7 @@ export interface ScopedKpiOverviewParams {
 export const buildScopedKpiOverviewParams = (
   aclOperators: AanbiederOption[],
   options: {
+    organisationType?: string | null;
     operatorSystemId?: string | null;
     municipality?: string | null;
     start_date: string;
@@ -154,7 +160,7 @@ export const buildScopedKpiOverviewParams = (
     options.operatorSystemId ?? undefined
   );
   const municipality = options.municipality ?? undefined;
-  const isOperatorAccount = isOperatorPrestatiesView(aclOperators);
+  const isOperatorAccount = isOperatorPrestatiesView(aclOperators, options.organisationType);
 
   // Operator accounts are authorized via system_id only; never send municipality.
   if (isOperatorAccount && resolvedSystemId) {
@@ -181,7 +187,7 @@ export const buildScopedKpiOverviewParams = (
   }
 
   // No municipality context: fall back to operator scope when allowed.
-  if (resolvedSystemId) {
+  if (resolvedSystemId && (!options.organisationType || ['ADMIN', 'OPERATOR'].includes(options.organisationType))) {
     return {
       start_date: options.start_date,
       end_date: options.end_date,
