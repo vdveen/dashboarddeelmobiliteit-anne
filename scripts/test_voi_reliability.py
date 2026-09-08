@@ -6,6 +6,7 @@ import psycopg
 from scripts.voi_database import persist_with_retry
 from scripts.collect_voi_vehicles import fetch_payload
 from scripts.voi_availability import parse_window, validate_polygon, ValidationError
+from scripts.voi_api import app
 
 class ReliabilityTest(unittest.TestCase):
     @patch('scripts.voi_database.time.sleep')
@@ -40,3 +41,12 @@ class ReliabilityTest(unittest.TestCase):
         for point in ([float('nan'), 0], [181, 0]):
             with self.assertRaises(ValidationError):
                 validate_polygon({'type': 'Polygon', 'coordinates': [[point, [1,0], [1,1], point]]})
+
+    def test_oversized_request_has_a_json_error(self):
+        response = app.test_client().post(
+            '/availability',
+            data=b'{' + b' ' * (1024 * 1024) + b'}',
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 413)
+        self.assertIn('limit', response.get_json()['error'])

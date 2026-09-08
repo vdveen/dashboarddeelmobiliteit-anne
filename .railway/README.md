@@ -74,7 +74,7 @@ curl -s -X POST https://voi-snapshot-api-production.up.railway.app/availability 
 
 ## Verify locally
 
-Build `Dockerfile.voi-monitor`. Run `python3 -m unittest scripts.test_collect_voi_vehicles scripts.test_voi_availability scripts.test_voi_database` in that image against a disposable PostGIS database, with `DATABASE_URL` and `VOI_TEST_DATABASE=1`. `scripts.test_collect_voi_vehicles` and `scripts.test_voi_availability` need no database. The integration tests truncate the Voi tables. Never run them against production.
+Build `Dockerfile.voi-monitor`. Run `python3 -m unittest scripts.test_collect_voi_vehicles scripts.test_voi_availability scripts.test_voi_reliability scripts.test_voi_database` in that image against a disposable PostGIS database, with `DATABASE_URL` and `VOI_TEST_DATABASE=1`. The collector, availability, and reliability tests need no database. The integration tests truncate the Voi tables. Never run them against production.
 
 ## Reliability and bounded requests
 

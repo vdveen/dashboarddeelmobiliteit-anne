@@ -33,6 +33,11 @@ def invalid_request(error):
     return jsonify(error=str(error)), 400
 
 
+@app.errorhandler(413)
+def request_too_large(_error):
+    return jsonify(error="Request or result exceeds the configured limit"), 413
+
+
 @app.errorhandler(psycopg.Error)
 def database_error(error):
     app.logger.error("Snapshot database request failed (%s)", type(error).__name__)

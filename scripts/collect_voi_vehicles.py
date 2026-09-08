@@ -200,13 +200,13 @@ def fetch_payload(
                     raise ValueError("Vehicle response exceeds 20 MB")
                 return json.loads(raw)
         except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as error:
-            if isinstance(error, HTTPError) and error.code not in (408, 429) and error.code < 500:
-                raise RuntimeError(f"Vehicle API rejected the request (HTTP {error.code})") from None
-            last_error = error
             if isinstance(error, HTTPError) and error.code in (401, 403):
                 raise RuntimeError(
                     f"API rejected the {API_KEY_ENV} credentials (HTTP {error.code})"
                 ) from error
+            if isinstance(error, HTTPError) and error.code not in (408, 429) and error.code < 500:
+                raise RuntimeError(f"Vehicle API rejected the request (HTTP {error.code})") from error
+            last_error = error
             if attempt < 3:
                 time.sleep(2 ** (attempt - 1))
 
