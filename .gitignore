@@ -36,3 +36,6 @@ NOTES*.md
 yarn.lock
 .env.production
 .env.test
+
+# Isolated Railway infrastructure dependencies
+/.railway/node_modules/

@@ -4,7 +4,7 @@ Railway stores snapshots in PostgreSQL 16 with PostGIS 3.5 on a persistent volum
 
 ## Deploy changes
 
-1. Run `npm ci` and authenticate with `railway login`.
+1. Run `npm ci --prefix .railway` and authenticate with `railway login`.
 2. Link production with `railway link --project 85622316-5f8e-4eec-9a0c-d3ca3336b928 --environment 5d7678ad-1cd0-46e4-8993-15dcacdc0dfd`.
 3. Push the changes to the fork's `main` branch.
 4. Run `railway config plan`. Check that the plan affects only the Voi services and database.
