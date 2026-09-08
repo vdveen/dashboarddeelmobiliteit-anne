@@ -245,7 +245,7 @@ const DataLayerList = ({
         : RENTALS_OPTIONS;
     }
     return [];
-  }, [displayMode, isOperatorUser]);
+  }, [displayMode, isOperatorUser, hasCsvImport]);
 
   const isVisualizationActive = (layerName: string) => {
     if (displayMode === DISPLAYMODE_PARK) {

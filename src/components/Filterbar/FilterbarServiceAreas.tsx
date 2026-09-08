@@ -161,6 +161,7 @@ function FilterbarServiceAreas({
     }
   }, [availableOperators, visible_operators, dispatch]);
 
+  const [searchParams] = useSearchParams();
   const historicalVersion = searchParams.get('version');
   const canDownloadServiceAreas = isLoggedIn && !! municipality && visible_operators && visible_operators.length > 0;
 

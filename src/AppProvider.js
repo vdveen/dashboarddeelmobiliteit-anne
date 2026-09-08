@@ -124,7 +124,10 @@ store.subscribe(() => {
     created: storeState.created ? storeState.created : moment().unix(),
     last_update: moment().unix(),
     authentication: storeState.authentication,
-    filter: storeState.filter,
+    // CSV rows are session-only, so persist the direction from before import.
+    filter: { ...storeState.filter,
+      herkomstbestemming: storeState.filter.csv_previous_direction || storeState.filter.herkomstbestemming,
+      csv_previous_direction: undefined },
     layers: storeState.layers,
     ui: storeState.ui,
     policy_hubs: storeState.policy_hubs,
