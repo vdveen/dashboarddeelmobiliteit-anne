@@ -240,7 +240,8 @@ const DdPolicyHubsLayer = ({
     if(gm_code) {
       dispatch({
         type: 'SET_FILTER_GEBIED',
-        payload: gm_code
+        payload: gm_code,
+        meta: { explicit: true }
       })
     }
     const visible = queryParams.getAll('visible');

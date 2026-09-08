@@ -1,4 +1,4 @@
-import pnhLogo from '../../images/pnh_logo.svg';
+import { edition } from '../../config/edition';
 
 function LogoDashboardDeelmobiliteit() {
   return (
@@ -21,8 +21,8 @@ function LogoDashboardDeelmobiliteit() {
         marginTop: '6px'
       }}>
         <img
-          src={pnhLogo}
-          alt="Logo Provincie Noord-Holland"
+          src={edition.logo}
+          alt={edition.logoAlt}
           style={{ height: '24px', width: 'auto' }}
         />
         <span style={{
