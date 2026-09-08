@@ -4,6 +4,7 @@ import VoiVehicleHistory from './VoiVehicleHistory';
 import { listVoiSnapshots, downloadVoiSnapshot } from '../api/voiSnapshots';
 jest.mock('maplibre-gl', () => ({ __esModule: true, default: { Map: jest.fn(), AttributionControl: jest.fn(), NavigationControl: jest.fn() } }));
 jest.mock('../api/voiSnapshots');
+jest.mock('../components/ui/button', () => ({ Button: ({ variant, size, children, ...props }) => <button {...props}>{children}</button> }));
 const frames = ['2026-09-01T00:00:00Z', '2026-09-01T00:10:00Z'].map((capturedAt, i) => ({ name: `frame${i}`, capturedAt, downloadUrl: `/frame${i}` }));
 test('retains displayed identity during a slow selection and retries that frame after failure', async () => {
   (maplibregl.Map as unknown as jest.Mock).mockImplementation(() => ({ addControl() {}, dragRotate: { disable() {} }, touchZoomRotate: { disableRotation() {} }, on() {}, remove() {} }));
