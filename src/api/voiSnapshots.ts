@@ -104,6 +104,25 @@ export async function downloadVoiSnapshot(
   return geojson;
 }
 
+/**
+ * Server validation messages that a user can act on, in Dutch. Anything else is
+ * passed through as is, so an unexpected message is still visible.
+ */
+const AVAILABILITY_ERRORS: Record<string, string> = {
+  'polygon is not a valid geometry': 'De getekende vorm overlapt zichzelf. Teken het gebied opnieuw.',
+  'Each polygon ring needs at least four positions': 'Het gebied heeft te weinig punten. Teken minstens drie punten.',
+};
+
+async function readErrorMessage(response: Response): Promise<string | null> {
+  try {
+    const body = await response.json() as { error?: unknown };
+    const message = typeof body?.error === 'string' ? body.error.trim() : '';
+    return message ? message : null;
+  } catch (parseError) {
+    return null;
+  }
+}
+
 /** Counts vehicles per snapshot inside a lasso polygon. */
 export async function fetchVoiAvailability(
   polygon: VoiLassoPolygon,
@@ -119,6 +138,12 @@ export async function fetchVoiAvailability(
   });
 
   if (!response.ok) {
+    if (response.status === 400) {
+      const message = await readErrorMessage(response);
+      if (message) {
+        throw new Error(AVAILABILITY_ERRORS[message] || `De selectie is ongeldig: ${message}`);
+      }
+    }
     throw new Error(`Het meetarchief gaf status ${response.status}.`);
   }
 

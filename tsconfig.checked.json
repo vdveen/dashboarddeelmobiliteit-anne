@@ -13,7 +13,10 @@
     "src/helpers/csv.ts",
     "src/helpers/popupDom.ts",
     "src/helpers/stats/time.ts",
-    "src/components/Map/MapControls/MapControlsPortal.tsx"
+    "src/components/Map/MapControls/MapControlsPortal.tsx",
+    "src/components/VoiAvailability/polygonGeometry.ts",
+    "src/components/VoiAvailability/voiAvailabilityChart.ts",
+    "src/components/VoiAvailability/useMapPolygonDraw.ts"
   ],
   "exclude": [
     "node_modules"
