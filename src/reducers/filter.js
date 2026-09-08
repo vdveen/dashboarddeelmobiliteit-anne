@@ -1,29 +1,5 @@
 import moment from 'moment';
 
-// Logged in users start with an initial municipality
-// This prevents a slow website on initial load
-const randomInitialMunicipality = () => {
-  const municipalitiesWithLotsOfVehicles = [
-    'GM0080',// Leeuwarden
-    'GM0014',// Groningen
-    // '',// Alkmaar
-    'GM0392',// Haarlem
-    'GM0034',// Almere
-    'GM0193',// Zwolle
-    'GM0402',// Hilversum
-    'GM0307',// Amersfoort
-    'GM0344',// Utrecht
-    'GM0200',// Apeldoorn
-    'GM0518',// Den Haag
-    'GM0599',// Rotterdam
-    'GM0758',// Breda,
-    'GM0855',// Tilburg
-    'GM0772'// Eindhoven
-  ];
-  const randomMunicipality = municipalitiesWithLotsOfVehicles[Math.floor(Math.random() * municipalitiesWithLotsOfVehicles.length)];
-  return randomMunicipality;
-}
-
 // The public map view (not logged in) starts without a municipality filter.
 // Once the operator list is loaded, only operator Voi is active by default
 // (see the APPLY_PUBLIC_DEFAULT_FILTERS effect in App.tsx).
@@ -54,6 +30,12 @@ const initialState = {
 }
 
 export default function filter(state = initialState, action) {
+  // Explicit choices win even if metadata/default effects were already queued.
+  if (['SET_FILTER_GEBIED', 'SET_FILTER_ZONES', 'ADD_TO_FILTER_ZONES',
+    'REMOVE_FROM_FILTER_ZONES', 'CLEAR_FILTER_ZONES', 'ADD_TO_FILTER_AANBIEDERS_EXCLUDE',
+    'REMOVE_FROM_FILTER_AANBIEDERS_EXCLUDE', 'CLEAR_FILTER_AANBIEDERS_EXCLUDE'].includes(action.type)) {
+    state = { ...state, public_defaults_applied: true };
+  }
   switch(action.type) {
     case 'SET_FILTER_VISIBLE': {
       // console.log('reducer filter set filter visible %s', action.payload)
@@ -458,20 +440,14 @@ export default function filter(state = initialState, action) {
       };
     }
     case 'LOGIN':
-    // RESET_FILTER is only dispatched right after a successful login
-    case 'RESET_FILTER': {
-      // Logged in users start with a random municipality selected,
-      // to prevent a slow website on initial load
-      return {
-        ...initialState,
-        gebied: randomInitialMunicipality()
-      };
-    }
+    case 'RESET_FILTER':
     case 'LOGOUT': {
-      // console.log('logout - reset filter to public defaults')
-      return initialState;
+      // Authentication changes do not erase the visitor's view. ACL loading
+      // separately reconciles municipality access for the new account.
+      return { ...state, public_defaults_applied: true };
     }
     case 'APPLY_PUBLIC_DEFAULT_FILTERS': {
+      if (state.public_defaults_applied) return state;
       // One-time default for the public map view: no municipality filter
       // and only the given operators active (all others excluded)
       return {
@@ -486,7 +462,8 @@ export default function filter(state = initialState, action) {
       // console.log('import filter', action.payload.filter)
       return {
         ...state,
-        ...action.payload.filter
+        ...action.payload.filter,
+        public_defaults_applied: true
       }
     }
     default:

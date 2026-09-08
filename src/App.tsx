@@ -1,3 +1,4 @@
+import { edition } from './config/edition';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Routes,
@@ -413,10 +414,10 @@ function App() {
     if (aanbieders.length === 0) return;
 
     // Only apply if Voi is a known operator, otherwise we would exclude everything
-    if (!aanbieders.some((aanbieder) => aanbieder.system_id === 'voi')) return;
+    if (!aanbieders.some((aanbieder) => edition.publicOperators.includes(aanbieder.system_id))) return;
 
     const aanbiedersexclude = aanbieders
-      .filter((aanbieder) => aanbieder.system_id !== 'voi')
+      .filter((aanbieder) => !edition.publicOperators.includes(aanbieder.system_id))
       .map((aanbieder) => aanbieder.system_id)
       .join(',');
 

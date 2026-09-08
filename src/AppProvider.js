@@ -33,7 +33,7 @@ if (theState) {
 // Validate and clean persisted state to prevent reload loops
 const validatePersistedState = (state) => {
   if (!state || !state.authentication || !state.authentication.user_data) {
-    return {};
+    return state && typeof state === 'object' && !Array.isArray(state) ? state : {};
   }
 
   // Check if token exists and is not expired
@@ -58,6 +58,8 @@ const validatePersistedState = (state) => {
 };
 
 persistedState = validatePersistedState(persistedState);
+// A saved choice takes precedence even when older versions omitted the marker.
+if (persistedState.filter) persistedState.filter.public_defaults_applied = true;
 
 // The data-layer UI uses radio-button behaviour (one layer per display mode).
 // Older persisted states may contain multiple active layers; sanitize them.
