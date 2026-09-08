@@ -47,6 +47,7 @@ export const initPopupLogic = (
 
   let popup;
 
+  const cleanups = [];
   layerNamesToApplyPopupLogicTo.forEach((layerName) => {
     // When a click event occurs on a feature in the places layer, open a popup at the
     // location of the feature, with its external values rendered as text.
@@ -87,27 +88,20 @@ export const initPopupLogic = (
         : createVehiclePopup(properties, providers, options);
       popup = new maplibregl.Popup().setLngLat(coordinates).setDOMContent(contents).addTo(theMap);
     }
-    // Touch event
-    // https://github.com/mapbox/mapbox-gl-draw/issues/1019#issuecomment-850229493=
-    theMap.off('touchend', layerName, clickHandler);
-    theMap.on('touchend', layerName, clickHandler);
-    // Click event
-    theMap.off('click', layerName, clickHandler);
-    theMap.on('click', layerName, clickHandler);
-    // Change the cursor to a pointer when the mouse is over the places layer.
-    theMap.on('mouseenter', layerName, function () {
-      theMap.getCanvas().style.cursor = 'pointer';
-    });
-    // Change it back to a pointer when it leaves.
-    theMap.on('mouseleave', layerName, function () {
-      theMap.getCanvas().style.cursor = '';
-    });
-    theMap.on('zoomstart', layerName, function() {
-      removeExistingPopups()
-    })
-    theMap.on('movestart', layerName, function() {
-      removeExistingPopups()
-    })
-  })
-
+    const enter = () => { theMap.getCanvas().style.cursor = 'pointer'; };
+    const leave = () => { theMap.getCanvas().style.cursor = ''; };
+    for (const [event, handler] of [['click', clickHandler], ['mouseenter', enter], ['mouseleave', leave]]) {
+      theMap.on(event, layerName, handler);
+      cleanups.push(() => theMap.off(event, layerName, handler));
+    }
+  });
+  // MapLibre emits click for a tap too. Installing touchend as well opens twice.
+  theMap.on('zoomstart', removeExistingPopups);
+  theMap.on('movestart', removeExistingPopups);
+  return () => {
+    cleanups.forEach(cleanup => cleanup());
+    theMap.off('zoomstart', removeExistingPopups);
+    theMap.off('movestart', removeExistingPopups);
+    if (popup) { popup.remove(); popup = null; }
+  };
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import MapControlsPortal from '../Map/MapControls/MapControlsPortal';
 import './SelectionTool.css';
@@ -8,11 +8,6 @@ type SelectionMode = 'polygon' | 'lasso';
 type SelectionToolProps = {
   map: any;
   vehicles: any;
-};
-
-const EMPTY_SELECTION = {
-  type: 'FeatureCollection',
-  features: []
 };
 
 const SELECTION_SOURCE_ID = 'vehicle-selection-tool';
@@ -35,37 +30,40 @@ const createPolygonFeatureCollection = (coordinates) => ({
 const SelectionTool = ({ map, vehicles }: SelectionToolProps): JSX.Element => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeMode, setActiveMode] = useState<SelectionMode | null>(null);
-  const [coordinates, setCoordinates] = useState<any[]>([]);
+  const points = useRef<number[][]>([]);
+  const features = useRef(vehicles?.data?.features || []);
+  features.current = vehicles?.data?.features || [];
+  const [pointCount, setPointCount] = useState(0);
   const [vehicleCount, setVehicleCount] = useState<number | null>(null);
 
-  const vehicleFeatures = useMemo(() => {
-    return vehicles?.data?.features || [];
-  }, [vehicles?.data]);
-
   const updateSelectionSource = useCallback((nextCoordinates) => {
-    if (!map || !map.getSource(SELECTION_SOURCE_ID)) return;
-    map.getSource(SELECTION_SOURCE_ID).setData(createPolygonFeatureCollection(nextCoordinates));
+    points.current = nextCoordinates;
+    setPointCount(nextCoordinates.length);
+    map?.getSource(SELECTION_SOURCE_ID)?.setData(createPolygonFeatureCollection(nextCoordinates));
   }, [map]);
 
   const clearSelection = useCallback(() => {
-    setCoordinates([]);
+    setActiveMode(null);
     setVehicleCount(null);
     updateSelectionSource([]);
   }, [updateSelectionSource]);
 
-  const finishSelection = useCallback((nextCoordinates = coordinates) => {
-    if (nextCoordinates.length < MIN_POINTS) return;
+  const countSelection = useCallback(() => {
+    if (points.current.length < MIN_POINTS) return;
+    const polygon = createPolygonFeatureCollection(points.current).features[0];
+    setVehicleCount(features.current.filter(feature => {
+      const coordinates = feature?.geometry?.coordinates;
+      return feature?.geometry?.type === 'Point' && Array.isArray(coordinates)
+        && coordinates.slice(0, 2).length === 2 && coordinates.slice(0, 2).every(Number.isFinite)
+        && booleanPointInPolygon(feature, polygon as any);
+    }).length);
+  }, []);
 
-    const polygon = createPolygonFeatureCollection(nextCoordinates).features[0];
-    const count = vehicleFeatures.filter((feature) => {
-      return feature?.geometry?.type === 'Point' && booleanPointInPolygon(feature, polygon as any);
-    }).length;
-
-    setCoordinates(nextCoordinates);
-    setVehicleCount(count);
+  const finishSelection = useCallback(() => {
+    if (points.current.length < MIN_POINTS) { clearSelection(); return; }
+    countSelection();
     setActiveMode(null);
-    updateSelectionSource(nextCoordinates);
-  }, [coordinates, updateSelectionSource, vehicleFeatures]);
+  }, [clearSelection, countSelection]);
 
   const startSelection = (mode: SelectionMode) => {
     clearSelection();
@@ -81,7 +79,7 @@ const SelectionTool = ({ map, vehicles }: SelectionToolProps): JSX.Element => {
       if (!map.getSource(SELECTION_SOURCE_ID)) {
         map.addSource(SELECTION_SOURCE_ID, {
           type: 'geojson',
-          data: EMPTY_SELECTION
+          data: createPolygonFeatureCollection(points.current)
         });
       }
       if (!map.getLayer(SELECTION_FILL_LAYER_ID)) {
@@ -116,6 +114,10 @@ const SelectionTool = ({ map, vehicles }: SelectionToolProps): JSX.Element => {
     return () => {
       map.off('load', addSelectionLayers);
       map.off('styledata', addSelectionLayers);
+      for (const id of [SELECTION_LINE_LAYER_ID, SELECTION_FILL_LAYER_ID]) {
+        if (map.getLayer(id)) map.removeLayer(id);
+      }
+      if (map.getSource(SELECTION_SOURCE_ID)) map.removeSource(SELECTION_SOURCE_ID);
     };
   }, [map]);
 
@@ -124,86 +126,91 @@ const SelectionTool = ({ map, vehicles }: SelectionToolProps): JSX.Element => {
 
     const canvas = map.getCanvas();
     const previousCursor = canvas.style.cursor;
-    const previousDragPanState = map.dragPan.isEnabled();
+    const previousTouchAction = canvas.style.touchAction;
+    const interactions = [map.dragPan, map.touchZoomRotate, map.doubleClickZoom]
+      .filter(Boolean).map(handler => ({ handler, enabled: handler.isEnabled() }));
     canvas.style.cursor = 'crosshair';
-
-    const addCoordinate = (lngLat) => {
-      setCoordinates((current) => {
-        const next = [...current, [lngLat.lng, lngLat.lat]];
-        updateSelectionSource(next);
-        return next;
-      });
+    canvas.style.touchAction = 'none';
+    // Disable before pointerdown, so MapLibre cannot start panning first.
+    interactions.forEach(({ handler }) => handler.disable());
+    let pointerId: number | null = null;
+    const addPoint = (lngLat) => {
+      if (!Number.isFinite(lngLat.lng) || !Number.isFinite(lngLat.lat)) return;
+      updateSelectionSource([...points.current, [lngLat.lng, lngLat.lat]]);
     };
-
-    const onClick = (event) => {
-      if (activeMode !== 'polygon') return;
-      addCoordinate(event.lngLat);
+    const onClick = event => { if (activeMode === 'polygon') addPoint(event.lngLat); };
+    const onContextMenu = event => { event.preventDefault(); finishSelection(); };
+    const position = (event: PointerEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      return map.unproject([event.clientX - rect.left, event.clientY - rect.top]);
     };
-
-    const onContextMenu = (event) => {
+    const onDown = (event: PointerEvent) => {
+      if (activeMode !== 'lasso' || event.button !== 0 || pointerId !== null) return;
       event.preventDefault();
+      pointerId = event.pointerId;
+      updateSelectionSource([]);
+      addPoint(position(event));
+    };
+    const onMove = (event: PointerEvent) => {
+      if (event.pointerId !== pointerId) return;
+      event.preventDefault();
+      addPoint(position(event));
+    };
+    const onUp = (event: PointerEvent) => {
+      if (event.pointerId !== pointerId) return;
+      pointerId = null;
       finishSelection();
     };
-
-    const onMouseDown = (event) => {
-      if (activeMode !== 'lasso') return;
-      event.preventDefault();
-      if (previousDragPanState) map.dragPan.disable();
-      const next = [[event.lngLat.lng, event.lngLat.lat]];
-      setCoordinates(next);
-      updateSelectionSource(next);
+    const onCancel = () => clearSelection();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); clearSelection(); }
+      if (event.key === 'Enter' && event.target === canvas) { event.preventDefault(); finishSelection(); }
     };
-
-    const onMouseMove = (event) => {
-      if (activeMode !== 'lasso' || coordinates.length === 0) return;
-      setCoordinates((current) => {
-        const next = [...current, [event.lngLat.lng, event.lngLat.lat]];
-        updateSelectionSource(next);
-        return next;
-      });
-    };
-
-    const onMouseUp = () => {
-      if (activeMode !== 'lasso') return;
-      finishSelection();
-    };
-
+    // Replacing the style cancels a gesture. Completed geometry is restored by
+    // the layer effect when the new style becomes ready.
+    map.on('styledataloading', onCancel);
     map.on('click', onClick);
     map.on('contextmenu', onContextMenu);
-    map.on('mousedown', onMouseDown);
-    map.on('mousemove', onMouseMove);
-    map.on('mouseup', onMouseUp);
-
+    canvas.addEventListener('pointerdown', onDown);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onCancel);
+    window.addEventListener('blur', onCancel);
+    document.addEventListener('keydown', onKey);
     return () => {
+      map.off('styledataloading', onCancel);
       map.off('click', onClick);
       map.off('contextmenu', onContextMenu);
-      map.off('mousedown', onMouseDown);
-      map.off('mousemove', onMouseMove);
-      map.off('mouseup', onMouseUp);
+      canvas.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
+      window.removeEventListener('blur', onCancel);
+      document.removeEventListener('keydown', onKey);
       canvas.style.cursor = previousCursor;
-      if (previousDragPanState && !map.dragPan.isEnabled()) map.dragPan.enable();
+      canvas.style.touchAction = previousTouchAction;
+      interactions.forEach(({ handler, enabled }) => enabled ? handler.enable() : handler.disable());
     };
-  }, [activeMode, coordinates.length, finishSelection, map, updateSelectionSource]);
+  }, [activeMode, finishSelection, clearSelection, map, updateSelectionSource]);
 
   useEffect(() => {
-    if (coordinates.length >= MIN_POINTS && vehicleCount !== null) {
-      finishSelection(coordinates);
-    }
-  }, [vehicleFeatures]);
+    if (!activeMode && vehicleCount !== null) countSelection();
+  }, [vehicles?.data, activeMode, vehicleCount, countSelection]);
 
   return <MapControlsPortal map={map} corner="bottom-right" order={-2}>
     <div className="SelectionTool">
     {isOpen && <div className="SelectionTool-panel">
       <strong>Selectie</strong>
-      <p>{activeMode === 'polygon' ? 'Klik punten op de kaart. Rechtsklik om af te ronden.' : activeMode === 'lasso' ? 'Klik en sleep om een lasso te tekenen.' : 'Teken een gebied om voertuigen te tellen.'}</p>
-      {vehicleCount !== null && <div className="SelectionTool-result">{vehicleCount} voertuigen in selectie</div>}
+      <p>{activeMode === 'polygon' ? 'Klik punten op de kaart. Kies Afronden of rechtsklik. Escape annuleert.' : activeMode === 'lasso' ? 'Sleep om een lasso te tekenen. Escape annuleert.' : 'Teken een gebied om voertuigen te tellen.'}</p>
+      {vehicleCount !== null && <div className="SelectionTool-result" role="status">{vehicleCount} voertuigen in selectie</div>}
       <div className="SelectionTool-actions">
         <button type="button" className={activeMode === 'polygon' ? 'is-active' : ''} onClick={() => startSelection('polygon')}>Polygoon</button>
         <button type="button" className={activeMode === 'lasso' ? 'is-active' : ''} onClick={() => startSelection('lasso')}>Lasso</button>
+        <button type="button" disabled={pointCount < MIN_POINTS || !activeMode} onClick={finishSelection}>Afronden</button>
         <button type="button" onClick={clearSelection}>Wis</button>
       </div>
     </div>}
-    <button type="button" className={`SelectionTool-toggle ${activeMode ? 'is-active' : ''}`} aria-label="Voertuigen selecteren" onClick={() => setIsOpen((current) => !current)}>⌁</button>
+    <button type="button" className={`SelectionTool-toggle ${activeMode ? 'is-active' : ''}`} aria-label="Voertuigen selecteren" aria-expanded={isOpen} onClick={() => { if (isOpen) clearSelection(); setIsOpen(!isOpen); }}>⌁</button>
     </div>
   </MapControlsPortal>;
 };
