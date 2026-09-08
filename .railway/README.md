@@ -74,4 +74,18 @@ curl -s -X POST https://voi-snapshot-api-production.up.railway.app/availability 
 
 ## Verify locally
 
-Build `Dockerfile.voi-monitor`. Run `python3 -m unittest scripts.test_collect_voi_vehicles scripts.test_voi_availability scripts.test_voi_database` in that image against a disposable PostGIS database, with `DATABASE_URL` and `VOI_TEST_DATABASE=1`. `scripts.test_collect_voi_vehicles` and `scripts.test_voi_availability` need no database. The integration tests truncate the Voi tables. Never run them against production.
+Build `Dockerfile.voi-monitor`. Run `python3 -m unittest scripts.test_collect_voi_vehicles scripts.test_voi_availability scripts.test_voi_reliability scripts.test_voi_database` in that image against a disposable PostGIS database, with `DATABASE_URL` and `VOI_TEST_DATABASE=1`. The collector, availability, and reliability tests need no database. The integration tests truncate the Voi tables. Never run them against production.
+
+## Reliability and bounded requests
+
+Transient HTTP failures retry up to three times. Permanent client errors stop immediately. Responses above 20 MB or 100000 positions fail explicitly. The service key stays in the request header and is never included in stored URLs or error messages.
+
+Database connection failures, deadlocks, and serialization failures retry the same ten-minute boundary and payload in a new transaction, up to three attempts. A failed transaction commits neither a snapshot nor its positions. Repeating a committed boundary is idempotent. A missed boundary is not silently backfilled with a later observation.
+
+`/index.json` and `/availability` retain their seven-day default and `from`/`to` parameters, with a maximum window of 31 days. Query older history in separate windows. Index responses over 4500 entries, snapshots over 100000 positions, and POST bodies over 1 MB fail explicitly. The polygon validation also rejects unclosed rings and non-finite or out-of-range coordinates. Unknown status remains separate from operational counts.
+
+`/health` reports `latest_capture`, `age_seconds`, and `stale`. A missing capture or one older than 30 minutes is stale even when the database responds. This checks freshness, not historical completeness.
+
+Retention remains indefinite: this PR enables no automatic deletion. The 5 GB Hobby volume is finite. At the current ten-minute cadence, the estimate is roughly 6 GB/year, or about nine months of capacity. Monitor Railway volume usage. Before it fills, upgrade the plan and increase the existing volume, or approve a separate archival/pruning migration. Do not recreate the database or detach its volume.
+
+For a scheduler handover, verify that only `voi-vehicle-monitor` writes snapshots, the old GitHub schedule remains retired, and the API exposes a new ten-minute capture. Keep the existing production resources. Source configuration and local tests alone do not establish that a deployed handover succeeded.

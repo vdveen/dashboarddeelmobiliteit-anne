@@ -1,6 +1,7 @@
 """Transactional snapshot storage in PostgreSQL/PostGIS."""
 
 import os
+import time
 from pathlib import Path
 
 import psycopg
@@ -50,15 +51,27 @@ def store_snapshot(connection, geojson, source_url):
     return True
 
 
+def persist_with_retry(geojson, source_url):
+    """Retry the same boundary and payload in a new transaction."""
+    retryable = (psycopg.OperationalError, psycopg.errors.SerializationFailure, psycopg.errors.DeadlockDetected)
+    for attempt in range(3):
+        try:
+            with connect() as connection:
+                initialize(connection)
+                return store_snapshot(connection, geojson, source_url)
+        except retryable:
+            if attempt == 2:
+                raise
+            time.sleep(2 ** attempt)
+
+
 def main():
     # Query the exact 10-minute boundary even if Railway starts the container
     # a little late. The snapshot primary key then stays one row per boundary.
     captured_at = floor_to_interval(utc_now())
     source_url = os.environ.get("VOI_API_URL", DEFAULT_API_URL)
     geojson = to_geojson(fetch_payload(source_url, captured_at, timeout=30), captured_at)
-    with connect() as connection:
-        initialize(connection)
-        inserted = store_snapshot(connection, geojson, source_url)
+    inserted = persist_with_retry(geojson, source_url)
     print(f"{'Stored' if inserted else 'Already stored'} {geojson['feature_count']} Voi positions at {geojson['captured_at']}")
 
 
