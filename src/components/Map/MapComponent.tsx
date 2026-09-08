@@ -370,7 +370,8 @@ const MapComponent = (props): JSX.Element => {
     else if(gm_code) {
       dispatch({
         type: 'SET_FILTER_GEBIED',
-        payload: gm_code
+        payload: gm_code,
+        meta: { explicit: true }
       })
     }
 

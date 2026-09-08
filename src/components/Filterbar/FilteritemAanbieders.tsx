@@ -66,15 +66,15 @@ function FilteritemAanbieders() {
       return;
     }
 
-    dispatch({ type: 'ADD_TO_FILTER_AANBIEDERS_EXCLUDE', payload: aanbieder.system_id })
+    dispatch({ type: 'ADD_TO_FILTER_AANBIEDERS_EXCLUDE', payload: aanbieder.system_id, meta: { explicit: true } })
   }
   
   const removeFromfilterAanbiedersExclude = (aanbieder) => {
-    dispatch({ type: 'REMOVE_FROM_FILTER_AANBIEDERS_EXCLUDE', payload: aanbieder.system_id })
+    dispatch({ type: 'REMOVE_FROM_FILTER_AANBIEDERS_EXCLUDE', payload: aanbieder.system_id, meta: { explicit: true } })
   }
   
   const clearFilterAanbiedersExclude = (e?: any) => {
-    dispatch({ type: 'CLEAR_FILTER_AANBIEDERS_EXCLUDE', payload: '' })
+    dispatch({ type: 'CLEAR_FILTER_AANBIEDERS_EXCLUDE', payload: '', meta: { explicit: true } })
   }
 
   // Function that gets executed if user clicks a provider filter

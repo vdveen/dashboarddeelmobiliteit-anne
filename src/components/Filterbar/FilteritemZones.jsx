@@ -84,15 +84,15 @@ function FilteritemZones({
   }, [beleidszonesRedirect, zones, filterZones, dispatch]);
 
   const addToFilterZones = (zone) => {
-    dispatch({ type: 'ADD_TO_FILTER_ZONES', payload: zone })
+    dispatch({ type: 'ADD_TO_FILTER_ZONES', payload: zone, meta: { explicit: true } })
   }
   
   const removeFromFilterZones = (zone) => {
-    dispatch({ type: 'REMOVE_FROM_FILTER_ZONES', payload: zone })
+    dispatch({ type: 'REMOVE_FROM_FILTER_ZONES', payload: zone, meta: { explicit: true } })
   }
   
   const clearFilterZones = () => {
-    dispatch({ type: 'CLEAR_FILTER_ZONES', payload: null })
+    dispatch({ type: 'CLEAR_FILTER_ZONES', payload: null, meta: { explicit: true } })
   }
 
   const toggleZones = (val) => {

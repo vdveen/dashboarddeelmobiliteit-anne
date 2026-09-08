@@ -30,10 +30,9 @@ const initialState = {
 }
 
 export default function filter(state = initialState, action) {
-  // Explicit choices win even if metadata/default effects were already queued.
-  if (['SET_FILTER_GEBIED', 'SET_FILTER_ZONES', 'ADD_TO_FILTER_ZONES',
-    'REMOVE_FROM_FILTER_ZONES', 'CLEAR_FILTER_ZONES', 'ADD_TO_FILTER_AANBIEDERS_EXCLUDE',
-    'REMOVE_FROM_FILTER_AANBIEDERS_EXCLUDE', 'CLEAR_FILTER_AANBIEDERS_EXCLUDE'].includes(action.type)) {
+  // Only a UI or URL action marks a choice as explicit. Metadata
+  // reconciliation uses the same action types without this flag.
+  if (action.meta?.explicit === true) {
     state = { ...state, public_defaults_applied: true };
   }
   switch(action.type) {
@@ -441,11 +440,13 @@ export default function filter(state = initialState, action) {
     }
     case 'LOGIN':
     case 'RESET_FILTER':
-    case 'LOGOUT': {
-      // Authentication changes do not erase the visitor's view. ACL loading
-      // separately reconciles municipality access for the new account.
+      // A successful login keeps the current view. ACL loading reconciles it
+      // against the new account.
       return { ...state, public_defaults_applied: true };
-    }
+    case 'LOGOUT':
+      // Zone and municipality ids may be private. Keep local display choices,
+      // but start the public view without an account-owned location scope.
+      return { ...state, gebied: '', zones: '', public_defaults_applied: true };
     case 'APPLY_PUBLIC_DEFAULT_FILTERS': {
       if (state.public_defaults_applied) return state;
       // One-time default for the public map view: no municipality filter

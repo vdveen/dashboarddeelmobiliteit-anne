@@ -13,6 +13,7 @@ import thunk from 'redux-thunk';
 import appReducer from './reducers';
 import { sanitizeActiveDataLayers, sanitizeDataLayerOrder, sanitizeOverlayLayers } from './reducers/layers';
 import App from './App';
+import { validatePersistedState } from './helpers/persistedState';
 
 const composeEnhancers = window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ || compose;
 
@@ -29,33 +30,6 @@ if (theState) {
     localStorage.removeItem('CROWDD_reduxState');
   }
 }
-
-// Validate and clean persisted state to prevent reload loops
-const validatePersistedState = (state) => {
-  if (!state || !state.authentication || !state.authentication.user_data) {
-    return state && typeof state === 'object' && !Array.isArray(state) ? state : {};
-  }
-
-  // Check if token exists and is not expired
-  const userData = state.authentication.user_data;
-  if (!userData.token) {
-    // Clear authentication if no token
-    return {
-      ...state,
-      authentication: { user_data: null }
-    };
-  }
-
-  // Optional: Add token expiration check if your API provides expiration info
-  // if (userData.token_expires && new Date(userData.token_expires) < new Date()) {
-  //   return {
-  //     ...state,
-  //     authentication: { user_data: null }
-  //   };
-  // }
-
-  return state;
-};
 
 persistedState = validatePersistedState(persistedState);
 // A saved choice takes precedence even when older versions omitted the marker.
