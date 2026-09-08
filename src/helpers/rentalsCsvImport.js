@@ -1,115 +1,85 @@
-// Parser for 'Ruwe data import' CSV files in the Verhuringen view.
-//
-// Expected structure (as produced by the dashboard export function):
-//
-//   system_id,lat,lon,start_time,end_time,form_factor,propulsion_type
-//   voi,53.233,6.564201,2026-07-03 22:21:03+02,2026-07-04 12:05:17+02,bicycle,electric_assist
-//
-// Column order is free-form (columns are matched by header name) and both
-// ',' and ';' are accepted as delimiter.
+import moment from 'moment-timezone';
 
-const REQUIRED_COLUMNS = ['system_id', 'lat', 'lon', 'start_time', 'end_time'];
+export const MAX_CSV_BYTES = 10 * 1024 * 1024;
+const MAX_ROWS = 50000;
+const REQUIRED = ['system_id', 'lat', 'lon', 'start_time', 'end_time'];
 
-// Parse a single CSV line into fields, honoring double quotes
-const parseCsvLine = (line, delimiter) => {
-  const fields = [];
-  let current = '';
-  let insideQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    if (char === '"') {
-      if (insideQuotes && line[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else {
-        insideQuotes = !insideQuotes;
-      }
-    } else if (char === delimiter && !insideQuotes) {
-      fields.push(current);
-      current = '';
-    } else {
-      current += char;
-    }
-  }
-  fields.push(current);
-
-  return fields.map(x => x.trim());
-};
-
-const detectDelimiter = (headerLine) => {
-  for (const delimiter of [',', ';']) {
-    const columns = parseCsvLine(headerLine, delimiter).map(x => x.toLowerCase());
-    if (REQUIRED_COLUMNS.every(x => columns.includes(x))) {
-      return delimiter;
-    }
-  }
-  return null;
-};
-
-// Parses raw CSV text into rental/park_event rows
-// Returns { rows, skipped } or throws an Error with a user-facing (Dutch) message
-export const parseRentalsCsv = (csvText) => {
-  // Strip byte order mark, split into non-empty lines
-  const lines = csvText
-    .replace(/^﻿/, '')
-    .split(/\r\n|\r|\n/)
-    .filter(line => line.trim().length > 0);
-
-  if (lines.length < 2) {
-    throw new Error('Het CSV-bestand bevat geen datarijen');
-  }
-
-  const delimiter = detectDelimiter(lines[0]);
-  if (!delimiter) {
-    throw new Error(
-      `Kolommen niet gevonden. Verwachte kolommen: ${REQUIRED_COLUMNS.join(', ')}`
-    );
-  }
-
-  const header = parseCsvLine(lines[0], delimiter).map(x => x.toLowerCase());
-  const columnIndex = {};
-  header.forEach((name, index) => {
-    columnIndex[name] = index;
-  });
-
-  const rows = [];
-  let skipped = 0;
-
-  for (let i = 1; i < lines.length; i++) {
-    const fields = parseCsvLine(lines[i], delimiter);
-
-    const lat = parseFloat(fields[columnIndex['lat']]);
-    const lon = parseFloat(fields[columnIndex['lon']]);
-    const system_id = fields[columnIndex['system_id']];
-
-    const isValid = system_id
-      && !isNaN(lat) && lat >= -90 && lat <= 90
-      && !isNaN(lon) && lon >= -180 && lon <= 180;
-
-    if (!isValid) {
-      skipped++;
+// Record parser: quoted delimiters/newlines and doubled quotes are preserved.
+function records(text, delimiter) {
+  const result = [];
+  let row = [], field = '', quoted = false, closed = false, line = 1, start = 1;
+  const fail = () => { throw new Error(`Regel ${line}: ongeldige aanhalingstekens.`); };
+  const endField = () => { row.push(field.trim()); field = ''; closed = false; };
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quoted) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; } else { quoted = false; closed = true; }
+      } else { field += c; if (c === '\n') line++; }
       continue;
     }
-
-    rows.push({
-      system_id: system_id,
-      lat: lat,
-      lon: lon,
-      start_time: fields[columnIndex['start_time']] || null,
-      end_time: fields[columnIndex['end_time']] || null,
-      form_factor: columnIndex['form_factor'] !== undefined
-        ? (fields[columnIndex['form_factor']] || null)
-        : null,
-      propulsion_type: columnIndex['propulsion_type'] !== undefined
-        ? (fields[columnIndex['propulsion_type']] || null)
-        : null
-    });
+    if (c === '"') { if (field || closed) fail(); quoted = true; }
+    else if (c === delimiter) endField();
+    else if (c === '\r' || c === '\n') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      endField();
+      if (row.some(Boolean)) result.push({ fields: row, line: start });
+      if (result.length > MAX_ROWS + 1) throw new Error(`Maximaal ${MAX_ROWS} datarijen toegestaan.`);
+      row = []; start = ++line;
+    } else { if (closed && c.trim()) fail(); if (!closed) field += c; }
   }
+  if (quoted) fail();
+  endField();
+  if (row.some(Boolean)) result.push({ fields: row, line: start });
+  return result;
+}
 
-  if (rows.length === 0) {
-    throw new Error('Geen geldige datarijen gevonden in het CSV-bestand');
+function timestamp(value, required) {
+  if (!value && !required) return null;
+  // Dashboard exports may use a PostgreSQL +02 suffix.
+  const normalized = value.replace(/([+-]\d{2})$/, '$1:00');
+  if (!/(Z|[+-]\d{2}:\d{2})$/i.test(normalized)) throw new Error('tijdstip vereist een tijdzone');
+  const parsed = moment.parseZone(normalized, moment.ISO_8601, true);
+  if (!parsed.isValid()) throw new Error('ongeldig tijdstip');
+  return parsed.toISOString();
+}
+
+/** Import parking observations, not trips. Reject invalid records without truncation. */
+export function parseRentalsCsv(csvText) {
+  if (typeof csvText !== 'string' || new Blob([csvText]).size > MAX_CSV_BYTES) throw new Error('CSV-bestand mag maximaal 10 MB zijn.');
+  const text = csvText.replace(/^\uFEFF/, '');
+  let parsed;
+  for (const delimiter of [',', ';']) {
+    try {
+      const candidate = records(text, delimiter);
+      if (REQUIRED.every(name => candidate[0]?.fields.map(x => x.toLowerCase()).includes(name))) { parsed = candidate; break; }
+    } catch (error) {
+      // Try the other delimiter, then report its record error if neither works.
+      if (delimiter === ';') throw error;
+    }
   }
-
-  return { rows, skipped };
-};
+  if (!parsed) throw new Error(`Verwachte kolommen: ${REQUIRED.join(', ')}.`);
+  const header = parsed[0].fields.map(x => x.toLowerCase());
+  if (new Set(header).size !== header.length || header.some(x => !x)) throw new Error('Kolomnamen moeten uniek en niet leeg zijn.');
+  if (parsed.length < 2) throw new Error('Het CSV-bestand bevat geen datarijen.');
+  if (parsed.length > MAX_ROWS + 1) throw new Error(`Maximaal ${MAX_ROWS} datarijen toegestaan.`);
+  const rows = parsed.slice(1).map(({ fields, line }) => {
+    try {
+      if (fields.length !== header.length) throw new Error('aantal velden wijkt af van de kopregel');
+      const values = Object.fromEntries(header.map((name, i) => [name, fields[i]]));
+      if (!values.system_id) throw new Error('system_id ontbreekt');
+      const coordinate = (value, bound) => {
+        if (!/^[+-]?(?:\d+(?:[.,]\d+)?|[.,]\d+)$/.test(value)) throw new Error('ongeldige coördinaat');
+        const number = Number(value.replace(',', '.'));
+        if (!Number.isFinite(number) || Math.abs(number) > bound) throw new Error('coördinaat buiten bereik');
+        return number;
+      };
+      const start_time = timestamp(values.start_time, true);
+      const end_time = timestamp(values.end_time, false);
+      if (end_time && end_time < start_time) throw new Error('eindtijd ligt voor begintijd');
+      return { system_id: values.system_id, lat: coordinate(values.lat, 90), lon: coordinate(values.lon, 180),
+        start_time, end_time, form_factor: values.form_factor || null, propulsion_type: values.propulsion_type || null };
+    } catch (error) { throw new Error(`Regel ${line}: ${error.message}. Import is niet gewijzigd.`); }
+  });
+  return { rows, skipped: 0 };
+}

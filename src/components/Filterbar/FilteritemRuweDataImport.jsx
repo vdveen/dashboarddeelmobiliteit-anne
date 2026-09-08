@@ -1,9 +1,9 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
 import Button from '../Button/Button';
 
-import { parseRentalsCsv } from '../../helpers/rentalsCsvImport';
+import { parseRentalsCsv, MAX_CSV_BYTES } from '../../helpers/rentalsCsvImport';
 import { forceUpdateVerhuringenData } from '../../poll-api/pollVerhuringenData';
 
 // 'Ruwe data import' for the Verhuringen view: load a CSV export of
@@ -18,16 +18,23 @@ export default function FilteritemRuweDataImport() {
     return state.rentals ? state.rentals.csv_data : null;
   });
 
+  const readerRef = useRef(null);
+  useEffect(() => () => readerRef.current?.abort(), []);
+
   const onFileSelected = (event) => {
     const file = event.target.files && event.target.files[0];
     // Reset input, so selecting the same file again re-triggers onChange
     event.target.value = '';
     if (!file) return;
 
+    readerRef.current?.abort();
+    if (file.size > MAX_CSV_BYTES) { setErrorMessage('CSV-bestand mag maximaal 10 MB zijn.'); return; }
     setErrorMessage(null);
 
     const reader = new FileReader();
+    readerRef.current = reader;
     reader.onload = () => {
+      if (readerRef.current !== reader) return;
       try {
         const { rows, skipped } = parseRentalsCsv(reader.result);
         dispatch({
@@ -50,6 +57,8 @@ export default function FilteritemRuweDataImport() {
   };
 
   const clearImport = () => {
+    readerRef.current?.abort();
+    readerRef.current = null;
     setErrorMessage(null);
     dispatch({ type: 'CLEAR_RENTALS_CSV_DATA' });
     // Re-fetch API data, so the map switches back to live data
@@ -83,12 +92,12 @@ export default function FilteritemRuweDataImport() {
             {csvData.fileName}
           </div>
           <div>
-            {csvData.rows.length} verhuringen geladen
+            {csvData.rows.length} parkeerwaarnemingen geladen
             {csvData.skipped > 0 && `, ${csvData.skipped} rijen overgeslagen`}
           </div>
           <div className="mt-1">
             <small>
-              De kaart toont nu geïmporteerde data. Datum- en afstandsfilters zijn hierop niet van toepassing.
+              De kaart toont parkeerwaarnemingen uit dit bestand, geen ritten. Alleen aanbieder- en voertuigtypefilters gelden. Plaats, zone, datum, afstand en herkomst/bestemming gelden niet. Gebruik een punten-, cluster- of heatmaplaag.
             </small>
           </div>
           <Button
