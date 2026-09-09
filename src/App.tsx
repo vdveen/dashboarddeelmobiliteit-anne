@@ -488,6 +488,7 @@ function App() {
     isBeleidszonesPath,
     isLoggedIn,
     metadata.metadata_loaded,
+    metadata.gebieden,
     filter.gebied,
     beleidszonesFilterZones,
   ]);

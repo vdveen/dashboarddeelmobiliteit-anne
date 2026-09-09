@@ -1,4 +1,5 @@
 import React, {useEffect, useMemo} from 'react'; // , {useEffect, useState }
+import { getAreaName } from '../helpers/regions';
 import './StatsPage.css'
 
 import {
@@ -169,8 +170,7 @@ function StatsPage(props) {
     }
       
     if(filter.gebied) {
-      const gebied = gebieden.find(gebied => gebied.gm_code === filter.gebied);
-      return gebied?.name;
+      return getAreaName(filter.gebied, gebieden);
     }
     return 'Ontwikkeling';
   }, [filterZones, filter.gebied, zones, gebieden]);

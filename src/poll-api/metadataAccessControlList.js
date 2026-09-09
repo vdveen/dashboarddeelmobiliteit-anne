@@ -1,4 +1,5 @@
 import { fetchOperators, getCachedOperators } from '../api/operators';
+import { hasAccessToArea } from '../helpers/regions';
 import { setAclInRedux } from '../actions/authentication';
 import { isAdmin } from '../helpers/authentication.js';
 
@@ -219,7 +220,7 @@ export const initAccessControlList = (store_accesscontrollist)  => {
               // Admins are exempt: they can view municipalities outside their ACL
               // list and their queries are NL-wide regardless of this value.
               const currentGebied = store_accesscontrollist.getState().filter?.gebied;
-              const hasAccessToCurrentGebied = metadata.municipalities.some(m => m.gm_code === currentGebied);
+              const hasAccessToCurrentGebied = hasAccessToArea(currentGebied, municipalities);
               if(currentGebied && !hasAccessToCurrentGebied && !isAdmin(store_accesscontrollist.getState())) {
                 store_accesscontrollist.dispatch({ type: 'SET_FILTER_GEBIED', payload: ""});
               }

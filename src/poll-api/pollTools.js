@@ -1,5 +1,6 @@
 
 import moment from 'moment-timezone';
+import { getMunicipalityCodes, getRegionZoneIds } from '../helpers/regions';
 import { REPORTING_TIMEZONE } from '../helpers/stats/time';
 import {
   DISPLAYMODE_PARK,
@@ -60,6 +61,11 @@ export const createFilterparameters = (displayMode, filter, metadata, options) =
   // If zones are explicity asked: add these to the request query
   if (filter.zones !== "") {
     filterparams.push("zone_ids=" + filter.zones);
+  }
+  else if (getMunicipalityCodes(filter.gebied).length > 1) {
+    const zoneIds = getRegionZoneIds(filter.gebied, metadata);
+    // Zone IDs are positive. Use a non-existent ID until all boundaries load.
+    filterparams.push('zone_ids=' + (zoneIds.length ? zoneIds.join(',') : '0'));
   }
   // If a place is selected, get all zones for this place
   else if (filter.gebied !== "" && hasAccessToFilterGebied) {
