@@ -16,7 +16,8 @@ export interface VoiAreaControlsProps {
 const MIN_POLYGON_POINTS = 3;
 
 function hintFor(mode: MapDrawMode | null, hasPolygon: boolean): string {
-  if (mode === 'polygon') return 'Klik punten op de kaart. Rechtsklik of Enter rondt af, Escape annuleert.';
+  if (mode === 'polygon')
+    return 'Klik punten op de kaart. Rechtsklik of Enter rondt af, Escape annuleert.';
   if (mode === 'lasso') return 'Sleep over de kaart. Escape annuleert.';
   if (!hasPolygon) return 'Teken een gebied om de beschikbaarheid door de tijd te zien.';
   return '';
@@ -38,23 +39,11 @@ const VoiAreaControls: React.FC<VoiAreaControlsProps> = ({
     <div className="VoiAvailability-area">
       <div className="VoiAvailability-areaHeading">Gebied</div>
 
-      <div
-        className="VoiAvailability-segmented"
-        role="group"
-        aria-label="Gebied tekenen"
-      >
-        <button
-          type="button"
-          aria-pressed={mode === 'polygon'}
-          onClick={() => onStart('polygon')}
-        >
+      <div className="VoiAvailability-segmented" role="group" aria-label="Gebied tekenen">
+        <button type="button" aria-pressed={mode === 'polygon'} onClick={() => onStart('polygon')}>
           Polygoon
         </button>
-        <button
-          type="button"
-          aria-pressed={mode === 'lasso'}
-          onClick={() => onStart('lasso')}
-        >
+        <button type="button" aria-pressed={mode === 'lasso'} onClick={() => onStart('lasso')}>
           Lasso
         </button>
         {canFinish && (
@@ -62,13 +51,16 @@ const VoiAreaControls: React.FC<VoiAreaControlsProps> = ({
             Afronden
           </button>
         )}
-        <button
-          type="button"
-          onClick={onClear}
-          disabled={!hasPolygon && mode === null}
-        >
-          Wis
-        </button>
+        {mode !== null && (
+          <button type="button" onClick={onClear}>
+            Annuleer
+          </button>
+        )}
+        {mode === null && hasPolygon && (
+          <button type="button" onClick={onClear}>
+            Wis
+          </button>
+        )}
       </div>
 
       {hint && <p className="VoiAvailability-hint">{hint}</p>}

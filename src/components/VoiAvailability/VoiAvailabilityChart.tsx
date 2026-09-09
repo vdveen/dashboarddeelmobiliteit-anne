@@ -136,6 +136,9 @@ const VoiAvailabilityChart: React.FC<VoiAvailabilityChartProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [collapsed, setCollapsed] = useState(
+    () => window.matchMedia?.('(max-width: 639px)').matches ?? false
+  );
 
   useEffect(() => {
     if (!polygon) {
@@ -154,7 +157,10 @@ const VoiAvailabilityChart: React.FC<VoiAvailabilityChartProps> = ({
       .then((series) => {
         if (controller.signal.aborted) return;
         setRows(toChartRows(series.series));
-        setRange({ from: series.from || requested.from, to: series.to || requested.to });
+        setRange({
+          from: series.from || requested.from,
+          to: series.to || requested.to,
+        });
         setIsLoading(false);
       })
       .catch((fetchError: unknown) => {
@@ -212,9 +218,7 @@ const VoiAvailabilityChart: React.FC<VoiAvailabilityChartProps> = ({
 
     if (allEmpty) {
       return (
-        <p className="VoiAvailability-empty">
-          Geen Voi-voertuigen in dit gebied in deze periode.
-        </p>
+        <p className="VoiAvailability-empty">Geen Voi-voertuigen in dit gebied in deze periode.</p>
       );
     }
 
@@ -284,7 +288,10 @@ const VoiAvailabilityChart: React.FC<VoiAvailabilityChartProps> = ({
   };
 
   return (
-    <section className="VoiAvailability-card" aria-label="Beschikbaarheid in het getekende gebied">
+    <section
+      className={`VoiAvailability-card${collapsed ? ' is-collapsed' : ''}`}
+      aria-label="Beschikbaarheid in het getekende gebied"
+    >
       <div className="VoiAvailability-cardHeader">
         <div>
           <div className="VoiAvailability-cardKicker">Beschikbaarheid in gebied</div>
@@ -292,6 +299,15 @@ const VoiAvailabilityChart: React.FC<VoiAvailabilityChartProps> = ({
         </div>
 
         <div className="VoiAvailability-cardActions">
+          <button
+            type="button"
+            className="VoiAvailability-expand"
+            aria-expanded={!collapsed}
+            aria-controls="voi-availability-plot"
+            onClick={() => setCollapsed((value) => !value)}
+          >
+            {collapsed ? 'Toon grafiek' : 'Verberg grafiek'}
+          </button>
           <div className="VoiAvailability-segmented" role="group" aria-label="Periode">
             {PERIODS.map((period) => (
               <button
@@ -332,7 +348,9 @@ const VoiAvailabilityChart: React.FC<VoiAvailabilityChartProps> = ({
         </div>
       </div>
 
-      <div className="VoiAvailability-plot">{renderBody()}</div>
+      <div id="voi-availability-plot" className="VoiAvailability-plot" hidden={collapsed}>
+        {renderBody()}
+      </div>
     </section>
   );
 };

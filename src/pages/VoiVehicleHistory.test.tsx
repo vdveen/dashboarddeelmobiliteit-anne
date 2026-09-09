@@ -2,32 +2,63 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import maplibregl from 'maplibre-gl';
 import VoiVehicleHistory from './VoiVehicleHistory';
 import { listVoiSnapshots, downloadVoiSnapshot } from '../api/voiSnapshots';
-jest.mock('maplibre-gl', () => ({ __esModule: true, default: { Map: jest.fn(), AttributionControl: jest.fn(), NavigationControl: jest.fn() } }));
+jest.mock('maplibre-gl', () => ({
+  __esModule: true,
+  default: {
+    Map: jest.fn(),
+    AttributionControl: jest.fn(),
+    NavigationControl: jest.fn(),
+  },
+}));
 jest.mock('../api/voiSnapshots');
-jest.mock('../components/ui/button', () => ({ Button: ({ variant, size, children, ...props }) => <button {...props}>{children}</button> }));
-const frames = ['2026-09-01T00:00:00Z', '2026-09-01T00:10:00Z'].map((capturedAt, i) => ({ name: `frame${i}`, capturedAt, downloadUrl: `/frame${i}` }));
+jest.mock('../components/ui/button', () => ({
+  Button: ({ variant, size, children, ...props }) => <button {...props}>{children}</button>,
+}));
+const frames = ['2026-09-01T00:00:00Z', '2026-09-01T00:10:00Z'].map((capturedAt, i) => ({
+  name: `frame${i}`,
+  capturedAt,
+  downloadUrl: `/frame${i}`,
+}));
 test('retains displayed identity during a slow selection and retries that frame after failure', async () => {
-  (maplibregl.Map as unknown as jest.Mock).mockImplementation(() => ({ addControl() {}, dragRotate: { disable() {} }, touchZoomRotate: { disableRotation() {} }, on() {}, remove() {} }));
+  (maplibregl.Map as unknown as jest.Mock).mockImplementation(() => ({
+    addControl() {},
+    dragRotate: { disable() {} },
+    touchZoomRotate: { disableRotation() {} },
+    on() {},
+    remove() {},
+  }));
   (listVoiSnapshots as jest.Mock).mockResolvedValue(frames);
   (downloadVoiSnapshot as jest.Mock).mockResolvedValueOnce({
     data: { type: 'FeatureCollection', features: [] },
-    bytes: 50
+    bytes: 50,
   });
   const { container, unmount } = render(<VoiVehicleHistory />);
-  await waitFor(() => expect(container.querySelector('time')).toHaveAttribute('datetime', frames[1].capturedAt));
+  await waitFor(() =>
+    expect(container.querySelector('time')).toHaveAttribute('datetime', frames[1].capturedAt)
+  );
   let reject;
-  (downloadVoiSnapshot as jest.Mock).mockImplementationOnce(() => new Promise((_, r) => { reject = r; }));
+  (downloadVoiSnapshot as jest.Mock).mockImplementationOnce(
+    () =>
+      new Promise((_, r) => {
+        reject = r;
+      })
+  );
   fireEvent.click(screen.getByLabelText('Vorige meting'));
   expect(container.querySelector('time')).toHaveAttribute('datetime', frames[1].capturedAt);
-  await act(async () => { reject(new Error('offline')); });
+  await act(async () => {
+    reject(new Error('offline'));
+  });
   expect(screen.getByRole('alert')).toHaveTextContent('offline');
   (downloadVoiSnapshot as jest.Mock).mockResolvedValueOnce({
     data: { type: 'FeatureCollection', features: [] },
-    bytes: 50
+    bytes: 50,
   });
   fireEvent.click(screen.getByText('Opnieuw'));
-  await waitFor(() => expect(container.querySelector('time')).toHaveAttribute('datetime', frames[0].capturedAt));
+  await waitFor(() =>
+    expect(container.querySelector('time')).toHaveAttribute('datetime', frames[0].capturedAt)
+  );
   expect(listVoiSnapshots).toHaveBeenCalledTimes(1);
   const signal = (downloadVoiSnapshot as jest.Mock).mock.calls[2][1];
-  unmount(); expect(signal.aborted).toBe(true);
+  unmount();
+  expect(signal.aborted).toBe(true);
 });
