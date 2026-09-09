@@ -245,7 +245,7 @@ function Filterbar({
           )}
 
           <Fieldset title="Plaats">
-            <FilteritemGebieden />
+            <FilteritemGebieden includeRegions={ispark || isBeleidsinfo} />
           </Fieldset>
 
           {filterGebied && (

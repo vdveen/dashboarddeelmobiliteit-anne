@@ -1,4 +1,5 @@
 import { scopedMetadataStore } from './requestScope';
+import { getMunicipalityCodes, getRegionZoneIds } from '../helpers/regions';
 import {isLoggedIn, shouldTreatMunicipalitiesAsNlWide} from '../helpers/authentication.js';
 
 export const getEmptyZonesGeodataPayload = () => {
@@ -134,6 +135,8 @@ export const updateZonesgeodata = (store) => {
         .filter((zone) => zone.zone_type === 'municipality')
         .map((zone) => zone.zone_id)
         .join(',');
+    } else if (state.filter.zones.length === 0 && getMunicipalityCodes(state.filter.gebied).length > 1) {
+      zone_ids = getRegionZoneIds(state.filter.gebied, state.metadata).join(',');
     } else if (state.filter.zones.length === 0) {
       const list_g = state.metadata.gebieden
         .filter((gebied) => gebied.gm_code === state.filter.gebied)

@@ -130,7 +130,7 @@ function Filterbar({
       { isLoggedIn && showvantot && <FilteritemDatumVanTot /> }
 
       {!hasImport && <Fieldset title="Plaats">
-        <FilteritemGebieden />
+        <FilteritemGebieden includeRegions />
       </Fieldset>}
 
       {!hasImport && <Fieldset title="Zones">
