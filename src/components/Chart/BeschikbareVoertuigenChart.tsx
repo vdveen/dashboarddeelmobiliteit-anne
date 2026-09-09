@@ -1,3 +1,4 @@
+import { hasAreaZones } from '../../helpers/regions';
 import React, {useEffect, useState } from 'react';
 
 import { getOperatorStatsForChart, transformZerosToNullForChart } from './chartTools.js';
@@ -117,7 +118,7 @@ function BeschikbareVoertuigenChart({
     // plaats (i.e. no zone for the current gebied has loaded yet), skip the
     // fetch. Otherwise we would request without a valid zone filter and the
     // API returns NL-wide data.
-    if(filter.gebied && !metadata.zones.some((z: any) => z.municipality === filter.gebied)) {
+    if(filter.gebied && !hasAreaZones(filter.gebied, metadata.zones)) {
       setVehiclesData([]);
       setOperationalVehiclesByDay({});
       setIsLoading(false);

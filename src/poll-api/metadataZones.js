@@ -1,4 +1,5 @@
 import { scopedMetadataStore } from './requestScope';
+import { getMunicipalityCodes, hasAccessToArea } from '../helpers/regions';
 import { getEmptyZonesGeodataPayload } from './metadataZonesgeodata';
 import {isLoggedIn, shouldTreatMunicipalitiesAsNlWide} from '../helpers/authentication.js';
 
@@ -28,6 +29,42 @@ export const updateZones = async (store_zones) => {
       store_zones.dispatch({ type: 'SET_ZONES_GEODATA', payload: getEmptyZonesGeodataPayload()});
       store_zones.dispatch({ type: 'SET_ZONES_LOADED', payload: true});
       
+      return;
+    }
+
+    // Region presets use the plural parameter supported by both zones APIs.
+    else if (getMunicipalityCodes(state.filter.gebied).length > 1) {
+      store_zones.dispatch({ type: 'SET_ZONES', payload: [] });
+      store_zones.dispatch({ type: 'SET_ZONES_LOADED', payload: false });
+      if (!hasAccessToArea(state.filter.gebied, state.metadata.gebieden)) {
+        store_zones.dispatch({ type: 'SET_ZONES_GEODATA', payload: getEmptyZonesGeodataPayload() });
+        store_zones.dispatch({ type: 'SET_ZONES_LOADED', payload: true });
+        return;
+      }
+      const prefix = isLoggedIn(state) ? '' : '/public';
+      const codes = getMunicipalityCodes(state.filter.gebied).join(',');
+      const options = isLoggedIn(state)
+        ? { headers: { authorization: 'Bearer ' + state.authentication.user_data.token } }
+        : {};
+      store_zones.dispatch({ type: 'SHOW_LOADING', payload: true });
+      try {
+        // Retry one transient failure. Keep the empty zone list on failure so
+        // the region query fails closed instead of reusing another area's data.
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const response = await fetch(`${process.env.REACT_APP_MAIN_API_URL}/dashboard-api${prefix}/zones?municipalities=${codes}`, options);
+            if (!response.ok) throw new Error(`Unable to load region zones (${response.status})`);
+            const metadata = await response.json();
+            store_zones.dispatch({ type: 'SET_ZONES', payload: metadata.zones || [] });
+            break;
+          } catch (error) {
+            if (attempt === 1) throw error;
+          }
+        }
+      } finally {
+        store_zones.dispatch({ type: 'SET_ZONES_LOADED', payload: true });
+        store_zones.dispatch({ type: 'SHOW_LOADING', payload: false });
+      }
       return;
     }
 

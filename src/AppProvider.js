@@ -13,6 +13,7 @@ import thunk from 'redux-thunk';
 import appReducer from './reducers';
 import { sanitizeActiveDataLayers, sanitizeDataLayerOrder, sanitizeOverlayLayers } from './reducers/layers';
 import App from './App';
+import RegionRouteGuard from './components/RegionRouteGuard';
 import { validatePersistedState } from './helpers/persistedState';
 
 const composeEnhancers = window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ || compose;
@@ -117,7 +118,9 @@ class AppProvider extends Component {
     return (
       <Provider store={store}>
         <BrowserRouter>
-          <App content={this.props.content} />
+          <RegionRouteGuard>
+            <App content={this.props.content} />
+          </RegionRouteGuard>
         </BrowserRouter>
       </Provider>
     )

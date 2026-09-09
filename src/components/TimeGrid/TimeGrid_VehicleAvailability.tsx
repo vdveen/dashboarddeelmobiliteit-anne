@@ -1,3 +1,4 @@
+import { hasAreaZones } from '../../helpers/regions';
 import React, {useEffect, useState } from 'react';
 import {
   useDispatch,
@@ -62,7 +63,7 @@ function TimeGridVehicleAvailability({}) {
     // plaats. Otherwise the fetch would request without a valid zone filter
     // and the API returns NL-wide data.
     if (!metadata?.zones || metadata.zones.length <= 0) return;
-    if (filter.gebied && !metadata.zones.some((z: any) => z.municipality === filter.gebied)) return;
+    if (filter.gebied && !hasAreaZones(filter.gebied, metadata.zones)) return;
 
     (async () => {
       const vehicleData = await fetchData();

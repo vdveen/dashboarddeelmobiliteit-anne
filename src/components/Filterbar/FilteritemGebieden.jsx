@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import FilterbarExtended from './FilterbarExtended.jsx';
 import useFilterbarExtended from '../../customHooks/useFilterbarExtended';
 import './css/FilteritemGebieden.css';
+import { getAreaOptions, getAreaName } from '../../helpers/regions';
 
 import {StateType} from '../../types/StateType';
 
@@ -23,7 +24,7 @@ const setQueryParam = (key, val) => {
   }
 }
 
-function FilteritemGebieden() {
+function FilteritemGebieden({ includeRegions = false }) {
   const dispatch = useDispatch()
   const { openView, close, isViewActive } = useFilterbarExtended();
 
@@ -34,6 +35,7 @@ function FilteritemGebieden() {
   const filterGebied = useSelector((state: StateType) => {
     return state.filter ? state.filter.gebied : "";
   });
+  const areaOptions = includeRegions ? getAreaOptions(gebieden) : gebieden;
 
   let [filterSearch, setFilterSearch] = useState("");
 
@@ -51,6 +53,7 @@ function FilteritemGebieden() {
 
     // Reset query param
     setQueryParam('gm_code', null);
+    setQueryParam('zones', null);
     
     dispatch({
       type: 'SET_FILTER_GEBIED',
@@ -62,6 +65,7 @@ function FilteritemGebieden() {
   const setFilterGebied = (gebied) => {
     // Set query param
     setQueryParam('gm_code', gebied);
+    setQueryParam('zones', null);
     // Call action
     dispatch({
       type: 'SET_FILTER_GEBIED',
@@ -73,8 +77,6 @@ function FilteritemGebieden() {
   const changeSearchText = e => { setFilterSearch(e.target.value) }
 
   const clearSearchText = e => {
-    // Reset query param
-    setQueryParam('gm_code', null);
     // Clear search query
     setFilterSearch('')
   }
@@ -93,7 +95,7 @@ function FilteritemGebieden() {
     })
     return (
       <FilterbarExtended
-        title="Selecteer een plaats"
+        title={includeRegions ? 'Selecteer een plaats of regio' : 'Selecteer een plaats'}
         closeFunction={close}
         >
         <div className="filter-form-selectie">
@@ -141,7 +143,8 @@ function FilteritemGebieden() {
     )
   }
   
-  let value = gebieden.find(item=>item.gm_code===filterGebied) || "";
+  const areaName = getAreaName(filterGebied, gebieden);
+  let value = areaName ? { name: areaName } : "";
   if(gebieden.length===1) {
     return (
       <div className="filter-plaats-container filter-plaats-not-active">
@@ -163,7 +166,7 @@ function FilteritemGebieden() {
         }}>
           {value === "" ? "Alle plaatsen" : value.name}
         </div>
-        { isViewActive('places') ? renderSelectGebieden(gebieden) : null }
+        { isViewActive('places') ? renderSelectGebieden(areaOptions) : null }
         {  filterGebied!=="" ?
               <div className="filter-plaats-img-cancel" onClick={unselectGebied} />
             :

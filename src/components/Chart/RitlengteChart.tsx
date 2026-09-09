@@ -1,3 +1,4 @@
+import { hasAreaZones } from '../../helpers/regions';
 import React, {useEffect, useMemo, useState} from 'react';
 
 import {StateType} from '../../types/StateType';
@@ -75,7 +76,7 @@ function RitlengteChart(props) {
     }
     // If a plaats is selected but metadata.zones still belongs to a previous
     // plaats, skip the fetch (see BeschikbareVoertuigenChart for rationale).
-    if(filter.gebied && !metadata.zones.some((z: any) => z.municipality === filter.gebied)) {
+    if(filter.gebied && !hasAreaZones(filter.gebied, metadata.zones)) {
       setTrips([]);
       setIsLoading(false);
       return;

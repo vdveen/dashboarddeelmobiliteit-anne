@@ -1,3 +1,4 @@
+import { hasAreaZones } from '../../helpers/regions';
 import React, {useEffect, useState } from 'react';
 
 import { getOperatorStatsForChart, transformZerosToNullForChart } from './chartTools.js';
@@ -84,7 +85,7 @@ function VerhuringenChart(props) {
     }
     // If a plaats is selected but metadata.zones still belongs to a previous
     // plaats, skip the fetch (see BeschikbareVoertuigenChart for rationale).
-    if(filter.gebied && !metadata.zones.some((z: any) => z.municipality === filter.gebied)) {
+    if(filter.gebied && !hasAreaZones(filter.gebied, metadata.zones)) {
       setRentalsData([]);
       setIsLoading(false);
       return;
