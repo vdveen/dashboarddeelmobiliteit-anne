@@ -95,9 +95,20 @@ export function useMapPolygonDraw(map: MapLibreMap | null): MapPolygonDraw {
   // and put the current drawing back.
   useEffect(() => {
     if (!map) return undefined;
+    let cancelled = false;
 
     const ensureLayers = () => {
-      if (!map.isStyleLoaded()) return;
+      if (cancelled) return;
+      // MapLibre refuses sources and layers until the style has settled, and
+      // reports the style as unloaded while any change is still pending. A map
+      // handed over right after its own layers were added is in exactly that
+      // state, and an otherwise idle map fires no further `load` or
+      // `styledata`, so retry on the next idle frame instead of waiting for an
+      // event that never arrives.
+      if (!map.isStyleLoaded()) {
+        map.once('idle', ensureLayers);
+        return;
+      }
 
       if (!map.getSource(SOURCE_ID)) {
         map.addSource(SOURCE_ID, { type: 'geojson', data: dataRef.current });
@@ -132,8 +143,10 @@ export function useMapPolygonDraw(map: MapLibreMap | null): MapPolygonDraw {
     map.on('styledata', ensureLayers);
 
     return () => {
+      cancelled = true;
       map.off('load', ensureLayers);
       map.off('styledata', ensureLayers);
+      map.off('idle', ensureLayers);
       try {
         if (map.getLayer(FILL_LAYER_ID)) map.removeLayer(FILL_LAYER_ID);
         if (map.getLayer(LINE_LAYER_ID)) map.removeLayer(LINE_LAYER_ID);
