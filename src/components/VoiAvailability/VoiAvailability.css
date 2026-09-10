@@ -83,7 +83,8 @@
 .VoiAvailability-card.is-collapsed {
   padding-bottom: 14px;
 }
-.VoiAvailability-expand {
+.VoiAvailability-expand,
+.VoiAvailability-mode {
   min-height: 34px;
   padding: 5px 10px;
   border: 1px solid #d8dddf;
@@ -94,6 +95,18 @@
   font: inherit;
   font-size: 0.78rem;
   font-weight: 600;
+}
+
+.VoiAvailability-mode[aria-pressed='true'] {
+  border-color: #8cc9e9;
+  background: #e8f5fb;
+  color: #126d9f;
+}
+
+.VoiAvailability-expand:focus-visible,
+.VoiAvailability-mode:focus-visible {
+  outline: 2px solid #15aeef;
+  outline-offset: 2px;
 }
 
 .VoiAvailability-cardHeader {
@@ -237,8 +250,13 @@
     gap: 4px;
   }
   .VoiAvailability-cardActions .VoiAvailability-segmented,
+  .VoiAvailability-mode,
   .VoiAvailability-download {
     display: none;
+  }
+  .VoiAvailability-card:not(.is-collapsed) .VoiAvailability-mode {
+    display: inline-flex;
+    align-items: center;
   }
   .VoiAvailability-card:not(.is-collapsed)
     .VoiAvailability-cardActions

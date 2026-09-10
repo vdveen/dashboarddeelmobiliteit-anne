@@ -89,7 +89,7 @@ interface TooltipItem {
   payload?: VoiChartRow;
 }
 
-const itemValueFormatter = (item: TooltipItem): string => {
+const percentageValueFormatter = (item: TooltipItem): string => {
   const value = typeof item.value === 'number' ? item.value : null;
   if (value === null) return '-';
 
@@ -100,16 +100,21 @@ const itemValueFormatter = (item: TooltipItem): string => {
   return `${formatPercentage(value)} (${formatCount(count)})`;
 };
 
+const countValueFormatter = (item: TooltipItem): string => {
+  const value = typeof item.value === 'number' ? item.value : null;
+  return value === null ? '-' : formatCount(value);
+};
+
 /**
  * A custom Tooltip `content` receives the raw label, so format the capture time
  * before handing it to the shared tooltip.
  */
-const AreaTooltip = (props: { label?: number | string }) => (
+const AreaTooltip = ({ showCounts, ...props }: { label?: number | string; showCounts: boolean }) => (
   <CustomizedTooltip
     {...props}
     label={typeof props.label === 'number' ? formatTooltipTime(props.label) : props.label}
     showAutomaticTotal={false}
-    itemValueFormatter={itemValueFormatter}
+    itemValueFormatter={showCounts ? countValueFormatter : percentageValueFormatter}
   />
 );
 
@@ -136,6 +141,7 @@ const VoiAvailabilityChart: React.FC<VoiAvailabilityChartProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [showCounts, setShowCounts] = useState(false);
   const [collapsed, setCollapsed] = useState(
     () => window.matchMedia?.('(max-width: 639px)').matches ?? false
   );
@@ -235,49 +241,74 @@ const VoiAvailabilityChart: React.FC<VoiAvailabilityChartProps> = ({
             tick={<TimeAxisTick stepMs={axis.stepMs} />}
             minTickGap={32}
           />
-          <YAxis
-            domain={[0, 100]}
-            ticks={[0, 25, 50, 75, 100]}
-            tick={<PercentageAxisTick />}
-            width={44}
-          />
-          <Tooltip content={<AreaTooltip />} />
+          {showCounts ? (
+            <YAxis
+              domain={[0, 'auto']}
+              allowDecimals={false}
+              tickFormatter={formatCount}
+              width={52}
+            />
+          ) : (
+            <YAxis
+              domain={[0, 100]}
+              ticks={[0, 25, 50, 75, 100]}
+              tick={<PercentageAxisTick />}
+              width={44}
+            />
+          )}
+          <Tooltip content={<AreaTooltip showCounts={showCounts} />} />
           <Legend />
-          <Line
-            type="monotone"
-            dataKey="operationalPct"
-            name="Operationeel"
-            stroke="#1a86c7"
-            strokeWidth={2.5}
-            strokeLinejoin="round"
-            strokeLinecap="round"
-            dot={false}
-            isAnimationActive={false}
-          />
-          <Line
-            type="monotone"
-            dataKey="nonOperationalPct"
-            name="Niet-operationeel"
-            stroke="#e2564e"
-            strokeWidth={2.5}
-            strokeLinejoin="round"
-            strokeLinecap="round"
-            dot={false}
-            isAnimationActive={false}
-          />
-          {showUnknown && (
+          {showCounts ? (
             <Line
               type="monotone"
-              dataKey="unknownPct"
-              name="Status onbekend"
-              stroke="#8a969b"
-              strokeDasharray="6 4"
-              strokeWidth={2}
+              dataKey="operational"
+              name="Beschikbaar"
+              stroke="#1a86c7"
+              strokeWidth={2.5}
               strokeLinejoin="round"
               strokeLinecap="round"
               dot={false}
               isAnimationActive={false}
             />
+          ) : (
+            <>
+              <Line
+                type="monotone"
+                dataKey="operationalPct"
+                name="Operationeel"
+                stroke="#1a86c7"
+                strokeWidth={2.5}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                dot={false}
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="nonOperationalPct"
+                name="Niet-operationeel"
+                stroke="#e2564e"
+                strokeWidth={2.5}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                dot={false}
+                isAnimationActive={false}
+              />
+              {showUnknown && (
+                <Line
+                  type="monotone"
+                  dataKey="unknownPct"
+                  name="Status onbekend"
+                  stroke="#8a969b"
+                  strokeDasharray="6 4"
+                  strokeWidth={2}
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              )}
+            </>
           )}
           {selectedTime !== undefined && (
             <ReferenceLine x={selectedTime} stroke="#17313b" strokeDasharray="3 3" />
@@ -299,6 +330,16 @@ const VoiAvailabilityChart: React.FC<VoiAvailabilityChartProps> = ({
         </div>
 
         <div className="VoiAvailability-cardActions">
+          <button
+            type="button"
+            className="VoiAvailability-mode"
+            aria-pressed={showCounts}
+            aria-label={showCounts ? 'Toon percentages' : 'Toon aantal beschikbare voertuigen'}
+            title={showCounts ? 'Toon percentages' : 'Toon aantal beschikbare voertuigen'}
+            onClick={() => setShowCounts((value) => !value)}
+          >
+            Aantal
+          </button>
           <button
             type="button"
             className="VoiAvailability-expand"

@@ -14,10 +14,10 @@ jest.mock('../ui/button', () => ({
 }));
 jest.mock('recharts', () => {
   const React = require('react');
-  return Object.fromEntries(
-    [
+  return {
+    ...Object.fromEntries(
+      [
       'LineChart',
-      'Line',
       'XAxis',
       'YAxis',
       'CartesianGrid',
@@ -25,8 +25,14 @@ jest.mock('recharts', () => {
       'Legend',
       'ReferenceLine',
       'ResponsiveContainer',
-    ].map((name) => [name, ({ children }) => React.createElement('div', null, children)])
-  );
+      ].map((name) => [name, ({ children }) => React.createElement('div', null, children)])
+    ),
+    Line: ({ children, dataKey, name }) => React.createElement(
+      'div',
+      { 'data-testid': `line-${dataKey}`, 'data-name': name },
+      children
+    ),
+  };
 });
 
 const fetchAvailability = fetchVoiAvailability as jest.Mock;
@@ -93,6 +99,27 @@ test('shows a skeleton and then the latest measurement', async () => {
   expect(
     await screen.findByText('Laatste meting: 406 van 1.006 voertuigen operationeel (40,4%)')
   ).toBeInTheDocument();
+});
+
+test('switches from status percentages to the available vehicle count', async () => {
+  render(<VoiAvailabilityChart polygon={polygon} onClose={jest.fn()} />);
+  await screen.findByText(/Laatste meting/);
+
+  expect(screen.getByTestId('line-operationalPct')).toBeInTheDocument();
+  expect(screen.getByTestId('line-nonOperationalPct')).toBeInTheDocument();
+
+  const modeToggle = screen.getByRole('button', {
+    name: 'Toon aantal beschikbare voertuigen',
+  });
+  fireEvent.click(modeToggle);
+
+  expect(screen.getByRole('button', { name: 'Toon percentages' })).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+  expect(screen.getByTestId('line-operational')).toHaveAttribute('data-name', 'Beschikbaar');
+  expect(screen.queryByTestId('line-operationalPct')).not.toBeInTheDocument();
+  expect(screen.queryByTestId('line-nonOperationalPct')).not.toBeInTheDocument();
 });
 
 test('reports there are no measurements in the window', async () => {
