@@ -101,7 +101,7 @@ test('shows a skeleton and then the latest measurement', async () => {
   ).toBeInTheDocument();
 });
 
-test('switches from status percentages to the available vehicle count', async () => {
+test('switches from status percentages to operational, non-operational and total counts', async () => {
   render(<VoiAvailabilityChart polygon={polygon} onClose={jest.fn()} />);
   await screen.findByText(/Laatste meting/);
 
@@ -109,7 +109,7 @@ test('switches from status percentages to the available vehicle count', async ()
   expect(screen.getByTestId('line-nonOperationalPct')).toBeInTheDocument();
 
   const modeToggle = screen.getByRole('button', {
-    name: 'Toon aantal beschikbare voertuigen',
+    name: 'Toon aantallen voertuigen',
   });
   fireEvent.click(modeToggle);
 
@@ -117,7 +117,12 @@ test('switches from status percentages to the available vehicle count', async ()
     'aria-pressed',
     'true'
   );
-  expect(screen.getByTestId('line-operational')).toHaveAttribute('data-name', 'Beschikbaar');
+  expect(screen.getByTestId('line-operational')).toHaveAttribute('data-name', 'Operationeel');
+  expect(screen.getByTestId('line-non_operational')).toHaveAttribute(
+    'data-name',
+    'Niet-operationeel'
+  );
+  expect(screen.getByTestId('line-total')).toHaveAttribute('data-name', 'Totaal');
   expect(screen.queryByTestId('line-operationalPct')).not.toBeInTheDocument();
   expect(screen.queryByTestId('line-nonOperationalPct')).not.toBeInTheDocument();
 });

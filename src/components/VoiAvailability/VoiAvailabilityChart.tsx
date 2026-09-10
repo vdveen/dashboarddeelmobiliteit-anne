@@ -259,17 +259,42 @@ const VoiAvailabilityChart: React.FC<VoiAvailabilityChartProps> = ({
           <Tooltip content={<AreaTooltip showCounts={showCounts} />} />
           <Legend />
           {showCounts ? (
-            <Line
-              type="monotone"
-              dataKey="operational"
-              name="Beschikbaar"
-              stroke="#1a86c7"
-              strokeWidth={2.5}
-              strokeLinejoin="round"
-              strokeLinecap="round"
-              dot={false}
-              isAnimationActive={false}
-            />
+            <>
+              <Line
+                type="monotone"
+                dataKey="operational"
+                name="Operationeel"
+                stroke="#1a86c7"
+                strokeWidth={2.5}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                dot={false}
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="non_operational"
+                name="Niet-operationeel"
+                stroke="#e2564e"
+                strokeWidth={2.5}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                dot={false}
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="total"
+                name="Totaal"
+                stroke="#17313b"
+                strokeDasharray="6 4"
+                strokeWidth={2}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                dot={false}
+                isAnimationActive={false}
+              />
+            </>
           ) : (
             <>
               <Line
@@ -334,8 +359,8 @@ const VoiAvailabilityChart: React.FC<VoiAvailabilityChartProps> = ({
             type="button"
             className="VoiAvailability-mode"
             aria-pressed={showCounts}
-            aria-label={showCounts ? 'Toon percentages' : 'Toon aantal beschikbare voertuigen'}
-            title={showCounts ? 'Toon percentages' : 'Toon aantal beschikbare voertuigen'}
+            aria-label={showCounts ? 'Toon percentages' : 'Toon aantallen voertuigen'}
+            title={showCounts ? 'Toon percentages' : 'Toon aantallen voertuigen'}
             onClick={() => setShowCounts((value) => !value)}
           >
             Aantal
