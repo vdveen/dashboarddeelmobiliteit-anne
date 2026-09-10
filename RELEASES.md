@@ -1,5 +1,37 @@
 # Dashboard Deelmobiliteit app Releases
 
+## Release 2026-09-07
+
+**Kaart**
+
+- 🪄 Lagenselectie vernieuwd: datalagen kies je nu via een aanvinkbare lijst, en je kunt de volgorde van lagen verslepen
+- 🪄 Lagen 'Servicegebieden', 'Hubs' en 'Verbodsgebieden' zijn nu op elke kaartpagina in- en uit te schakelen
+- 🪄 Via het zoekicoon kun je op elke kaartpagina zoeken naar hubs en verbodsgebieden
+- ✨ Bij wisselen van pagina blijft de kaartpositie en het zoomniveau behouden
+- ✨ Bronvermelding van OpenStreetMap, Mapbox en PDOK toegevoegd op de kaart
+- 🐛 Opgelost: fout bij het laden van zones voor accounts zonder gemeentelijst
+
+**Prestaties aanbieders**
+
+- 🪄 Grafieken op de detailpagina kun je downloaden als CSV, per grafiek of alle KPI's tegelijk
+
+**Gebruikersbeheer**
+
+- ✨ Nieuwe gebruikers ontvangen automatisch een e-mail om hun wachtwoord in te stellen
+
+**Gebruikersinterface**
+
+- ✨ Functies-pagina bevat nu links naar de belangrijkste dashboardpagina's
+- 🐛 Opgelost: submenu in het hoofdmenu sloot onbedoeld bij het bewegen van de muis naar het submenu
+
+**Aanbod**
+
+- 🐛 Opgelost: gastgebruikers zagen een andere (verouderde) gemeentelijst dan ingelogde gebruikers
+
+**Datafeeds**
+
+- 🐛 Opgelost: de pagina 'Actieve datafeeds' gaf een fout als er geen feeds geconfigureerd waren
+
 ## Release 2026-08-16
 
 **Functies en onboarding**
