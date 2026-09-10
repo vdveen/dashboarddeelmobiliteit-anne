@@ -15,6 +15,18 @@ test.each([`voi;52oops;4.8;${time};`, `voi;52;4.8;bad;`, `voi;52;4.8;${time};202
   expect(() => parseRentalsCsv(`${header}\n${row}`)).toThrow();
 });
 
+test('accepts files larger than 10 MB', () => {
+  const provider = 'v'.repeat(10 * 1024 * 1024);
+  const result = parseRentalsCsv(`${header}\n${provider};52;4.8;${time};`);
+  expect(result.rows[0].system_id).toHaveLength(provider.length);
+});
+
+test('accepts more than 50,000 rows', () => {
+  const row = `voi;52;4.8;${time};`;
+  const result = parseRentalsCsv(`${header}\n${Array(50001).fill(row).join('\n')}`);
+  expect(result.rows).toHaveLength(50001);
+});
+
 test('imports one parking observation per row with stable IDs and provider filtering', () => {
   const rows = parseRentalsCsv(`${header}\nvoi;52;4.8;${time};\nother;52;4.8;${time};`).rows;
   const data = importedParkingPoints(rows, {});

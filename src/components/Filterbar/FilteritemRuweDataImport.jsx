@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import Button from '../Button/Button';
 
-import { parseRentalsCsv, MAX_CSV_BYTES } from '../../helpers/rentalsCsvImport';
+import { parseRentalsCsv } from '../../helpers/rentalsCsvImport';
 import { forceUpdateVerhuringenData } from '../../poll-api/pollVerhuringenData';
 
 // 'Ruwe data import' for the Verhuringen view: load a CSV export of
@@ -28,7 +28,6 @@ export default function FilteritemRuweDataImport() {
     if (!file) return;
 
     readerRef.current?.abort();
-    if (file.size > MAX_CSV_BYTES) { setErrorMessage('CSV-bestand mag maximaal 10 MB zijn.'); return; }
     setErrorMessage(null);
 
     const reader = new FileReader();
