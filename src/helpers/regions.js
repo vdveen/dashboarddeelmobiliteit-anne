@@ -1,6 +1,8 @@
 const amersfoort = ['GM0307', 'GM0317', 'GM0342', 'GM0308'];
 const gooiEnVechtstreek = ['GM0402', 'GM0406', 'GM0376', 'GM0417', 'GM1696', 'GM1942'];
 
+export const PRIORITY_MUNICIPALITY_CODES = [...amersfoort, ...gooiEnVechtstreek];
+
 export const REGIONS = [
   { name: 'Regio Amersfoort', gm_code: amersfoort.join(',') },
   { name: 'Regio Gooi en Vechtstreek', gm_code: gooiEnVechtstreek.join(',') },
@@ -17,9 +19,20 @@ export const hasAccessToArea = (selection, municipalities = []) => {
   return codes.length > 0 && codes.every(code => municipalities.some(area => area.gm_code === code));
 };
 
+const sortByName = (areas) => areas.slice().sort((a, b) => a.name.localeCompare(b.name, 'nl'));
+
+export const getMunicipalityOptions = (municipalities = []) => {
+  const priorityCodes = new Set(PRIORITY_MUNICIPALITY_CODES);
+  const validMunicipalities = municipalities.filter(area => area.gm_code);
+  return [
+    ...sortByName(validMunicipalities.filter(area => priorityCodes.has(area.gm_code))),
+    ...sortByName(validMunicipalities.filter(area => !priorityCodes.has(area.gm_code))),
+  ];
+};
+
 export const getAreaOptions = (municipalities = []) => [
   ...REGIONS.filter(region => hasAccessToArea(region.gm_code, municipalities)),
-  ...municipalities.filter(area => area.gm_code).slice().sort((a, b) => a.name.localeCompare(b.name, 'nl')),
+  ...getMunicipalityOptions(municipalities),
 ];
 
 export const getAreaName = (selection, municipalities = []) =>

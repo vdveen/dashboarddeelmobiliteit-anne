@@ -3,10 +3,12 @@ import {
   getAreaName,
   getAreaOptions,
   getMunicipalityCodes,
+  getMunicipalityOptions,
   getRegion,
   getRegionZoneIds,
   hasAccessToArea,
   hasAreaZones,
+  PRIORITY_MUNICIPALITY_CODES,
 } from './regions';
 
 const municipalityNames = {
@@ -68,6 +70,21 @@ test('prepends only regions for which every municipality is accessible', () => {
   expect(hasAccessToArea(REGIONS[0].gm_code, withoutBaarn)).toBe(false);
 });
 
+test('puts the ten regional municipalities before all other municipalities', () => {
+  const otherMunicipalities = [
+    { gm_code: 'GM0363', name: 'Amsterdam' },
+    { gm_code: 'GM0599', name: 'Rotterdam' },
+  ];
+  const options = getMunicipalityOptions([...otherMunicipalities, ...municipalities]);
+
+  expect(options.slice(0, 10).map(({ gm_code }) => gm_code).sort()).toEqual(
+    PRIORITY_MUNICIPALITY_CODES.slice().sort()
+  );
+  expect(options.slice(0, 10).map(({ name }) => name).sort((a, b) => a.localeCompare(b, 'nl')))
+    .toEqual(options.slice(0, 10).map(({ name }) => name));
+  expect(options.slice(10).map(({ name }) => name)).toEqual(['Amsterdam', 'Rotterdam']);
+});
+
 test('requires every municipality boundary and fails closed when one is missing', () => {
   expect(hasAreaZones(REGIONS[0].gm_code, zones)).toBe(true);
   expect(getRegionZoneIds(REGIONS[0].gm_code, { gebieden: municipalities, zones }))
@@ -80,4 +97,3 @@ test('requires every municipality boundary and fails closed when one is missing'
     zones: missingBoundary,
   })).toEqual([]);
 });
-

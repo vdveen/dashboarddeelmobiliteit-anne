@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import FilterbarExtended from './FilterbarExtended.jsx';
 import useFilterbarExtended from '../../customHooks/useFilterbarExtended';
 import './css/FilteritemGebieden.css';
-import { getAreaOptions, getAreaName } from '../../helpers/regions';
+import { getAreaOptions, getAreaName, getMunicipalityOptions } from '../../helpers/regions';
 
 import {StateType} from '../../types/StateType';
 
@@ -35,7 +35,7 @@ function FilteritemGebieden({ includeRegions = false }) {
   const filterGebied = useSelector((state: StateType) => {
     return state.filter ? state.filter.gebied : "";
   });
-  const areaOptions = includeRegions ? getAreaOptions(gebieden) : gebieden;
+  const areaOptions = includeRegions ? getAreaOptions(gebieden) : getMunicipalityOptions(gebieden);
 
   let [filterSearch, setFilterSearch] = useState("");
 
