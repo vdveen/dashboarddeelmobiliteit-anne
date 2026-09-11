@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fork commit audit, 11 September 2026</title>
+  <style>
+    :root {
+      --ink: #17313b;
+      --muted: #53656c;
+      --paper: #f5f3ee;
+      --card: #fffdf9;
+      --line: #d8d5ce;
+      --blue: #1a86c7;
+      --blue-soft: #e5f3fb;
+      --red: #b8423c;
+      --red-soft: #fbe9e7;
+      --amber: #8b5a00;
+      --amber-soft: #fff3d6;
+      --green: #256d4a;
+      --green-soft: #e5f4eb;
+      --gray-soft: #edf0f0;
+      --shadow: 0 12px 34px rgba(23, 49, 59, .08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.58;
+    }
+    a { color: #096ca7; text-underline-offset: 2px; }
+    a:hover { color: #074a70; }
+    code, .hash {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: .92em;
+    }
+    .shell { width: min(1180px, calc(100% - 32px)); margin: 0 auto; }
+    header.hero {
+      padding: 72px 0 58px;
+      color: white;
+      background:
+        radial-gradient(circle at 84% 15%, rgba(88, 196, 156, .28), transparent 27rem),
+        linear-gradient(135deg, #122b35 0%, #184457 64%, #1b6571 100%);
+    }
+    .eyebrow {
+      margin: 0 0 13px;
+      color: #a9dcef;
+      font-weight: 750;
+      font-size: .78rem;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+    h1 { max-width: 900px; margin: 0; font-size: clamp(2.15rem, 5vw, 4.45rem); line-height: 1.02; letter-spacing: -.045em; }
+    .dek { max-width: 810px; margin: 24px 0 0; color: #e3eff2; font-size: clamp(1rem, 2vw, 1.25rem); }
+    .meta { display: flex; flex-wrap: wrap; gap: 10px 24px; margin-top: 30px; color: #c7dce2; font-size: .9rem; }
+    nav {
+      position: sticky;
+      z-index: 10;
+      top: 0;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 253, 249, .94);
+      backdrop-filter: blur(10px);
+    }
+    nav .shell { display: flex; gap: 22px; overflow-x: auto; padding-block: 13px; scrollbar-width: thin; }
+    nav a { flex: none; color: var(--ink); font-weight: 700; font-size: .87rem; text-decoration: none; }
+    main { padding: 46px 0 80px; }
+    section { scroll-margin-top: 70px; margin: 0 0 56px; }
+    h2 { margin: 0 0 18px; font-size: clamp(1.65rem, 3vw, 2.35rem); line-height: 1.15; letter-spacing: -.025em; }
+    h3 { margin: 0; font-size: 1.22rem; line-height: 1.3; }
+    p { margin: .7em 0; }
+    .lead { max-width: 900px; color: #314b55; font-size: 1.08rem; }
+    .verdict {
+      display: grid;
+      grid-template-columns: minmax(0, 1.65fr) minmax(230px, .7fr);
+      gap: 22px;
+      padding: clamp(24px, 4vw, 38px);
+      border: 1px solid #b8d6e3;
+      border-radius: 18px;
+      background: linear-gradient(145deg, #ffffff, #edf8fc);
+      box-shadow: var(--shadow);
+    }
+    .verdict strong.big { display: block; margin-bottom: 10px; font-size: clamp(1.35rem, 2.7vw, 2rem); line-height: 1.2; }
+    .score { align-self: center; padding: 20px; border-left: 4px solid var(--green); border-radius: 8px; background: var(--green-soft); }
+    .score b { display: block; font-size: 1.45rem; }
+    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 18px; }
+    .metric { padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
+    .metric b { display: block; font-size: 1.8rem; line-height: 1; }
+    .metric span { display: block; margin-top: 8px; color: var(--muted); font-size: .88rem; }
+    .findings { display: grid; gap: 18px; }
+    article.finding { overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: var(--card); box-shadow: 0 6px 20px rgba(23,49,59,.045); }
+    .finding-head { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: start; padding: 22px 24px 14px; }
+    .finding-id { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; color: white; background: var(--ink); font-weight: 800; }
+    .finding-body { padding: 0 24px 24px 72px; }
+    .finding-body p:first-child { margin-top: 0; }
+    .tag { display: inline-block; padding: 4px 9px; border-radius: 999px; font-weight: 750; font-size: .73rem; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+    .tag.fix { color: var(--red); background: var(--red-soft); }
+    .tag.next { color: var(--amber); background: var(--amber-soft); }
+    .tag.watch { color: #4c5c62; background: var(--gray-soft); }
+    .tag.good { color: var(--green); background: var(--green-soft); }
+    .evidence { padding: 12px 14px; border-left: 3px solid #88b9ce; background: #f1f7f9; color: #294753; font-size: .91rem; }
+    .recommendation { margin-top: 13px; }
+    .recommendation b { color: var(--green); }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .panel { padding: 22px; border: 1px solid var(--line); border-radius: 15px; background: var(--card); }
+    .panel h3 { margin-bottom: 9px; }
+    ul.compact { margin: 10px 0 0; padding-left: 20px; }
+    ul.compact li + li { margin-top: 7px; }
+    .episodes { display: grid; gap: 14px; }
+    .episode { display: grid; grid-template-columns: 150px 1fr 140px; gap: 18px; padding: 19px 20px; align-items: start; border: 1px solid var(--line); border-radius: 13px; background: var(--card); }
+    .episode .date { color: var(--muted); font-size: .88rem; }
+    .episode .assessment { justify-self: end; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    th, td { padding: 12px 13px; border-bottom: 1px solid #e5e2dc; vertical-align: top; text-align: left; }
+    th { position: sticky; top: 48px; z-index: 2; color: #3c555e; background: #eef1ef; font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; }
+    tr:last-child td { border-bottom: 0; }
+    tbody tr:hover { background: #faf8f3; }
+    td:nth-child(1), td:nth-child(2), td:nth-child(4) { white-space: nowrap; }
+    .status { font-weight: 750; }
+    .status.good { color: var(--green); }
+    .status.mixed { color: var(--amber); }
+    .status.superseded { color: #607177; }
+    .status.issue { color: var(--red); }
+    .checks { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .check { padding: 16px 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+    .check b { display: block; }
+    .check small { color: var(--muted); }
+    .priority { counter-reset: action; display: grid; gap: 12px; }
+    .action { position: relative; padding: 18px 20px 18px 62px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); }
+    .action::before { counter-increment: action; content: counter(action); position: absolute; left: 19px; top: 17px; display: grid; place-items: center; width: 29px; height: 29px; border-radius: 50%; color: white; background: var(--blue); font-weight: 800; }
+    details { border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+    details + details { margin-top: 10px; }
+    summary { cursor: pointer; padding: 15px 18px; font-weight: 750; }
+    details > div { padding: 0 18px 17px; color: #314b55; }
+    footer { padding: 28px 0 44px; color: var(--muted); border-top: 1px solid var(--line); font-size: .88rem; }
+    @media (max-width: 820px) {
+      .verdict, .two-col { grid-template-columns: 1fr; }
+      .score { border-top: 4px solid var(--green); border-left: 0; }
+      .metrics { grid-template-columns: 1fr 1fr; }
+      .episode { grid-template-columns: 1fr; gap: 7px; }
+      .episode .assessment { justify-self: start; }
+      .checks { grid-template-columns: 1fr; }
+      .finding-head { grid-template-columns: auto 1fr; }
+      .finding-head .tag { grid-column: 2; justify-self: start; }
+      .finding-body { padding-left: 24px; }
+      th { top: 46px; }
+    }
+    @media (max-width: 500px) {
+      .shell { width: min(100% - 20px, 1180px); }
+      header.hero { padding: 48px 0 42px; }
+      main { padding-top: 30px; }
+      .metrics { grid-template-columns: 1fr; }
+      .finding-head { padding-inline: 17px; }
+      .finding-body { padding-inline: 17px; }
+      nav .shell { gap: 17px; }
+    }
+    @media print {
+      nav { display: none; }
+      body { background: white; font-size: 11pt; }
+      header.hero { padding: 30px 0; background: var(--ink); }
+      section { break-inside: avoid; }
+      article.finding, .panel, .episode, .metric, .check { box-shadow: none; break-inside: avoid; }
+      .table-wrap { overflow: visible; }
+      th { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="shell">
+      <p class="eyebrow">Dashboard Deelmobiliteit · fork audit</p>
+      <h1>Two weeks of changes, judged as a Voi monitoring tool</h1>
+      <p class="dek">A source, test, deployment, and production review of everything landed on the fork's mainline from 28 August through 11 September 2026. The standard here is the owner's actual workflow. Hypothetical product edge cases do not decide the priorities.</p>
+      <div class="meta">
+        <span>Baseline <code>b918b7ff</code></span>
+        <span>Audited tip <code>523b4be4</code></span>
+        <span>37 mainline landing points</span>
+        <span>Report dated 11 September 2026</span>
+      </div>
+    </div>
+  </header>
+
+  <nav aria-label="Report sections">
+    <div class="shell">
+      <a href="#verdict">Verdict</a>
+      <a href="#findings">Findings</a>
+      <a href="#strengths">What held up</a>
+      <a href="#episodes">Episodes</a>
+      <a href="#ledger">All 37 changes</a>
+      <a href="#validation">Validation</a>
+      <a href="#actions">Recommended order</a>
+    </div>
+  </nav>
+
+  <main class="shell">
+    <section id="verdict">
+      <div class="verdict">
+        <div>
+          <p class="eyebrow" style="color:#31718b">Executive verdict</p>
+          <strong class="big">Keep the architecture and most repairs. Fix what the monitor fails to tell you.</strong>
+          <p>The fork is in better shape than it was two weeks ago. The PostGIS collector is fresh, fast at its present size, transactionally safe, and correctly distinguishes unknown status. The September 8 repair batch fixed real request, map, CSV and caching defects. I found no reason to roll that batch back.</p>
+          <p>The main regression pattern is subtler. The app often looks successful while withholding important context. An open Voi page stops discovering new snapshots, smooth lines connect missing collection intervals, and the normal UI cannot select months of retained history. The new non-defect policy series has the same failure shape. If one of many daily requests fails, the line disappears.</p>
+        </div>
+        <div class="score">
+          <b>Sound core, incomplete monitor</b>
+          <span>No broad rollback. Two monitoring behaviors should be fixed first; four smaller mismatches should follow.</span>
+        </div>
+      </div>
+      <div class="metrics" aria-label="Summary counts">
+        <div class="metric"><b>2</b><span>fix-first workflow defects</span></div>
+        <div class="metric"><b>4</b><span>next-pass mismatches</span></div>
+        <div class="metric"><b>0</b><span>recommended rollbacks</span></div>
+        <div class="metric"><b>205</b><span>frontend tests passing</span></div>
+      </div>
+    </section>
+
+    <section id="findings">
+      <h2>Findings that affect your workflow</h2>
+      <p class="lead">"Confirmed" means the behavior is present in the current source or production. "Intent mismatch" means the code works as written, but the restriction conflicts with a sole-user monitoring fork. Findings are ordered by practical impact.</p>
+      <div class="findings">
+        <article class="finding">
+          <div class="finding-head">
+            <span class="finding-id">1</span>
+            <div><h3>The monitor can be stale or incomplete while looking current and continuous</h3></div>
+            <span class="tag fix">Confirmed · fix first</span>
+          </div>
+          <div class="finding-body">
+            <p><code>VoiVehicleHistory</code> loads <code>/index.json</code> only when the page mounts. Leave the tab open and it never discovers later ten-minute captures. The API already has a freshness-aware <code>/health</code> endpoint. The UI does not use it, and the "latest measurement" summary does not show a capture time or age.</p>
+            <p>The second half is more serious: a real outage currently looks like ordinary continuous data. Production has no snapshots at <strong>15:00 and 15:10 UTC on 11 September</strong>. The next stored boundary is 15:20. The API returns only existing snapshots, and Recharts draws one monotone line through consecutive rows, so the graph bridges the 30-minute hole.</p>
+            <div class="evidence"><strong>Production evidence.</strong> API connection timeouts appeared from 15:17 to 15:21. The collector then stored the 15:20 boundary. The latest sampled collector deployment otherwise had 36 successful stores in 36 starts. This is a real, bounded outage. The finding does not rest on code alone.</div>
+            <p class="recommendation"><b>Recommendation.</b> Refresh the index after each ten-minute boundary and provide a manual refresh. Show the displayed capture time and age. Compute expected boundaries and insert null rows or break the line for missing captures. Show a compact completeness count such as "1006 of 1008 expected". A small backfill command is useful, but visible gaps are still necessary because backfill can also fail.</p>
+          </div>
+        </article>
+
+        <article class="finding">
+          <div class="finding-head">
+            <span class="finding-id">2</span>
+            <div><h3>The app stores months of history but the viewer exposes seven days</h3></div>
+            <span class="tag fix">Intent mismatch · fix first</span>
+          </div>
+          <div class="finding-body">
+            <p>The archive is deliberately retained until a 5 GB volume fills, about nine months at the documented growth rate. Yet the timeline calls <code>listVoiSnapshots()</code> without dates, so the API's seven-day default defines everything the slider can see. The area chart offers 1, 7, and 31 days. The API rejects any window over 31 days and caps the index at 4,500 entries.</p>
+            <p>This resembles the CSV restriction you reverted: the defensive limit is internally consistent, but it blocks the reason the data exists. Older snapshots remain reachable only by manually issuing separate API or GIS queries.</p>
+            <div class="evidence"><strong>Source evidence.</strong> <code>VoiVehicleHistory.tsx:247 to 271</code>, <code>voi_availability.py:14 to 55</code>, and <code>voi_api.py:57 to 72</code>. The deployed index held 508 snapshots over roughly four days when checked. This limitation becomes visible after the first week of ten-minute collection.</div>
+            <p class="recommendation"><b>Recommendation.</b> Add explicit date navigation to the timeline and area chart. Paginate or window the index so long history is fetched on demand. Keep sensible per-frame and polygon limits. Remove the blanket 31-day analytical ceiling unless measured production performance justifies it.</p>
+          </div>
+        </article>
+
+        <article class="finding">
+          <div class="finding-head">
+            <span class="finding-id">3</span>
+            <div><h3>The new non-defect policy line is an all-or-nothing fan-out</h3></div>
+            <span class="tag next">Confirmed · next</span>
+          </div>
+          <div class="finding-body">
+            <p>The intent is right. Compare each provider's ordinary availability series with vehicles whose <code>is_non_operational</code> flag is false. The implementation asks the raw <code>park_events</code> endpoint once for every chart day, four requests at a time. The default 30-day view adds about 30 raw requests. A 12-month selection adds about 365.</p>
+            <p><code>Promise.all</code> rejects the entire set when one day fails. The chart catches that only in the console, retains the ordinary line, and leaves the non-defect data empty. To the user, the feature silently vanishes. The requested daily instant is also created with browser-local <code>moment()</code>, unlike the rest of the recent statistics work that pins reporting to <code>Europe/Amsterdam</code>.</p>
+            <div class="evidence"><strong>Source evidence.</strong> <code>operationalVehicleStats.ts:63 to 90</code>, <code>BeschikbareVoertuigenChart.tsx:128 to 173</code>, and <code>availableVehiclesChartUtils.ts:23 to 37</code>. The existing test expects UTC because Jest runs in UTC. It does not exercise Amsterdam versus another browser timezone.</div>
+            <p class="recommendation"><b>Recommendation.</b> Prefer one backend aggregate request. Short of that, return partial daily results, show failed dates, retry only failures, and set the reporting timezone explicitly. Do not let a failure of this secondary series look like success.</p>
+          </div>
+        </article>
+
+        <article class="finding">
+          <div class="finding-head">
+            <span class="finding-id">4</span>
+            <div><h3>The trip-length chart still carries unmeasured safety limits</h3></div>
+            <span class="tag next">Likely mismatch · next</span>
+          </div>
+          <div class="finding-body">
+            <p>The September 8 repair correctly added cancellation, visible HTTP errors, response validation and stale-result handling. It also hard-coded a 31-day period, 10 MB response and 50,000-trip ceiling. The surrounding period control still offers 90 days, 12 months, this year and last year, so this chart alone errors for otherwise valid selections.</p>
+            <p>The earlier audit said the endpoint's practical contract had not been established. That makes these numbers defensive guesses rather than evidence-based limits. Raw trips can be large. Deleting every safeguard without a replacement would move the failure to browser memory.</p>
+            <div class="evidence"><strong>Source evidence.</strong> <code>src/api/trips.js:6 to 60</code> and the broader presets at <code>Filterbar.tsx:228 to 243</code>.</div>
+            <p class="recommendation"><b>Recommendation.</b> For this Voi-focused fork, first measure the region and month shapes you request. Then use a server histogram or pagination. Until that exists, make any necessary limit match the UI and explain it before the request. Do not fail one chart after selection.</p>
+          </div>
+        </article>
+
+        <article class="finding">
+          <div class="finding-head">
+            <span class="finding-id">5</span>
+            <div><h3>The main Voi guide describes a system that no longer exists</h3></div>
+            <span class="tag next">Confirmed · next</span>
+          </div>
+          <div class="finding-body">
+            <p><code>docs/VOI-VEHICLE-MONITOR.md</code> still tells the operator that GitHub Actions collects hourly, publishes a <code>voi-vehicle-data</code> branch, stores 90-day artifacts, and can be run manually as a workflow. Collection now runs every ten minutes in Railway and stores in PostGIS. The old branch is not updated.</p>
+            <p>The accurate document is <code>.railway/README.md</code>. This was already identified on 6 September but survived the migration. For a one-person fork, duplicate documentation is worse than sparse documentation because the likely reader is future-you during an incident.</p>
+            <p class="recommendation"><b>Recommendation.</b> Replace the old guide with a short redirect to the Railway runbook or rewrite it as the user-facing overview, with the runbook as the operational detail.</p>
+          </div>
+        </article>
+
+        <article class="finding">
+          <div class="finding-head">
+            <span class="finding-id">6</span>
+            <div><h3>CI was restored for pull requests, not for the way this fork usually deploys</h3></div>
+            <span class="tag next">Workflow gap · next</span>
+          </div>
+          <div class="finding-body">
+            <p><code>.github/workflows/check.yml</code> runs the test suite, scoped typecheck and production build for pull requests and manual dispatches only. The first-parent history shows frequent direct commits to <code>main</code>, and a push to <code>origin/main</code> starts production deployment. Those are precisely the changes that can bypass the restored checks.</p>
+            <p>This is not a team-governance argument. For a sole owner, a post-push check on <code>main</code> is a cheap alarm even when you intentionally skip a PR.</p>
+            <p class="recommendation"><b>Recommendation.</b> Trigger the workflow on pushes to <code>main</code> as well. Keep the typecheck explicitly described as scoped. It covers eight selected TypeScript modules, not the whole application.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="strengths">
+      <h2>Changes that held up</h2>
+      <div class="two-col">
+        <div class="panel">
+          <h3>The CSV revert was correctly narrow</h3>
+          <p><code>b202ef01</code> removed only the 10 MB and 50,000-row gates. It retained strict record parsing, quoted newline handling, full numeric validation, Dutch decimal commas, Amsterdam timestamp interpretation, one parking observation per row, filter disclosure, request cancellation and clean return to live API data.</p>
+          <p><strong>Assessment:</strong> the revert restored your preferred workflow without reviving the earlier semantic and state bugs.</p>
+        </div>
+        <div class="panel">
+          <h3>The archive core is proportionate</h3>
+          <ul class="compact">
+            <li>The API key stays in an <code>apikey</code> header and is neither logged nor stored in URLs.</li>
+            <li>Boundary rounding plus the snapshot primary key makes writes idempotent.</li>
+            <li>A transaction commits the snapshot and all positions together.</li>
+            <li>Read API connections are explicitly read-only.</li>
+            <li>Unknown status remains distinct; non-defect is not silently called available.</li>
+            <li>Current four-day Netherlands-wide availability returned in 0.46 seconds.</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>The September 8 repairs fixed their stated bugs</h3>
+          <p>Account/request ownership includes token, URL, display mode and CSV source. Public defaults no longer overwrite explicit choices. Popup data is built as DOM rather than executable HTML. Selection handlers have stable lifecycles. The Voi frame cache is bounded and its displayed timestamp follows the actual frame.</p>
+          <p><strong>Assessment:</strong> no rollback. The remaining issues are follow-on policy choices, not evidence that this batch should be reverted.</p>
+        </div>
+        <div class="panel">
+          <h3>Regional presets and the upstream sync are solid</h3>
+          <p>Regional queries fail closed while any municipality boundary is missing. The live public metadata currently includes all ten priority municipalities, and the plural public zones endpoint works. The CROW sync had one real conflict. The resolution preserved regional ACL checks and upstream's admin exemption, with focused tests.</p>
+          <p><strong>Assessment:</strong> the ordering commit is simple, deterministic, non-mutating and appropriate for your repeated Amersfoort/Gooi workflow.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="episodes">
+      <h2>Assessment by change episode</h2>
+      <div class="episodes">
+        <div class="episode">
+          <div class="date">3 to 5 September</div>
+          <div><h3>Initial collector, timeline, basemap and heatmap</h3><p>Good proof of concept. The branch-published archive and hourly GitHub schedule were reasonable stepping stones and are now fully superseded. The retained viewer is useful, but its one-time list load and seven-day default became monitoring limitations after the cadence increased.</p></div>
+          <span class="tag good assessment">Keep viewer</span>
+        </div>
+        <div class="episode">
+          <div class="date">5 to 8 September</div>
+          <div><h3>Railway migration, PostGIS, status and ten-minute collection</h3><p>The final PostGIS design is much better than the intermediate deploy-key publisher. Storage, key handling, atomicity and status semantics are sound. Missing boundaries, historical access and the finite nine-month volume horizon need operational follow-through.</p></div>
+          <span class="tag good assessment">Sound core</span>
+        </div>
+        <div class="episode">
+          <div class="date">8 September</div>
+          <div><h3>Prior audit repair batch</h3><p>Net positive. The fixes match their intent and have materially better regression coverage. The trip limits are the clear exception. The CSV limits were already correctly removed. CI's event trigger does not cover direct production pushes.</p></div>
+          <span class="tag good assessment">Keep, tune limits</span>
+        </div>
+        <div class="episode">
+          <div class="date">8 to 10 September</div>
+          <div><h3>Area availability, drawing, and mobile controls</h3><p>The polygon API and UI are coherent, the invisible-drawing regression was repaired, and count and percentage modes use correct "operational" terminology. The presentation currently hides gaps and caps analysis at 31 days. A previous area's summary briefly remains visible while a replacement request loads.</p></div>
+          <span class="tag next assessment">Useful, incomplete</span>
+        </div>
+        <div class="episode">
+          <div class="date">7 to 8 September payload</div>
+          <div><h3>Non-defect map filter and policy-chart series</h3><p>The three-way live-map filter and its counts are clear for authenticated Voi data. The policy-chart series (<code>51c49558</code>, landed inside the later merge history) matches your goal but uses an expensive, silent-failure daily fan-out. The Amersfoort SVG is a harmless reference artifact and is not loaded by the app.</p></div>
+          <span class="tag next assessment">Chart needs follow-up</span>
+        </div>
+        <div class="episode">
+          <div class="date">9 to 11 September</div>
+          <div><h3>Regional presets and priority ordering</h3><p>The ten municipalities and three presets are implemented consistently across map, rentals and policy statistics. ACL checks, boundary loading and fail-closed queries are tested. The hardcoded last-resort municipality fallback contains only three of the ten, so presets disappear if the live public list fails; ordinary municipality use still degrades safely.</p></div>
+          <span class="tag good assessment">Keep</span>
+        </div>
+        <div class="episode">
+          <div class="date">10 September</div>
+          <div><h3>CROW sync</h3><p>The merge adopted upstream auth and account UI changes while retaining the fork's region-aware selection. The remerge diff shows one resolved content conflict, and the resolution combines both intended conditions. No fork regression found.</p></div>
+          <span class="tag good assessment">Clean merge</span>
+        </div>
+        <div class="episode">
+          <div class="date">10 September</div>
+          <div><h3>CSV size-limit removal</h3><p>Exactly aligned with your stated preference. It reverses the overcautious gates without undoing the meaningful parser, rendering and ownership repairs.</p></div>
+          <span class="tag good assessment">Correct revert</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="ledger">
+      <h2>All 37 mainline landing points</h2>
+      <p class="lead">This ledger counts first-parent changes on the deployed <code>origin/main</code>, which avoids double-counting commits carried inside merge branches. The review includes the merged payloads and conflict resolutions in each episode. Git's full ancestry reports 112 commits because it includes branch construction and checkpoint lineage.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Commit</th><th>Intent and retained result</th><th>Assessment</th></tr></thead>
+          <tbody>
+            <tr><td>Sep 3</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/d5ee886e">d5ee886e</a></td><td>Start hourly Voi collection in GitHub Actions. Useful bootstrap; all scheduling/publication pieces are now replaced by Railway/PostGIS.</td><td><span class="status superseded">Superseded</span></td></tr>
+            <tr><td>Sep 4</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/50d3cc88">50d3cc88</a></td><td>Add the snapshot timeline viewer. The core remains useful; history range and live refresh were not completed.</td><td><span class="status mixed">Mixed</span></td></tr>
+            <tr><td>Sep 4</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/34286ce8">34286ce8</a></td><td>Publish snapshots to a browser-readable Git branch. Appropriate for the first viewer, now replaced.</td><td><span class="status superseded">Superseded</span></td></tr>
+            <tr><td>Sep 4</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/a27e074e">a27e074e</a></td><td>Switch the viewer to a reliable PDOK basemap.</td><td><span class="status good">Good</span></td></tr>
+            <tr><td>Sep 4</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/f57a7a7d">f57a7a7d</a></td><td>Stop the ordinary live parking poller on the dedicated Voi route. Correct isolation; this commit did not add viewer refresh.</td><td><span class="status good">Good</span></td></tr>
+            <tr><td>Sep 4</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/3ab32054">3ab32054</a></td><td>Remove the obsolete GitHub Pages deployment.</td><td><span class="status good">Good</span></td></tr>
+            <tr><td>Sep 4</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/a27f7c0d">a27f7c0d</a></td><td>Record Railway access details.</td><td><span class="status good">Good</span></td></tr>
+            <tr><td>Sep 4</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/d40a67ed">d40a67ed</a></td><td>Add a fixed-parameter heatmap so frames are visually comparable at the same zoom.</td><td><span class="status good">Good</span></td></tr>
+            <tr><td>Sep 5</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/f2162fdf">f2162fdf</a></td><td>Move scheduling to Railway while still publishing branch files.</td><td><span class="status superseded">Superseded</span></td></tr>
+            <tr><td>Sep 7</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/4dee6f8b">4dee6f8b</a></td><td>Refresh the in-progress cron branch with mainline changes.</td><td><span class="status good">No retained concern</span></td></tr>
+            <tr><td>Sep 7</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/1be4754a">1be4754a</a></td><td>Use a deploy key for branch publishing. It solved the intermediate writer problem; PostGIS removed the need and no deploy key remains.</td><td><span class="status superseded">Superseded</span></td></tr>
+            <tr><td>Sep 7</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/58406cdd">58406cdd</a></td><td>Merge then-current main into the cron work, carrying repairs and the non-defect chart payload into the eventual mainline.</td><td><span class="status mixed">Broad integration</span></td></tr>
+            <tr><td>Sep 7</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/d67eca08">d67eca08</a></td><td>Replace branch files with atomic PostGIS snapshots and a read-only HTTP API.</td><td><span class="status good">Good</span></td></tr>
+            <tr><td>Sep 8</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/c84d3098">c84d3098</a></td><td>Persist the verified existing Railway resource configuration.</td><td><span class="status good">Good</span></td></tr>
+            <tr><td>Sep 8</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/a8df4c2c">a8df4c2c</a></td><td>Use authenticated <code>park_events</code> so snapshots carry non-operational status.</td><td><span class="status good">Good</span></td></tr>
+            <tr><td>Sep 8</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/0ed3c849">0ed3c849</a></td><td>Increase cadence to ten minutes and add area availability. Core feature is good; this introduced the 31-day ceiling and still has no backfill.</td><td><span class="status mixed">Mixed</span></td></tr>
+            <tr><td>Sep 8</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/e63d994b">e63d994b</a></td><td>Correct the declared volume from an unsupported 20 GB to the Hobby-plan maximum of 5 GB.</td><td><span class="status good">Necessary correction</span></td></tr>
+            <tr><td>Sep 8</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/ed995768">ed995768</a></td><td>Keep pre-status snapshots unknown instead of counting them as operational.</td><td><span class="status good">Good</span></td></tr>
+            <tr><td>Sep 8</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/37c64479">37c64479</a></td><td>Restore clean install, tests, scoped typecheck and PR checks; isolate Railway dependencies. Checks do not run on direct main pushes.</td><td><span class="status mixed">Good, trigger gap</span></td></tr>
+            <tr><td>Sep 8</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/0fe6a272">0fe6a272</a></td><td>Replace the defect-only boolean with all/defect/non-defect and show counts.</td><td><span class="status good">Good for auth Voi data</span></td></tr>
+            <tr><td>Sep 8</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/6312bcaa">6312bcaa</a></td><td>Bound single PostGIS reads, add write retries, expose freshness.</td><td><span class="status good">Good</span></td></tr>
+            <tr><td>Sep 8</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/6cbdec8e">6cbdec8e</a></td><td>Scope requests and raw caches to account, URL, mode and CSV source.</td><td><span class="status good">Good</span></td></tr>
+            <tr><td>Sep 8</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/2d621b1e">2d621b1e</a></td><td>Stabilize selection gestures and clean up map/popup ownership.</td><td><span class="status good">Good</span></td></tr>
+            <tr><td>Sep 8</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/c2a1e5b4">c2a1e5b4</a></td><td>Prevent asynchronous public defaults from overwriting explicit or shared filters.</td><td><span class="status good">Good</span></td></tr>
+            <tr><td>Sep 8</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/c31f6029">c31f6029</a></td><td>Make CSV parsing and map semantics strict and explicit; also added size/row gates later removed.</td><td><span class="status mixed">Good after revert</span></td></tr>
+            <tr><td>Sep 8</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/1bcdc10c">1bcdc10c</a></td><td>Align requested/displayed Voi frames, bound cache memory and abort obsolete work.</td><td><span class="status good">Good</span></td></tr>
+            <tr><td>Sep 8</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/5675ff48">5675ff48</a></td><td>Show trip histogram load failures and bound raw requests. Reliability improved; the fixed ceilings conflict with longer UI periods.</td><td><span class="status mixed">Mixed</span></td></tr>
+            <tr><td>Sep 8</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/b6fd6031">b6fd6031</a></td><td>Add drawn-area availability chart, geometry validation, CSV and tests. Useful feature; gap/history visibility is unfinished.</td><td><span class="status mixed">Useful, incomplete</span></td></tr>
+            <tr><td>Sep 9</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/af17beaf">af17beaf</a></td><td>Repair a concrete regression that made the drawn polygon invisible.</td><td><span class="status good">Correct fix</span></td></tr>
+            <tr><td>Sep 9</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/b6bd60e8">b6bd60e8</a></td><td>Add a standalone Amersfoort 48-hour non-operational SVG. It is not imported by runtime code.</td><td><span class="status good">Harmless artifact</span></td></tr>
+            <tr><td>Sep 9</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/99a97049">99a97049</a></td><td>Merge the regional-presets branch into the working mainline; no manual conflict resolution was needed.</td><td><span class="status good">Good</span></td></tr>
+            <tr><td>Sep 9</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/80e9e1bb">80e9e1bb</a></td><td>Rework the Voi toolbar, timeline and chart for narrow screens.</td><td><span class="status good">Good</span></td></tr>
+            <tr><td>Sep 10</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/2580463c">2580463c</a></td><td>Add count and percentage switching. Initially called operational vehicles "available". The next commit corrected it.</td><td><span class="status superseded">Corrected next</span></td></tr>
+            <tr><td>Sep 10</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/9181f356">9181f356</a></td><td>Show operational, non-operational and total counts with correct terminology.</td><td><span class="status good">Good</span></td></tr>
+            <tr><td>Sep 10</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/f75928ae">f75928ae</a></td><td>Merge CROW auth/account changes while preserving regional access. The one content conflict was resolved correctly.</td><td><span class="status good">Good</span></td></tr>
+            <tr><td>Sep 10</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/b202ef01">b202ef01</a></td><td>Remove only CSV file and row limits, retaining strict parsing and state fixes.</td><td><span class="status good">Correct revert</span></td></tr>
+            <tr><td>Sep 11</td><td><a class="hash" href="https://github.com/vdveen/dashboarddeelmobiliteit-anne/commit/523b4be4">523b4be4</a></td><td>Put the ten repeatedly used regional municipalities first in all place lists, with alphabetical order inside groups.</td><td><span class="status good">Good</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="validation">
+      <h2>What was actually checked</h2>
+      <div class="checks">
+        <div class="check"><b>Fresh dependency install</b><small><code>npm ci</code> passed: 1,846 packages. The inherited tree reports 38 audit findings; three install scripts were blocked by VM policy without failing the install.</small></div>
+        <div class="check"><b>Frontend tests</b><small>36 suites and 205 tests passed with <code>CI=true npm test -- --runInBand</code>.</small></div>
+        <div class="check"><b>Type and build</b><small>The intentionally scoped eight-module typecheck passed. The production build passed; its 5.91 MB main asset is too large for the service-worker precache.</small></div>
+        <div class="check"><b>Python</b><small>32 tests passed with the monitor dependencies installed in a temporary environment. Six destructive integration cases were skipped because no disposable PostGIS was provided.</small></div>
+        <div class="check"><b>Production archive and UI</b><small>The index, health, latest frame, status partitions, coordinates, and area endpoint were sampled. At the 21:10 UTC check, health was fresh. The latest available frame was 21:00 UTC with 992 Voi bicycles. The deployed Railway viewer also rendered with live data at desktop and mobile sizes.</small></div>
+        <div class="check"><b>Railway logs</b><small>The known 30-minute data gap corresponds to connection timeouts. A later sample showed 36 successful stores in 36 collector starts. Gunicorn's normal stderr startup lines were not misclassified as failures.</small></div>
+        <div class="check"><b>Regions</b><small>The live public list contains all ten priority municipalities. The multi-municipality public zones endpoint returned zones successfully.</small></div>
+        <div class="check"><b>Merge resolution</b><small><code>git show --remerge-diff</code> found one content conflict in the CROW sync. The resolution keeps both the regional access predicate and NL-wide admin behavior.</small></div>
+      </div>
+      <details style="margin-top:14px">
+        <summary>Validation limits</summary>
+        <div><p>No production writes were made. Database integration tests were not pointed at production. The Voi API is public, but authenticated dashboard statistics were assessed from code and tests because this run did not reuse browser account credentials. The collaborative preview host was unavailable, so the report itself was rendered with local Chromium. The source tree contains no available agent transcript; the decision trail was checked against repository evidence and command results instead.</p></div>
+      </details>
+    </section>
+
+    <section id="actions">
+      <h2>Recommended order of work</h2>
+      <div class="priority">
+        <div class="action"><h3>Make freshness and completeness impossible to miss</h3><p>Add ten-minute index refresh, manual refresh, timestamp/age, and visual gaps. This is the smallest change with the largest monitoring payoff.</p></div>
+        <div class="action"><h3>Expose the archive you are paying to retain</h3><p>Add timeline dates and API pagination/windowing. Treat 31 days as a performance question to measure, not a permanent product rule.</p></div>
+        <div class="action"><h3>Replace the non-defect request fan-out</h3><p>Use an aggregate series endpoint if possible. Otherwise preserve partial results, surface failures and pin Amsterdam time.</p></div>
+        <div class="action"><h3>Reconcile the trip histogram with the period selector</h3><p>Measure actual Voi/region volumes, then aggregate or paginate. Keep good error and cancellation behavior.</p></div>
+        <div class="action"><h3>Remove misleading operational friction</h3><p>Redirect the stale Voi guide and run CI after pushes to <code>main</code>.</p></div>
+        <div class="action"><h3>Schedule the nine-month storage decision</h3><p>The current 5 GB choice is correct for the plan, but indefinite retention is not. Upgrade, archive, or prune before the volume is close to full; expose capacity monitoring before it becomes urgent.</p></div>
+      </div>
+    </section>
+
+    <section id="watch">
+      <h2>Small issues to watch, not reasons to detour</h2>
+      <details>
+        <summary>Regional fallback is incomplete</summary>
+        <div>The hardcoded municipality fallback includes only Amersfoort, Hilversum and Gooise Meren from the ten priority municipalities. If <code>/public/municipalities</code> fails, all three region presets disappear because access checks correctly fail closed. Since the live endpoint works and individual municipalities still load from the fallback, this is graceful degradation rather than a production blocker.</div>
+      </details>
+      <details>
+        <summary>Area chart retains an old summary while a new area loads</summary>
+        <div>The plot becomes a skeleton, but the header continues to say "Laatste meting" from the previous polygon until the new request completes. Clear or mark the summary as loading if this proves confusing in use.</div>
+      </details>
+      <details>
+        <summary>Voi lasso treats pointer cancellation as completion</summary>
+        <div><code>pointercancel</code> calls the same handler as <code>pointerup</code>. A browser/OS interruption can therefore finish a partial lasso. The shared map selection tool cancels correctly. This is worth aligning when touching the drawing hook, not as a separate project.</div>
+      </details>
+      <details>
+        <summary>Per-move lasso copies can become expensive</summary>
+        <div>Every pointer move rebuilds GeoJSON from the full accumulated coordinate array. Ordinary hand-drawn areas should be fine, and the server's 5,000-vertex cap is proportionate. Sample or throttle only if real devices show lag.</div>
+      </details>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell">Prepared from the deployed fork mainline, retained source, tests, public API responses and Railway logs. No credentials, database URLs or API keys are included.</div>
+  </footer>
+</body>
+</html>
