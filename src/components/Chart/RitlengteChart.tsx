@@ -19,6 +19,7 @@ import {
 } from 'recharts';
 
 import {
+  MAX_TRIP_DAYS,
   getTripsWithDistance
 } from '../../api/trips';
 import {
@@ -53,6 +54,7 @@ function RitlengteChart(props) {
   });
 
   const [trips, setTrips] = useState([])
+  const [isClampedPeriod, setIsClampedPeriod] = useState(false)
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
   const [isLoading, setIsLoading] = useState(false)
@@ -67,6 +69,7 @@ function RitlengteChart(props) {
   useEffect(() => {
     setTrips([]);
     setError(null);
+    setIsClampedPeriod(false);
     const controller = new AbortController();
     // Do not reload chart until you have 'zones'
     if(! metadata || ! metadata.zones || metadata.zones.length <= 0) {
@@ -89,6 +92,7 @@ function RitlengteChart(props) {
         );
         if(didCancel) return;
         setTrips((responseJson && responseJson.trip_origins) ? responseJson.trip_origins : []);
+        setIsClampedPeriod(responseJson?.window?.clamped === true);
       } catch (error) {
         if (!didCancel) setError(error instanceof Error ? error.message : 'Ritafstanden konden niet worden geladen.');
       } finally {
@@ -214,6 +218,12 @@ function RitlengteChart(props) {
 
         </div>
       </div>
+
+      {isClampedPeriod && (
+        <div className="text-sm text-gray-600 my-1">
+          Ritafstanden tonen de laatste {MAX_TRIP_DAYS} dagen van de gekozen periode.
+        </div>
+      )}
 
       <div className="relative" style={{ width: '100%', height: '400px' }}>
         {error ? <div role="alert">{error} <button type="button" onClick={() => setRetry(value => value + 1)}>Opnieuw proberen</button></div> : isLoading && ! hasData ? (

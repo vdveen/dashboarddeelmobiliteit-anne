@@ -1,5 +1,5 @@
 import { hasAreaZones } from '../../helpers/regions';
-import React, {useEffect, useState } from 'react';
+import React, {useEffect, useRef, useState } from 'react';
 
 import { getOperatorStatsForChart, transformZerosToNullForChart } from './chartTools.js';
 
@@ -47,6 +47,7 @@ import {CustomizedTooltip} from './CustomizedTooltip.jsx';
 import InfoTooltip from '../InfoTooltip/InfoTooltip';
 import ChartSkeleton from './ChartSkeleton';
 import {
+  DailyTimestamp,
   OperationalVehicleCountsByDay,
   getOperationalVehicleCountsByDay
 } from '../../api/operationalVehicleStats';
@@ -93,7 +94,14 @@ function BeschikbareVoertuigenChart({
   // Define state variables
   const [vehiclesData, setVehiclesData] = useState([])
   const [operationalVehiclesByDay, setOperationalVehiclesByDay] = useState<OperationalVehicleCountsByDay>({})
+  // Days whose non-defect count could not be fetched, kept so the notice can
+  // retry exactly those days instead of reloading the whole chart.
+  const [failedOperationalDays, setFailedOperationalDays] = useState<DailyTimestamp[]>([])
+  const [isRetryingOperationalDays, setIsRetryingOperationalDays] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+
+  const retryControllerRef = useRef<AbortController | null>(null);
+  useEffect(() => () => retryControllerRef.current?.abort(), []);
 
   // On updated filter: re-fetch data
   //
@@ -111,6 +119,7 @@ function BeschikbareVoertuigenChart({
     if(! metadata || ! metadata.zones || metadata.zones.length <= 0) {
       setVehiclesData([]);
       setOperationalVehiclesByDay({});
+      setFailedOperationalDays([]);
       setIsLoading(false);
       return () => operationalVehiclesController.abort();
     }
@@ -121,6 +130,7 @@ function BeschikbareVoertuigenChart({
     if(filter.gebied && !hasAreaZones(filter.gebied, metadata.zones)) {
       setVehiclesData([]);
       setOperationalVehiclesByDay({});
+      setFailedOperationalDays([]);
       setIsLoading(false);
       return () => operationalVehiclesController.abort();
     }
@@ -136,6 +146,7 @@ function BeschikbareVoertuigenChart({
         // Set state
         setVehiclesData(aggregatedVehicleData);
         setOperationalVehiclesByDay({});
+        setFailedOperationalDays([]);
 
         // Sum amount of vehicles per operator, used in FilteritemAanbieders component
         let operators;
@@ -152,7 +163,7 @@ function BeschikbareVoertuigenChart({
             aggregatedChartData,
             filter.ontwikkelingaggregatie_tijd
           );
-          const operationalCounts = await getOperationalVehicleCountsByDay(
+          const {counts, failedDays} = await getOperationalVehicleCountsByDay(
             token,
             filter,
             metadata,
@@ -161,7 +172,10 @@ function BeschikbareVoertuigenChart({
             operationalVehiclesController.signal
           );
           if (!cancelled) {
-            setOperationalVehiclesByDay(operationalCounts);
+            setOperationalVehiclesByDay(counts);
+            setFailedOperationalDays(
+              dailyTimestamps.filter(({day}) => failedDays.includes(day))
+            );
           }
         }
       } catch (error: any) {
@@ -197,6 +211,27 @@ function BeschikbareVoertuigenChart({
     dispatch
   ]);
   
+  const retryFailedOperationalDays = async () => {
+    if (failedOperationalDays.length === 0 || isRetryingOperationalDays) return;
+    retryControllerRef.current?.abort();
+    const controller = new AbortController();
+    retryControllerRef.current = controller;
+    setIsRetryingOperationalDays(true);
+    try {
+      const {counts, failedDays} = await getOperationalVehicleCountsByDay(
+        token, filter, metadata, organisationType, failedOperationalDays, controller.signal
+      );
+      setOperationalVehiclesByDay(current => ({...current, ...counts}));
+      setFailedOperationalDays(current => current.filter(({day}) => failedDays.includes(day)));
+    } catch (error: any) {
+      if (error?.name !== 'AbortError') {
+        console.error('Unable to reload non-defect vehicle counts', error);
+      }
+    } finally {
+      if (!controller.signal.aborted) setIsRetryingOperationalDays(false);
+    }
+  };
+
   // Populate chart data
   let chartData = getAggregatedChartData(vehiclesData, filter, zones, aanbieders);
   chartData = addOperationalCountsToChartData(chartData, operationalVehiclesByDay);
@@ -365,6 +400,21 @@ function BeschikbareVoertuigenChart({
         </div>}
 
       </div>
+
+      {failedOperationalDays.length > 0 && (
+        <div role="status" className="text-sm text-gray-600 my-1">
+          Niet-defect telling ontbreekt voor {failedOperationalDays.length}{' '}
+          {failedOperationalDays.length === 1 ? 'dag' : 'dagen'}.{' '}
+          <button
+            type="button"
+            className="underline"
+            disabled={isRetryingOperationalDays}
+            onClick={retryFailedOperationalDays}
+          >
+            {isRetryingOperationalDays ? 'Bezig…' : 'Opnieuw'}
+          </button>
+        </div>
+      )}
 
       <div className="relative" style={{ width: '100%', height: config?.height || '400px' }}>
         {isLoading && (!chartData || chartData.length === 0) ? (

@@ -17,11 +17,18 @@ export const MAX_TRIPS = 50000;
 // abort signal, so this request is never shared with another caller.
 export const getTripsWithDistance = async (token, filter, metadata, signal, organisationType) => {
   if (!token) throw new Error('Log in om ritafstanden te bekijken.');
-  const start = moment.tz(filter.ontwikkelingvan, REPORTING_TIMEZONE).startOf('day');
+  const selectedStart = moment.tz(filter.ontwikkelingvan, REPORTING_TIMEZONE).startOf('day');
   const end = moment.tz(filter.ontwikkelingtot, REPORTING_TIMEZONE).startOf('day').add(1, 'day');
-  if (!start.isValid() || !end.isValid() || end.diff(start, 'days') <= 0 || end.diff(start, 'days') > MAX_TRIP_DAYS) {
-    throw new Error(`Kies voor ritafstanden een periode van maximaal ${MAX_TRIP_DAYS} dagen.`);
+  if (!selectedStart.isValid() || !end.isValid() || end.diff(selectedStart, 'days') <= 0) {
+    throw new Error('Kies voor ritafstanden een geldige periode.');
   }
+  // Raw trips are API-heavy, so a longer selection is clamped to the most
+  // recent MAX_TRIP_DAYS days instead of being refused; the caller shows a
+  // note when that happened.
+  const clamped = end.diff(selectedStart, 'days') > MAX_TRIP_DAYS;
+  const start = clamped
+    ? end.clone().subtract(MAX_TRIP_DAYS, 'days')
+    : selectedStart;
   const params = new URLSearchParams(createFilterparameters(DISPLAYMODE_OTHER, filter, metadata, {
     is_logged_in: true,
     organisationType,
@@ -57,5 +64,5 @@ export const getTripsWithDistance = async (token, filter, metadata, signal, orga
   const data = JSON.parse(text);
   if (!Array.isArray(data?.trip_origins)) throw new Error('Ongeldig antwoord voor ritafstanden.');
   if (data.trip_origins.length > MAX_TRIPS) throw tooLarge();
-  return data;
+  return { ...data, window: { start: start.toISOString(), end: end.toISOString(), clamped } };
 };

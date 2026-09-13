@@ -3,12 +3,17 @@ import { DISPLAYMODE_PARK } from '../reducers/layers.js';
 
 export type OperationalVehicleCountsByDay = Record<string, Record<string, number>>;
 
+export type OperationalVehicleCountsResult = {
+  counts: OperationalVehicleCountsByDay;
+  failedDays: string[];
+};
+
 type ParkEvent = {
   system_id?: string;
   is_non_operational?: boolean | string;
 };
 
-type DailyTimestamp = {
+export type DailyTimestamp = {
   day: string;
   timestamp: string;
 };
@@ -67,25 +72,39 @@ export const getOperationalVehicleCountsByDay = async (
   organisationType: string | null,
   dailyTimestamps: DailyTimestamp[],
   signal?: AbortSignal
-): Promise<OperationalVehicleCountsByDay> => {
+): Promise<OperationalVehicleCountsResult> => {
   const uniqueTimestamps = Array.from(
     new Map(dailyTimestamps.map((item) => [item.day, item])).values()
   );
   const results: Array<[string, Record<string, number>]> = [];
+  const failedDays: string[] = [];
   let nextIndex = 0;
 
+  // One failing day must not drop the whole series: keep the days that did
+  // load and report the rest, so the caller can retry just those. An abort is
+  // not a per-day failure, so it still propagates and stops the workers.
   const worker = async () => {
     while (nextIndex < uniqueTimestamps.length) {
       const item = uniqueTimestamps[nextIndex];
       nextIndex += 1;
-      results.push(await fetchOperationalVehicleCounts(
-        token, filter, metadata, organisationType, item, signal
-      ));
+      try {
+        results.push(await fetchOperationalVehicleCounts(
+          token, filter, metadata, organisationType, item, signal
+        ));
+      } catch (error: any) {
+        if (error?.name === 'AbortError' || signal?.aborted) throw error;
+        failedDays.push(item.day);
+      }
     }
   };
 
   const workerCount = Math.min(MAX_CONCURRENT_REQUESTS, uniqueTimestamps.length);
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
-  return Object.fromEntries(results);
+  return {
+    counts: Object.fromEntries(results),
+    failedDays: uniqueTimestamps
+      .map(({ day }) => day)
+      .filter((day) => failedDays.includes(day))
+  };
 };

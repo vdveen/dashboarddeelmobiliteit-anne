@@ -1,5 +1,6 @@
-import moment from 'moment';
+import moment from 'moment-timezone';
 import { OperationalVehicleCountsByDay } from '../../api/operationalVehicleStats';
+import { REPORTING_TIMEZONE } from '../../helpers/stats/time';
 
 export const NOT_DEFECT_KEY_SUFFIX = '__not_defect';
 
@@ -23,7 +24,10 @@ export const darkenHexColor = (color: string, factor = 0.7): string => {
 export const getDailyTimestamps = (chartData: any[], aggregationTime?: string) =>
   (chartData || []).flatMap((row) => {
     const value = row.time || row.name;
-    const parsed = moment(value);
+    // Pin to the reporting timezone: the aggregation time is an Amsterdam
+    // wall-clock time, so a browser in another timezone must still ask the API
+    // for the same instant.
+    const parsed = moment.tz(value, REPORTING_TIMEZONE);
     if (!value || !parsed.isValid()) return [];
     const timeMatch = /^([01]?\d|2[0-3]):([0-5]\d)/.exec(aggregationTime || '');
     const timestamp = parsed.startOf('day');
@@ -48,7 +52,7 @@ export const addOperationalCountsToChartData = (
 
   return (chartData || []).map((row) => {
     const value = row.time || row.name;
-    const day = value ? moment(value).format('YYYY-MM-DD') : '';
+    const day = value ? moment.tz(value, REPORTING_TIMEZONE).format('YYYY-MM-DD') : '';
     const dailyCounts = countsByDay[day];
     if (!dailyCounts) return row;
 

@@ -38,6 +38,7 @@ describe('availableVehiclesChartUtils', () => {
     ], '08:30');
 
     expect(timestamps.map(({ day }) => day)).toEqual(['2026-09-01', '2026-09-02']);
-    expect(timestamps[0].timestamp).toContain('T08:30:00.000Z');
+    // 08:30 Amsterdam (CEST) is 06:30 UTC, whatever the browser timezone is.
+    expect(timestamps[0].timestamp).toBe('2026-09-01T06:30:00.000Z');
   });
 });
