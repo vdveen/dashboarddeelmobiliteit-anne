@@ -15,7 +15,7 @@ weeks to 11 September, plus the decision list that came out of comparing them.
 
 | File | Date | What it is |
 | --- | --- | --- |
-| [2026-09-11/decisions-2026-09-12.md](2026-09-11/decisions-2026-09-12.md) | 2026-09-12 | Open decisions reconciled across all three audits, with a recommendation per item. Read this first. |
+| [2026-09-11/decisions-2026-09-12.md](2026-09-11/decisions-2026-09-12.md) | 2026-09-12 | Open decisions reconciled across all three audits, with a recommendation per item and, at the bottom, the outcome and commit for each. Read this first. |
 | [2026-09-11/fable-audit-report.html](2026-09-11/fable-audit-report.html) | 2026-09-11 | Fable's commit audit report. |
 | [2026-09-11/FORK-COMMIT-AUDIT-2026-09-11.html](2026-09-11/FORK-COMMIT-AUDIT-2026-09-11.html) | 2026-09-11 | The second model's commit audit report of the same window. |
 | [2026-09-11/commit-audit-trail.tsv](2026-09-11/commit-audit-trail.tsv) | 2026-09-11 | Decision trail behind the second report: timestamp, phase, decision, reasoning, evidence, result. |

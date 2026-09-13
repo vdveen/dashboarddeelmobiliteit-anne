@@ -111,3 +111,52 @@ Where F and T disagree, it is marked. T judged the 8 September repair batch as c
 37. **`.gitignore` lists both `build` and `/build`** (F). Cosmetic. Lean: ignore.
 
 38. **Branches `t3code/audit-recent-commits` and `audit/fork-code-quality-2026-09-06`** decided by item 34.
+
+---
+
+# Outcomes, 13 September 2026
+
+Decided by the owner on 12 September and implemented on 13 September. Commits are on `main`.
+
+| # | Outcome | Commit |
+| --- | --- | --- |
+| 1 | Fixed. `scopedMetadataStore` checks supersession only. Regression test in `requestScope.test.js`. | `4f819bd5` |
+| 2 | Fixed. Bad records are skipped and counted (`skipped_count` column, `/health` `latest_skipped`). No backfill (see 16). | `a098652e` |
+| 3 | Fixed. Partial results kept, failed days listed with a retry for those days only, Amsterdam time pinned. | `2621c32e` |
+| 4 | Fixed. Foreground loader adopts the in-flight prefetch; cache holds 30 frames. | `11684d03` |
+| 5 | Fixed. `pointercancel` discards the partial lasso. | `11684d03` |
+| 6 | Fixed. Header shows "Metingen laden..." while a new polygon loads. | `11684d03` |
+| 7 | Changed per owner: a longer period is clamped to its most recent 31 days and the chart says so. Byte and error handling kept. | `2621c32e` |
+| 8 | Left as is, owner decision. | |
+| 9 | Fixed. Filters stay visible but inert during a CSV import, with a note. | `4f819bd5` |
+| 10 | Fixed. Operators outside the edition scope are reconciled on every operator-list change; explicit opt-ins survive. | `4f819bd5` |
+| 11 | Left as is. | |
+| 12 | Left as is, owner decision (manual refresh). | |
+| 13 | Fixed. Missing ten-minute boundaries become null rows that break the line; "N van M metingen" shown. | `11684d03` |
+| 14 | Fixed. Capture time and age from `/health`, fetched once on mount, with a stale badge. | `11684d03` |
+| 15 | Capacity signal added (`/health` `database_bytes`, `positions`); AGENTS.md names June 2027 and a 4 GB revisit threshold. Retention itself undecided. | `a098652e` |
+| 16 | Left for now, owner decision. | |
+| 17 | Fixed. The file-writing CLI entry point is removed; `voi_database` is the only path. | `a098652e` |
+| 18 | Fixed. Fallback list covers all ten priority municipalities. | `4f819bd5` |
+| 19 | Accepted without verification, owner decision. | |
+| 20 | Left, noted. | |
+| 21 | Not done; rated low. | |
+| 22 | Ignored. | |
+| 23 | Investigation delegated; result recorded below when available. | |
+| 24 | Fixed. `check.yml` runs on pushes to `main`. | `a098652e` |
+| 25 | Partly. `voiSnapshotCache.ts` and `voiSnapshots.ts` added to the checked set; the other touched files import untyped `.js`/`.jsx` modules and stay out. | `11684d03` |
+| 26 | Fixed. The 27 driver-free Python tests run in CI. | `a098652e` |
+| 27 | Looked at. The one critical advisory is `maplibre-gl` 2.4.0; the only fix is a major upgrade. No change. | |
+| 28 | Ignored. | |
+| 29 | Ignored. | |
+| 30 | Rewritten. | `9a746745` |
+| 31 | DEPLOY.md cut to the Railway section; legacy text in `docs/audits/legacy/`. | `9a746745` |
+| 32 | Dated evidence files moved to `docs/audits/history/` with a superseded line. | `9a746745` |
+| 33 | Fixed. "Vaste schaal (per zoomniveau)". | `11684d03` |
+| 34 | All audits consolidated under `docs/audits/`; see `README.md` there. | `9a746745` |
+| 35 | Deleted: 14 `claude/*` branches, `voi-vehicle-data`, and the remote audit branch. | |
+| 36 | Images moved to `docs/audits/analysis/`. | `9a746745` |
+| 37 | Ignored. | |
+| 38 | Remote audit branch deleted. Local `audit/fork-code-quality-2026-09-06` and `t3code/audit-recent-commits` are pinned by worktrees and remain. | |
+
+Validation after all commits: 36 suites / 210 tests, scoped typecheck, 29 stdlib Python tests, production build.
