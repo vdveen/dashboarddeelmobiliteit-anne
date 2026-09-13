@@ -215,6 +215,16 @@ export function useMapPolygonDraw(map: MapLibreMap | null): MapPolygonDraw {
       finish();
     };
 
+    /**
+     * A cancelled pointer (a browser or OS interruption, a palm rejection) is
+     * not a finished shape. Drop the partial drawing instead of closing it.
+     */
+    const onPointerCancel = () => {
+      if (mode !== 'lasso' || !lassoActiveRef.current) return;
+      lassoActiveRef.current = false;
+      clear();
+    };
+
     const onContextMenu = (event: MouseEvent) => {
       event.preventDefault();
       if (mode === 'polygon') finish();
@@ -247,7 +257,7 @@ export function useMapPolygonDraw(map: MapLibreMap | null): MapPolygonDraw {
     canvas.addEventListener('dblclick', blockMapClick);
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
-    window.addEventListener('pointercancel', onPointerUp);
+    window.addEventListener('pointercancel', onPointerCancel);
     window.addEventListener('keydown', onKeyDown);
 
     return () => {
@@ -257,7 +267,7 @@ export function useMapPolygonDraw(map: MapLibreMap | null): MapPolygonDraw {
       canvas.removeEventListener('dblclick', blockMapClick);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
-      window.removeEventListener('pointercancel', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerCancel);
       window.removeEventListener('keydown', onKeyDown);
 
       handlers.forEach((handler, index) => {

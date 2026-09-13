@@ -48,6 +48,36 @@ describe('toChartRows', () => {
     expect(row.unknownPct).toBeNull();
   });
 
+  it('marks a ten-minute boundary without a measurement as a gap', () => {
+    const rows = toChartRows(
+      [
+        point('2026-09-11T15:00:00Z', 10, 8, 2),
+        point('2026-09-11T15:20:00Z', 10, 7, 3),
+        point('2026-09-11T15:30:00Z', 10, 6, 4),
+      ],
+      { from: '2026-09-11T15:00:00Z', to: '2026-09-11T15:30:00Z' }
+    );
+
+    expect(rows.map((row) => row.time)).toEqual([
+      Date.parse('2026-09-11T15:00:00Z'),
+      Date.parse('2026-09-11T15:10:00Z'),
+      Date.parse('2026-09-11T15:20:00Z'),
+      Date.parse('2026-09-11T15:30:00Z'),
+    ]);
+    expect(rows[1]).toEqual({
+      time: Date.parse('2026-09-11T15:10:00Z'),
+      missing: true,
+      total: null,
+      operational: null,
+      non_operational: null,
+      unknown: null,
+      operationalPct: null,
+      nonOperationalPct: null,
+      unknownPct: null,
+    });
+    expect(rows.filter((row) => row.missing)).toHaveLength(1);
+  });
+
   it('sorts by time and drops unparseable timestamps', () => {
     const rows = toChartRows([
       point('2026-09-08T12:00:00Z', 2, 2, 0),

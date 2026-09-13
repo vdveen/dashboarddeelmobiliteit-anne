@@ -11,10 +11,15 @@ export type PeriodPreset = '1d' | '7d' | '31d';
 export interface VoiChartRow {
   /** Capture time as epoch milliseconds, so recharts can use a time scale. */
   time: number;
-  total: number;
-  operational: number;
-  non_operational: number;
-  unknown: number;
+  /**
+   * A boundary the collector never delivered. Every value is null so recharts
+   * breaks the line there instead of drawing straight through the outage.
+   */
+  missing?: true;
+  total: number | null;
+  operational: number | null;
+  non_operational: number | null;
+  unknown: number | null;
   /** Share of the total, one decimal. Null when the area held no vehicles. */
   operationalPct: number | null;
   nonOperationalPct: number | null;
@@ -44,11 +49,38 @@ function share(part: number, total: number): number | null {
   return Math.round((part / total) * 1000) / 10;
 }
 
-/** Converts the API series into chart rows, dropping unparseable timestamps. */
-export function toChartRows(series: VoiAvailabilityPoint[]): VoiChartRow[] {
+/** The collector writes one snapshot per ten-minute boundary. */
+export const SNAPSHOT_INTERVAL_MS = 10 * 60 * 1000;
+
+function missingRow(time: number): VoiChartRow {
+  return {
+    time,
+    missing: true,
+    total: null,
+    operational: null,
+    non_operational: null,
+    unknown: null,
+    operationalPct: null,
+    nonOperationalPct: null,
+    unknownPct: null,
+  };
+}
+
+/**
+ * Converts the API series into chart rows, dropping unparseable timestamps.
+ *
+ * The API only returns rows for snapshots that exist, so a collection outage
+ * would otherwise become one long straight segment between the surrounding
+ * measurements. Given the requested window, every ten-minute boundary without a
+ * measurement gets a row of nulls, which recharts renders as a gap.
+ */
+export function toChartRows(
+  series: VoiAvailabilityPoint[],
+  range?: { from?: string; to?: string } | null
+): VoiChartRow[] {
   if (!Array.isArray(series)) return [];
 
-  return series
+  const rows = series
     .map((point) => {
       const time = Date.parse(point.captured_at);
       if (!Number.isFinite(time)) return null;
@@ -68,6 +100,28 @@ export function toChartRows(series: VoiAvailabilityPoint[]): VoiChartRow[] {
     })
     .filter((row): row is VoiChartRow => row !== null)
     .sort((left, right) => left.time - right.time);
+
+  if (rows.length === 0) return rows;
+
+  const from = Date.parse(range?.from ?? '');
+  const to = Date.parse(range?.to ?? '');
+  if (!Number.isFinite(from) || !Number.isFinite(to)) return rows;
+
+  const present = new Set(rows.map((row) => row.time));
+  const first = Math.ceil(from / SNAPSHOT_INTERVAL_MS) * SNAPSHOT_INTERVAL_MS;
+  const last = Math.floor(to / SNAPSHOT_INTERVAL_MS) * SNAPSHOT_INTERVAL_MS;
+  const filled = rows.slice();
+  for (let boundary = first; boundary <= last; boundary += SNAPSHOT_INTERVAL_MS) {
+    if (!present.has(boundary)) filled.push(missingRow(boundary));
+  }
+
+  return filled.sort((left, right) => left.time - right.time);
+}
+
+/** Measurements delivered against boundaries expected, for the header text. */
+export function completenessOf(rows: VoiChartRow[]): { measured: number; expected: number } {
+  const measured = rows.filter((row) => !row.missing).length;
+  return { measured, expected: rows.length };
 }
 
 /**
@@ -75,7 +129,7 @@ export function toChartRows(series: VoiAvailabilityPoint[]): VoiChartRow[] {
  * the "status onbekend" series is worth showing.
  */
 export function hasUnknownStatus(rows: VoiChartRow[]): boolean {
-  return rows.some((row) => row.unknown > 0);
+  return rows.some((row) => (row.unknown ?? 0) > 0);
 }
 
 const timeFormatter = new Intl.DateTimeFormat('nl-NL', {
@@ -199,13 +253,14 @@ export function windowFor(preset: PeriodPreset, now: Date): { from: string; to: 
   };
 }
 
+/** Export only real measurements; a gap row carries no data to export. */
 export function toCsvRows(rows: VoiChartRow[]): VoiCsvRow[] {
-  return rows.map((row) => ({
+  return rows.filter((row) => !row.missing).map((row) => ({
     tijdstip: new Date(row.time).toISOString(),
-    totaal: row.total,
-    operationeel: row.operational,
-    niet_operationeel: row.non_operational,
-    onbekend: row.unknown,
+    totaal: row.total ?? 0,
+    operationeel: row.operational ?? 0,
+    niet_operationeel: row.non_operational ?? 0,
+    onbekend: row.unknown ?? 0,
     operationeel_pct: row.operationalPct,
     niet_operationeel_pct: row.nonOperationalPct,
   }));

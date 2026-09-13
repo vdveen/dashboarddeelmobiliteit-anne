@@ -20,6 +20,7 @@ import {
   PeriodPreset,
   VoiChartRow,
   chartTicks,
+  completenessOf,
   csvColumns,
   formatCount,
   formatPercentage,
@@ -119,11 +120,12 @@ const AreaTooltip = ({ showCounts, ...props }: { label?: number | string; showCo
 );
 
 function summaryFor(rows: VoiChartRow[]): string {
-  const latest = rows[rows.length - 1];
+  // Gap rows hold no counts, so summarise the newest real measurement.
+  const latest = [...rows].reverse().find((row) => !row.missing);
   if (!latest) return '';
   if (latest.total === 0) return 'Laatste meting: geen voertuigen in dit gebied.';
 
-  return `Laatste meting: ${formatCount(latest.operational)} van ${formatCount(latest.total)} voertuigen operationeel (${formatPercentage(latest.operationalPct)})`;
+  return `Laatste meting: ${formatCount(latest.operational ?? 0)} van ${formatCount(latest.total ?? 0)} voertuigen operationeel (${formatPercentage(latest.operationalPct)})`;
 }
 
 /**
@@ -156,17 +158,21 @@ const VoiAvailabilityChart: React.FC<VoiAvailabilityChartProps> = ({
 
     const controller = new AbortController();
     const requested = windowFor(preset, new Date());
+    // The header must not keep describing the previous area while its
+    // replacement is still loading.
+    setRows([]);
     setIsLoading(true);
     setError(null);
 
     fetchVoiAvailability(polygon, requested.from, requested.to, controller.signal)
       .then((series) => {
         if (controller.signal.aborted) return;
-        setRows(toChartRows(series.series));
-        setRange({
+        const resolved = {
           from: series.from || requested.from,
           to: series.to || requested.to,
-        });
+        };
+        setRows(toChartRows(series.series, resolved));
+        setRange(resolved);
         setIsLoading(false);
       })
       .catch((fetchError: unknown) => {
@@ -185,7 +191,9 @@ const VoiAvailabilityChart: React.FC<VoiAvailabilityChartProps> = ({
 
   const showUnknown = useMemo(() => hasUnknownStatus(rows), [rows]);
   const axis = useMemo(() => chartTicks(rows), [rows]);
-  const allEmpty = rows.length > 0 && rows.every((row) => row.total === 0);
+  const measuredRows = useMemo(() => rows.filter((row) => !row.missing), [rows]);
+  const allEmpty = measuredRows.length > 0 && measuredRows.every((row) => row.total === 0);
+  const completeness = useMemo(() => completenessOf(rows), [rows]);
 
   const selectedTime = useMemo(() => {
     if (!selectedCapturedAt || rows.length === 0) return undefined;
@@ -269,6 +277,7 @@ const VoiAvailabilityChart: React.FC<VoiAvailabilityChartProps> = ({
                 strokeLinejoin="round"
                 strokeLinecap="round"
                 dot={false}
+                connectNulls={false}
                 isAnimationActive={false}
               />
               <Line
@@ -280,6 +289,7 @@ const VoiAvailabilityChart: React.FC<VoiAvailabilityChartProps> = ({
                 strokeLinejoin="round"
                 strokeLinecap="round"
                 dot={false}
+                connectNulls={false}
                 isAnimationActive={false}
               />
               <Line
@@ -292,6 +302,7 @@ const VoiAvailabilityChart: React.FC<VoiAvailabilityChartProps> = ({
                 strokeLinejoin="round"
                 strokeLinecap="round"
                 dot={false}
+                connectNulls={false}
                 isAnimationActive={false}
               />
             </>
@@ -306,6 +317,7 @@ const VoiAvailabilityChart: React.FC<VoiAvailabilityChartProps> = ({
                 strokeLinejoin="round"
                 strokeLinecap="round"
                 dot={false}
+                connectNulls={false}
                 isAnimationActive={false}
               />
               <Line
@@ -317,6 +329,7 @@ const VoiAvailabilityChart: React.FC<VoiAvailabilityChartProps> = ({
                 strokeLinejoin="round"
                 strokeLinecap="round"
                 dot={false}
+                connectNulls={false}
                 isAnimationActive={false}
               />
               {showUnknown && (
@@ -330,6 +343,7 @@ const VoiAvailabilityChart: React.FC<VoiAvailabilityChartProps> = ({
                   strokeLinejoin="round"
                   strokeLinecap="round"
                   dot={false}
+                  connectNulls={false}
                   isAnimationActive={false}
                 />
               )}
@@ -351,7 +365,14 @@ const VoiAvailabilityChart: React.FC<VoiAvailabilityChartProps> = ({
       <div className="VoiAvailability-cardHeader">
         <div>
           <div className="VoiAvailability-cardKicker">Beschikbaarheid in gebied</div>
-          <div className="VoiAvailability-cardSummary">{summaryFor(rows)}</div>
+          <div className="VoiAvailability-cardSummary">
+            {isLoading ? 'Metingen laden...' : summaryFor(rows)}
+          </div>
+          {!isLoading && completeness.expected > 0 && (
+            <div className="VoiAvailability-cardCompleteness">
+              {`${formatCount(completeness.measured)} van ${formatCount(completeness.expected)} metingen`}
+            </div>
+          )}
         </div>
 
         <div className="VoiAvailability-cardActions">

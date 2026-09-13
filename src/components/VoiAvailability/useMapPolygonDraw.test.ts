@@ -129,6 +129,16 @@ test('finishes a lasso on pointer up', () => {
 
   expect(result.current.mode).toBeNull();
   expect(result.current.polygon?.coordinates[0]).toEqual([[1, 1], [2, 1], [2, 3], [1, 1]]);
+
+  // An interrupted pointer discards the drawing rather than closing it.
+  act(() => result.current.start('lasso'));
+  act(() => { canvas.dispatchEvent(pointerEvent('pointerdown', 300, 300)); });
+  act(() => { window.dispatchEvent(pointerEvent('pointermove', 400, 300)); });
+  act(() => { window.dispatchEvent(pointerEvent('pointermove', 400, 500)); });
+  act(() => { window.dispatchEvent(pointerEvent('pointercancel', 400, 500)); });
+
+  expect(result.current.mode).toBeNull();
+  expect(result.current.polygon).toBeNull();
 });
 
 test('escape cancels a drawing in progress', () => {

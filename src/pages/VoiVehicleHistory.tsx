@@ -13,9 +13,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   downloadVoiSnapshot,
+  fetchVoiHealth,
   listVoiSnapshots,
   VoiFeatureCollection,
+  VoiHealth,
   VoiSnapshot,
+  VoiSnapshotDownload,
 } from '../api/voiSnapshots';
 import { Button } from '../components/ui/button';
 import VoiAreaControls from '../components/VoiAvailability/VoiAreaControls';
@@ -84,6 +87,32 @@ function formatDateTime(value: string): string {
 
 function formatShortDateTime(value: string): string {
   return shortDateTimeFormatter.format(new Date(value));
+}
+
+const clockFormatter = new Intl.DateTimeFormat('nl-NL', {
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: 'Europe/Amsterdam',
+});
+
+/** "12 min geleden", or hours once a gap grows past two hours. */
+function formatAge(ageSeconds: number): string {
+  const minutes = Math.round(ageSeconds / 60);
+  if (minutes < 1) return 'zojuist';
+  if (minutes < 120) return `${minutes} min geleden`;
+  return `${Math.round(minutes / 60)} uur geleden`;
+}
+
+function formatHealth(health: VoiHealth): string | null {
+  if (!health.latest_capture) return null;
+  const captured = Date.parse(health.latest_capture);
+  if (!Number.isFinite(captured)) return null;
+  const clock = clockFormatter.format(new Date(captured));
+  const age =
+    typeof health.age_seconds === 'number' && Number.isFinite(health.age_seconds)
+      ? health.age_seconds
+      : (Date.now() - captured) / 1000;
+  return `Laatste meting ${clock} (${formatAge(age)})`;
 }
 
 function addVehicleLayers(map: maplibregl.Map) {
@@ -222,7 +251,16 @@ function VoiVehicleHistory() {
   const viewRef = useRef<VehicleView>('heatmap');
   const cacheRef = useRef(new VoiSnapshotCache());
   const listControllerRef = useRef<AbortController | null>(null);
-  const prefetchControllerRef = useRef<AbortController | null>(null);
+  /**
+   * The frame being fetched ahead of playback. It survives the selection moving
+   * onto it: the foreground loader adopts the same promise instead of asking
+   * for the frame a second time.
+   */
+  const prefetchRef = useRef<{
+    url: string;
+    controller: AbortController;
+    promise: Promise<VoiSnapshotDownload>;
+  } | null>(null);
   const wheelTimeRef = useRef(0);
 
   const [snapshots, setSnapshots] = useState<VoiSnapshot[]>([]);
@@ -237,6 +275,7 @@ function VoiVehicleHistory() {
   const [vehicleView, setVehicleViewState] = useState<VehicleView>('heatmap');
   const [error, setError] = useState<string | null>(null);
   const [map, setMap] = useState<maplibregl.Map | null>(null);
+  const [health, setHealth] = useState<VoiHealth | null>(null);
   const [chartOpen, setChartOpen] = useState(true);
   const [areaControlsOpen, setAreaControlsOpen] = useState(false);
 
@@ -274,10 +313,25 @@ function VoiVehicleHistory() {
     loadSnapshotList();
     return () => {
       listControllerRef.current?.abort();
-      prefetchControllerRef.current?.abort();
+      prefetchRef.current?.controller.abort();
+      prefetchRef.current = null;
       cacheRef.current.clear();
     };
   }, [loadSnapshotList]);
+
+  // Collection health, fetched once. The page is refreshed by hand, so a live
+  // counter would only add noise.
+  useEffect(() => {
+    const controller = new AbortController();
+    Promise.resolve(fetchVoiHealth(controller.signal))
+      .then((nextHealth) => {
+        if (!controller.signal.aborted && nextHealth) setHealth(nextHealth);
+      })
+      .catch(() => {
+        // The timeline itself still works without the health endpoint.
+      });
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
@@ -341,9 +395,14 @@ function VoiVehicleHistory() {
     setError(null);
 
     const cached = cacheRef.current.get(selectedSnapshot.downloadUrl);
+    const prefetched =
+      prefetchRef.current?.url === selectedSnapshot.downloadUrl ? prefetchRef.current : null;
+
     (cached
       ? Promise.resolve({ data: cached, bytes: 0 })
-      : downloadVoiSnapshot(selectedSnapshot, controller.signal)
+      : prefetched
+        ? prefetched.promise
+        : downloadVoiSnapshot(selectedSnapshot, controller.signal)
     )
       .then(({ data: nextGeojson, bytes }) => {
         if (!stillSelected) return;
@@ -376,24 +435,41 @@ function VoiVehicleHistory() {
   }, [selectedSnapshot, retry]);
 
   useEffect(() => {
-    prefetchControllerRef.current?.abort();
-    prefetchControllerRef.current = null;
-    if (!isPlaying || displayedSnapshot !== selectedSnapshot) return;
     const nextSnapshot = snapshots[selectedIndex + 1];
+
+    // Playback advancing onto the prefetched frame must not cancel it. Only a
+    // prefetch that is neither the frame ahead nor the frame now selected is
+    // stale, and the foreground loader adopts the latter.
+    const running = prefetchRef.current;
+    if (
+      running &&
+      running.url !== nextSnapshot?.downloadUrl &&
+      running.url !== selectedSnapshot?.downloadUrl
+    ) {
+      running.controller.abort();
+      prefetchRef.current = null;
+    }
+
+    if (!isPlaying || displayedSnapshot !== selectedSnapshot) return;
     if (!nextSnapshot || cacheRef.current.has(nextSnapshot.downloadUrl)) return;
+    if (prefetchRef.current?.url === nextSnapshot.downloadUrl) return;
 
     const controller = new AbortController();
-    prefetchControllerRef.current = controller;
-    downloadVoiSnapshot(nextSnapshot, controller.signal)
+    const entry = {
+      url: nextSnapshot.downloadUrl,
+      controller,
+      promise: downloadVoiSnapshot(nextSnapshot, controller.signal),
+    };
+    prefetchRef.current = entry;
+    entry.promise
       .then(({ data, bytes }) => {
-        if (!controller.signal.aborted) {
-          cacheRef.current.put(nextSnapshot.downloadUrl, data, bytes);
-        }
+        if (!controller.signal.aborted) cacheRef.current.put(entry.url, data, bytes);
+        if (prefetchRef.current === entry) prefetchRef.current = null;
       })
       .catch(() => {
         // A foreground load reports errors if this frame is selected.
+        if (prefetchRef.current === entry) prefetchRef.current = null;
       });
-    return () => controller.abort();
   }, [isPlaying, displayedSnapshot, selectedSnapshot, selectedIndex, snapshots]);
 
   useEffect(() => {
@@ -450,6 +526,7 @@ function VoiVehicleHistory() {
     if (!selectedSnapshot) return 'Geen meting geselecteerd';
     return `${featureCount.toLocaleString('nl-NL')} voertuigen`;
   }, [featureCount, isLoadingList, isLoadingSnapshot, selectedSnapshot]);
+  const healthText = useMemo(() => (health ? formatHealth(health) : null), [health]);
 
   return (
     <main className="VoiVehicleHistory">
@@ -465,6 +542,15 @@ function VoiVehicleHistory() {
           <div className="VoiVehicleHistory-headingMeta" aria-live="polite">
             {statusText}
           </div>
+          {healthText && (
+            <div
+              className={`VoiVehicleHistory-health${health?.stale ? ' is-stale' : ''}`}
+              title={health?.stale ? 'De verzameling loopt achter.' : undefined}
+            >
+              {healthText}
+              {health?.stale && <span className="VoiVehicleHistory-healthWarning">verouderd</span>}
+            </div>
+          )}
         </div>
         <div className="VoiVehicleHistory-viewToggle" role="group" aria-label="Kaartweergave">
           <button
@@ -524,11 +610,11 @@ function VoiVehicleHistory() {
             </summary>
             <div
               className="VoiVehicleHistory-heatmapLegend"
-              aria-label="Vaste heatmapschaal van lage naar hoge voertuigdichtheid"
+              aria-label="Vaste heatmapschaal per zoomniveau, van lage naar hoge voertuigdichtheid"
             >
               <div className="VoiVehicleHistory-heatmapLegendHeading">
                 <span>Voertuigdichtheid</span>
-                <span>Vaste schaal</span>
+                <span>Vaste schaal (per zoomniveau)</span>
               </div>
               <div className="VoiVehicleHistory-heatmapLegendScale" aria-hidden="true" />
               <div className="VoiVehicleHistory-heatmapLegendLabels" aria-hidden="true">

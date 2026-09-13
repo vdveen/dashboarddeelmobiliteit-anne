@@ -3,7 +3,7 @@ import { VoiFeatureCollection } from './voiSnapshots';
 /** Completed frames only. In-flight requests remain owned by their caller. */
 export class VoiSnapshotCache {
   private entries = new Map<string, { data: VoiFeatureCollection; bytes: number }>();
-  constructor(private maxFrames = 4, private maxBytes = 20 * 1024 * 1024) {}
+  constructor(private maxFrames = 30, private maxBytes = 20 * 1024 * 1024) {}
   get(key: string) {
     const entry = this.entries.get(key);
     if (!entry) return undefined;

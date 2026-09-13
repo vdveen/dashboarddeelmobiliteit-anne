@@ -62,3 +62,63 @@ test('retains displayed identity during a slow selection and retries that frame 
   unmount();
   expect(signal.aborted).toBe(true);
 });
+
+const threeFrames = [
+  '2026-09-01T00:00:00Z',
+  '2026-09-01T00:10:00Z',
+  '2026-09-01T00:20:00Z',
+].map((capturedAt, i) => ({
+  name: `frame${i}`,
+  capturedAt,
+  downloadUrl: `/frame${i}`,
+}));
+
+test('adopts the running prefetch when playback reaches that frame instead of downloading it twice', async () => {
+  (maplibregl.Map as unknown as jest.Mock).mockImplementation(() => ({
+    addControl() {},
+    dragRotate: { disable() {} },
+    touchZoomRotate: { disableRotation() {} },
+    on() {},
+    remove() {},
+  }));
+  (listVoiSnapshots as jest.Mock).mockResolvedValue(threeFrames);
+  const loaded = { data: { type: 'FeatureCollection', features: [] }, bytes: 50 };
+  let finishMiddle;
+  (downloadVoiSnapshot as jest.Mock).mockImplementation((snapshot) =>
+    snapshot.downloadUrl === '/frame1'
+      ? new Promise((resolve) => {
+          finishMiddle = () => resolve(loaded);
+        })
+      : Promise.resolve(loaded)
+  );
+
+  const { container } = render(<VoiVehicleHistory />);
+  await waitFor(() =>
+    expect(container.querySelector('time')).toHaveAttribute('datetime', threeFrames[2].capturedAt)
+  );
+
+  fireEvent.change(screen.getByLabelText('Selecteer een meting'), { target: { value: '0' } });
+  await waitFor(() =>
+    expect(container.querySelector('time')).toHaveAttribute('datetime', threeFrames[0].capturedAt)
+  );
+
+  fireEvent.click(screen.getByLabelText('Metingen afspelen'));
+  // Playback prefetches the next frame and, 900 ms later, selects it while that
+  // download is still running.
+  await waitFor(() =>
+    expect(downloadVoiSnapshot).toHaveBeenCalledWith(threeFrames[1], expect.anything())
+  );
+  await waitFor(() => expect(screen.getByText('2 van 3')).toBeInTheDocument(), { timeout: 3000 });
+
+  await act(async () => {
+    finishMiddle();
+  });
+  await waitFor(() =>
+    expect(container.querySelector('time')).toHaveAttribute('datetime', threeFrames[1].capturedAt)
+  );
+
+  const middleCalls = (downloadVoiSnapshot as jest.Mock).mock.calls.filter(
+    ([snapshot]) => snapshot.downloadUrl === '/frame1'
+  );
+  expect(middleCalls).toHaveLength(1);
+});

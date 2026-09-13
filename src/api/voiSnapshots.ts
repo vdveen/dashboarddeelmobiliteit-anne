@@ -141,6 +141,30 @@ export async function downloadVoiSnapshot(
   return { data: geojson, bytes };
 }
 
+export interface VoiHealth {
+  /** Capture time of the newest stored snapshot, or null when there is none. */
+  latest_capture: string | null;
+  age_seconds: number | null;
+  /** The API's own judgement that collection has fallen behind. */
+  stale: boolean;
+}
+
+/** Collection health: how recent the newest stored snapshot is. */
+export async function fetchVoiHealth(signal?: AbortSignal): Promise<VoiHealth> {
+  const response = await fetch(`${API_ROOT}/health`, { signal });
+  if (!response.ok) {
+    throw new Error(`Het meetarchief gaf status ${response.status}.`);
+  }
+
+  const data = await response.json() as Partial<VoiHealth>;
+  const age = Number(data?.age_seconds);
+  return {
+    latest_capture: typeof data?.latest_capture === 'string' ? data.latest_capture : null,
+    age_seconds: Number.isFinite(age) ? age : null,
+    stale: Boolean(data?.stale),
+  };
+}
+
 /**
  * Server validation messages that a user can act on, in Dutch. Anything else is
  * passed through as is, so an unexpected message is still visible.

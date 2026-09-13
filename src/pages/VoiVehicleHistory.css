@@ -48,6 +48,24 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.VoiVehicleHistory-health {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #7a838b;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+.VoiVehicleHistory-health.is-stale {
+  color: #a4562f;
+}
+.VoiVehicleHistory-healthWarning {
+  padding: 0 5px;
+  border-radius: 8px;
+  background: #fbe6d8;
+  color: #a4562f;
+  font-size: 0.68rem;
+}
 .VoiVehicleHistory-viewToggle {
   display: grid;
   grid-template-columns: 1fr 1fr;

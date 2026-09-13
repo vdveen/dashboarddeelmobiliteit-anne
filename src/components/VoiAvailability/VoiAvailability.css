@@ -298,3 +298,9 @@
     margin: 5px 0 2px;
   }
 }
+
+.VoiAvailability-cardCompleteness {
+  margin-top: 1px;
+  color: #8a969b;
+  font-size: 0.7rem;
+}
