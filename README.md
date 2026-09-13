@@ -10,6 +10,12 @@ The app uses the [API](https://gitlab.com/bikedashboard/dashboard-api) to get it
 
 Dashboard Deelmobiliteit is a project by non profit organisation [CROW](https://crow.nl/). Tips, comments or questions? Contact the team at info@dashboarddeelmobiliteit.nl!
 
+## Fork documentation
+
+- [DEPLOY.md](DEPLOY.md) - how this fork is deployed.
+- [docs/VOI-VEHICLE-MONITOR.md](docs/VOI-VEHICLE-MONITOR.md) - the Voi snapshot archive and its viewer.
+- [docs/audits/README.md](docs/audits/README.md) - index of audits, bug reports and performance reports.
+
 ## Quickstart
 
 - `git clone git@github.com:Stichting-CROW/dashboarddeelmobiliteit-app.git`
