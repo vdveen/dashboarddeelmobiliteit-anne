@@ -41,6 +41,9 @@ const initialState = {
   visible: true,
   gebied: "",
   public_defaults_applied: false,
+  // Operators outside the edition's public scope that the visitor switched on
+  // themselves. RECONCILE_PUBLIC_OPERATORS leaves these alone.
+  public_operators_optin: "",
   zones: "",
   datum: (new Date()).toISOString(),
   // intervalstart: (new Date()).toISOString(),
@@ -64,6 +67,12 @@ const initialState = {
   h3hexes8: [],
   h3hexeswijk: []
 }
+
+const splitList = (value) => (value || '').split(',').filter(Boolean);
+const addToList = (value, item) => {
+  const list = splitList(value);
+  return list.includes(item) ? list.join(',') : [...list, item].join(',');
+};
 
 export default function filter(state = initialState, action) {
   // Only a UI or URL action marks a choice as explicit. Metadata
@@ -427,7 +436,10 @@ export default function filter(state = initialState, action) {
     
       return {
           ...state,
-          aanbiedersexclude: aanbiedersexclude.join(",")
+          aanbiedersexclude: aanbiedersexclude.join(","),
+          public_operators_optin: action.meta?.explicit === true
+            ? splitList(state.public_operators_optin).filter((id) => id !== action.payload).join(",")
+            : state.public_operators_optin
       };
     }
     case 'REMOVE_FROM_FILTER_AANBIEDERS_EXCLUDE': {
@@ -439,18 +451,41 @@ export default function filter(state = initialState, action) {
       } catch(ex) {
         aanbiedersexclude = [];
       }
-    
+
       return {
           ...state,
-          aanbiedersexclude: aanbiedersexclude.join(",")
+          aanbiedersexclude: aanbiedersexclude.join(","),
+          public_operators_optin: action.meta?.explicit === true
+            ? addToList(state.public_operators_optin, action.payload)
+            : state.public_operators_optin
+      };
+    }
+    case 'RECONCILE_PUBLIC_OPERATORS': {
+      // The public map shows the edition's operators only. An operator that
+      // appears after the one-time defaults were applied must be excluded too,
+      // unless the visitor switched it on themselves.
+      const optin = splitList(state.public_operators_optin);
+      const excluded = splitList(state.aanbiedersexclude);
+      const missing = (action.payload || []).filter(
+        (id) => !excluded.includes(id) && !optin.includes(id)
+      );
+      if (missing.length === 0) return state;
+      return {
+          ...state,
+          aanbiedersexclude: [...excluded, ...missing].join(",")
       };
     }
     case 'CLEAR_FILTER_AANBIEDERS_EXCLUDE': {
       // console.log('clear aanbiedersexclude filter')
-    
+      // Switching every operator on is an explicit choice for exactly the
+      // operators that were excluded until now, so keep them switched on.
       return {
           ...state,
-          aanbiedersexclude: ''
+          aanbiedersexclude: '',
+          public_operators_optin: action.meta?.explicit === true
+            ? splitList(state.aanbiedersexclude)
+                .reduce((list, id) => addToList(list, id), state.public_operators_optin)
+            : state.public_operators_optin
       };
     }
     case 'SET_FILTER_ONTWIKKELING_VANTOT': {

@@ -124,17 +124,25 @@ test('ignores a region zones response after the selected area changes', async ()
     layers: { displaymode: DISPLAYMODE_PARK },
     metadata,
   };
-  let resolveFetch;
-  global.fetch = jest.fn(() => new Promise((resolve) => { resolveFetch = resolve; }));
+  const resolvers = [];
+  global.fetch = jest.fn(() => new Promise((resolve) => { resolvers.push(resolve); }));
   const store = { getState: () => state, dispatch: jest.fn() };
 
   const request = updateZones(store);
-  state = { ...state, filter: { gebied: 'GM0402', zones: '' } };
+  // Selecting another area starts a new zones request, which takes over the
+  // channel. The superseded response must not land in the store.
+  state = { ...state, filter: { gebied: REGIONS[1].gm_code, zones: '' } };
+  const newerRequest = updateZones(store);
   store.dispatch.mockClear();
-  resolveFetch({ ok: true, json: async () => ({ zones: zones.slice(0, 4) }) });
+  resolvers[0]({ ok: true, json: async () => ({ zones: zones.slice(0, 4) }) });
   await request;
 
   expect(store.dispatch).not.toHaveBeenCalled();
+
+  resolvers[1]({ ok: true, json: async () => ({ zones: zones.slice(4) }) });
+  await newerRequest;
+  expect(store.dispatch).toHaveBeenCalledWith({ type: 'SET_ZONES', payload: zones.slice(4) });
+  expect(store.dispatch).toHaveBeenCalledWith({ type: 'SHOW_LOADING', payload: false });
 });
 
 test('loads all regional boundary geometries and computes their combined extent', async () => {

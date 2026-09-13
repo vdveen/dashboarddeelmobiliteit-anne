@@ -33,6 +33,11 @@ import {
   DISPLAYMODE_OTHER
 } from '../../reducers/layers.js';
 
+// CSV points are a separate dataset: the API filters do not apply to them.
+// Keep the filters on screen so their state stays visible, but make them inert.
+const InertDuringImport = ({ inert, children }) =>
+  inert ? <div className="Filterbar-inertDuringImport">{children}</div> : <>{children}</>;
+
 function Filterbar({
   displayMode,
   visible,
@@ -58,11 +63,11 @@ function Filterbar({
   const iszonespublic=displayMode===DISPLAYMODE_ZONES_PUBLIC;
   const isontwikkeling=displayMode===DISPLAYMODE_OTHER;
   
-  const showdatum=!hasImport && (isrentals||ispark||!isLoggedIn);
-  const showduur=isrentals&&!hasImport;
+  const showdatum=isrentals||ispark||!isLoggedIn;
+  const showduur=isrentals;
   const showparkeerduur=ispark;
-  const showafstand=isrentals&&!hasImport;
-  const showherkomstbestemming=isrentals&&!hasImport;
+  const showafstand=isrentals;
+  const showherkomstbestemming=isrentals;
   const showvantot=isontwikkeling;
   const showvervoerstype=isrentals||ispark||!isLoggedIn;
 
@@ -112,46 +117,58 @@ function Filterbar({
         </Fieldset>
       )}
 
-      { isLoggedIn && showdatum && <FilteritemDatum /> }
-      
-      { ! isLoggedIn && showdatum && <div>
-        <div className="filter-datum-container">
-          <div className="filter-datum-title">
-            Tijd
-          </div>
-          <div className="filter-datum-box-row">
-            {moment(filterDatum).format('HH:mm')}
-          </div>
+      {hasImport && (
+        <div className="Filterbar-importNote">
+          Deze filters gelden niet voor ge&iuml;mporteerde CSV-punten.
         </div>
-      </div> }
+      )}
 
-      { isLoggedIn && showduur && <FilteritemDuur /> }
+      <InertDuringImport inert={hasImport}>
+        { isLoggedIn && showdatum && <FilteritemDatum /> }
+
+        { ! isLoggedIn && showdatum && <div>
+          <div className="filter-datum-container">
+            <div className="filter-datum-title">
+              Tijd
+            </div>
+            <div className="filter-datum-box-row">
+              {moment(filterDatum).format('HH:mm')}
+            </div>
+          </div>
+        </div> }
+
+        { isLoggedIn && showduur && <FilteritemDuur /> }
+      </InertDuringImport>
 
       { isLoggedIn && showvantot && <FilteritemDatumVanTot /> }
 
-      {!hasImport && <Fieldset title="Plaats">
-        <FilteritemGebieden includeRegions />
-      </Fieldset>}
+      <InertDuringImport inert={hasImport}>
+        <Fieldset title="Plaats">
+          <FilteritemGebieden includeRegions />
+        </Fieldset>
 
-      {!hasImport && <Fieldset title="Zones">
-        <FilteritemZones 
-          zonesToShow={zonesToShow}
-        />
-      </Fieldset>}
+        <Fieldset title="Zones">
+          <FilteritemZones 
+            zonesToShow={zonesToShow}
+          />
+        </Fieldset>
+      </InertDuringImport>
 
       {isLoggedIn && showparkeerduur && <FilteritemMarkersParkeerduur />}
 
-      {isLoggedIn && showafstand && (
-        <Fieldset title="Afstand">
-          <FilteritemMarkersAfstand />
-        </Fieldset>
-      )}
+      <InertDuringImport inert={hasImport}>
+        {isLoggedIn && showafstand && (
+          <Fieldset title="Afstand">
+            <FilteritemMarkersAfstand />
+          </Fieldset>
+        )}
 
-      {isLoggedIn && showherkomstbestemming && (
-        <Fieldset title="Herkomst of bestemming?">
-          <FilteritemHerkomstBestemming />
-        </Fieldset>
-      )}
+        {isLoggedIn && showherkomstbestemming && (
+          <Fieldset title="Herkomst of bestemming?">
+            <FilteritemHerkomstBestemming />
+          </Fieldset>
+        )}
+      </InertDuringImport>
 
       {showvervoerstype && (
         <Fieldset title="Voertuigtype">

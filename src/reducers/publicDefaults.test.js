@@ -51,3 +51,24 @@ test('restores only filters for a logged-out visitor', () => {
   };
   expect(validatePersistedState(saved)).toEqual({ filter: saved.filter });
 });
+test('a newly appearing operator is excluded for a returning logged-out visitor', () => {
+  const returning = filter(undefined, {
+    type: 'IMPORT_STATE',
+    payload: { filter: { gebied: '', zones: '', aanbiedersexclude: 'check,donkey' } }
+  });
+  expect(returning.public_defaults_applied).toBe(true);
+  const aanbieders = ['voi', 'check', 'donkey', 'baqme'];
+  const reconciled = filter(returning, {
+    type: 'RECONCILE_PUBLIC_OPERATORS',
+    payload: aanbieders.filter(id => id !== 'voi')
+  });
+  expect(reconciled.aanbiedersexclude.split(',')).toEqual(['check', 'donkey', 'baqme']);
+
+  // An operator the visitor switched on themselves stays on.
+  const optedIn = filter(reconciled, {
+    type: 'REMOVE_FROM_FILTER_AANBIEDERS_EXCLUDE', payload: 'baqme', meta: { explicit: true }
+  });
+  expect(filter(optedIn, {
+    type: 'RECONCILE_PUBLIC_OPERATORS', payload: aanbieders.filter(id => id !== 'voi')
+  }).aanbiedersexclude.split(',')).toEqual(['check', 'donkey']);
+});

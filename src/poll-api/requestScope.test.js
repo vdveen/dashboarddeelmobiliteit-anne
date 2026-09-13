@@ -54,8 +54,30 @@ test('metadata from an old selection cannot dispatch after its owner changes', (
   const store = { getState: () => state, dispatch: jest.fn() };
   const older = scopedMetadataStore(store, 'zones');
   state = { ...state, filter: { gebied: 'new' } };
-  older.dispatch({ type: 'SET_ZONES', payload: ['old'] });
   const current = scopedMetadataStore(store, 'zones');
+  older.dispatch({ type: 'SET_ZONES', payload: ['old'] });
   current.dispatch({ type: 'SET_ZONES', payload: ['new'] });
   expect(store.dispatch).toHaveBeenCalledTimes(1);
+  expect(store.dispatch).toHaveBeenCalledWith({ type: 'SET_ZONES', payload: ['new'] });
+});
+test('a display mode change during a region zones fetch still clears the spinner', async () => {
+  const { updateZones } = require('./metadataZones');
+  const state = {
+    authentication: { user_data: null },
+    layers: { displaymode: 'displaymode-park' },
+    filter: { gebied: 'GM0307,GM0317', zones: '' },
+    metadata: { metadata_loaded: true, gebieden: [{ gm_code: 'GM0307' }, { gm_code: 'GM0317' }] }
+  };
+  global.fetch = jest.fn(async () => {
+    state.layers = { displaymode: 'displaymode-rentals' };
+    return { ok: true, json: async () => ({ zones: [] }) };
+  });
+  const store = { getState: () => state, dispatch: jest.fn() };
+  await updateZones(store);
+  const loading = store.dispatch.mock.calls
+    .filter(([action]) => action.type === 'SHOW_LOADING').map(([action]) => action.payload);
+  expect(loading).toEqual([true, false]);
+  expect(store.dispatch.mock.calls.some(([action]) =>
+    action.type === 'SET_ZONES_LOADED' && action.payload === true)).toBe(true);
+  delete global.fetch;
 });

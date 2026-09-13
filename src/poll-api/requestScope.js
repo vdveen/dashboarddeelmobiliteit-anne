@@ -16,13 +16,11 @@ export function scopedMetadataStore(store, channel) {
   metadataOwners.set(store, owners);
   const owner = Symbol();
   owners.set(channel, owner);
-  const selection = () => {
-    const state = store.getState();
-    return JSON.stringify([state.authentication?.user_data?.token, state.filter?.gebied,
-      state.filter?.zones, state.layers?.displaymode]);
-  };
-  const initial = selection();
+  // Only supersession suppresses a dispatch. A selection change starts a new
+  // request that takes ownership of the channel; comparing against the state at
+  // call time would also drop the finally-dispatches that clear `showloading`
+  // and set `zones_loaded`, leaving the spinner on screen forever.
   return { getState: () => store.getState(), dispatch: action => {
-    if (owners.get(channel) === owner && selection() === initial) return store.dispatch(action);
+    if (owners.get(channel) === owner) return store.dispatch(action);
   } };
 }

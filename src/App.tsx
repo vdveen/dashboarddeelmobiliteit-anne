@@ -404,11 +404,11 @@ function App() {
   });
 
   // Public map view default (not logged in): no municipality filter and
-  // only operator Voi active. Applied once, as soon as the operator list is
-  // known; after that the visitor's own filter choices are left alone.
+  // only operator Voi active. The gebied/zones part is applied once; the
+  // operator part is reconciled every time the operator list changes, so an
+  // operator that appears later does not show up on the public map.
   useEffect(() => {
     if (isLoggedIn) return;
-    if (filter?.public_defaults_applied) return;
 
     const aanbieders = metadata?.aanbieders || [];
     if (aanbieders.length === 0) return;
@@ -416,14 +416,19 @@ function App() {
     // Only apply if Voi is a known operator, otherwise we would exclude everything
     if (!aanbieders.some((aanbieder) => edition.publicOperators.includes(aanbieder.system_id))) return;
 
-    const aanbiedersexclude = aanbieders
+    const nonPublicOperators = aanbieders
       .filter((aanbieder) => !edition.publicOperators.includes(aanbieder.system_id))
-      .map((aanbieder) => aanbieder.system_id)
-      .join(',');
+      .map((aanbieder) => aanbieder.system_id);
+
+    // Excludes operators the visitor never switched on themselves, also for a
+    // returning visitor whose defaults were applied in an earlier session.
+    dispatch({ type: 'RECONCILE_PUBLIC_OPERATORS', payload: nonPublicOperators });
+
+    if (filter?.public_defaults_applied) return;
 
     dispatch({
       type: 'APPLY_PUBLIC_DEFAULT_FILTERS',
-      payload: { aanbiedersexclude }
+      payload: { aanbiedersexclude: nonPublicOperators.join(',') }
     });
   }, [isLoggedIn, metadata.aanbieders, filter?.public_defaults_applied, dispatch]);
 
