@@ -1,0 +1,49 @@
+npm notice run dashboarddeelmobiliteit-app@0.1.0 build
+npm notice run craco build
+(node:468744) [DEP0176] DeprecationWarning: fs.F_OK is deprecated, use fs.constants.F_OK instead
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Creating an optimized production build...
+Compiled with warnings.
+
+/static/js/main.da648f70.js is 5.9 MB, and won't be precached. Configure maximumFileSizeToCacheInBytes to change this limit.
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+File sizes after gzip:
+
+  1.44 MB   build/static/js/main.da648f70.js
+  50.12 kB  build/static/css/main.9ceeb804.css
+  3.02 kB   build/static/js/reactPlayerFilePlayer.a56da81e.chunk.js
+  1.99 kB   build/static/js/reactPlayerYouTube.612de469.chunk.js
+  1.9 kB    build/static/js/reactPlayerMux.1f6e28b9.chunk.js
+  1.67 kB   build/static/js/573.fded0fa2.chunk.js
+  1.46 kB   build/static/js/reactPlayerWistia.ed820dae.chunk.js
+  1.43 kB   build/static/js/reactPlayerVimeo.1ba79714.chunk.js
+  1.38 kB   build/static/js/reactPlayerPreview.2e073248.chunk.js
+  1.37 kB   build/static/js/reactPlayerFacebook.71f3c5a5.chunk.js
+  1.35 kB   build/static/js/reactPlayerTwitch.8943dfb5.chunk.js
+  1.33 kB   build/static/js/reactPlayerDailyMotion.c3eed1db.chunk.js
+  1.31 kB   build/static/js/reactPlayerSoundCloud.f8ab20cd.chunk.js
+  1.27 kB   build/static/js/reactPlayerVidyard.4eff3268.chunk.js
+  1.26 kB   build/static/js/reactPlayerStreamable.5260b871.chunk.js
+  1.24 kB   build/static/js/reactPlayerKaltura.2be7b0ec.chunk.js
+  1.22 kB   build/static/js/reactPlayerMixcloud.e62086b7.chunk.js
+
+The bundle size is significantly larger than recommended.
+Consider reducing it with code splitting: https://goo.gl/9VhYWB
+You can also analyze the project dependencies: https://goo.gl/LeUzfb
+
+The project was built assuming it is hosted at /.
+You can control this with the homepage field in your package.json.
+
+The build folder is ready to be deployed.
+You may serve it with a static server:
+
+  npm install -g serve
+  serve -s build
+
+Find out more about deployment here:
+
+  https://cra.link/deployment
+

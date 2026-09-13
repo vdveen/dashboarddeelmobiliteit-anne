@@ -21,6 +21,7 @@
 - `GET /index.json` takes optional ISO-8601 `from` and `to` parameters and defaults to the last seven days. `POST /availability` (also `GET` with a `polygon` query parameter) returns per-snapshot counts inside a GeoJSON Polygon or MultiPolygon. Validation lives in `scripts/voi_availability.py`, which imports neither Flask nor psycopg so it can be unit tested anywhere. Add any new `scripts/voi_*.py` module to the `COPY` line in `Dockerfile.voi-monitor`.
 - Keep `DATABASE_URL` and database credentials in Railway. Never print or commit their values.
 - `voi-vehicle-monitor` reads the authenticated `park_events` endpoint and needs the `DASHBOARDDEELMOB_KEY` service variable set in the Railway UI. Never commit, log, or print the key. The collector sends it as an `apikey` header, so it never reaches a stored URL. The key for local validation lives in `/home/exedev/.env`, outside the repository; keep it there.
+- The 5 GB volume fills around June 2027 at the current rate; revisit retention (upgrade the plan, prune, or downsample) once `/health` reports `database_bytes` above 4 GB.
 - Every snapshot now stores `is_non_operational`. `is_reserved` and `is_available` stay nullable because the source still omits them. Do not treat unknown status as available.
 
 ## Commit and push changes

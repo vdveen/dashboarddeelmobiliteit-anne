@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
-"""Download the current Voi vehicle positions as GeoJSON.
+"""Fetch the current Voi vehicle positions and shape them as GeoJSON.
 
 Uses the authenticated park_events endpoint so every snapshot records
 is_non_operational per vehicle. The API key comes from the
 DASHBOARDDEELMOB_KEY environment variable and is sent as an `apikey`
 header; it is never logged or stored in the snapshot.
+
+This module has no command line entry point. `scripts.voi_database` is the
+only production path: it floors the capture time to the ten-minute boundary
+and stores the snapshot in PostGIS.
 """
 
 from __future__ import annotations
 
-import argparse
 import json
 import math
 import os
-import sys
-import tempfile
 import time
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -90,39 +90,24 @@ def to_geojson(payload: Any, captured_at: datetime) -> dict[str, Any]:
         raise ValueError("Vehicle response exceeds the position limit")
 
     features = []
+    skipped = 0
     for index, vehicle in enumerate(vehicles):
         if not isinstance(vehicle, dict):
-            raise ValueError(f"Vehicle {index} must be a JSON object")
+            # One malformed record must not discard the whole boundary: with
+            # restartPolicyType NEVER there is no second chance at this run.
+            skipped += 1
+            continue
 
         system_id = vehicle.get("system_id")
         if system_id != OPERATOR:
             continue
 
-        location = vehicle.get("location")
-        if not isinstance(location, dict):
-            raise ValueError(f"Vehicle {index} has no location object")
-
-        latitude = location.get("latitude")
-        longitude = location.get("longitude")
-        if not is_coordinate(latitude, -90, 90):
-            raise ValueError(f"Vehicle {index} has an invalid latitude")
-        if not is_coordinate(longitude, -180, 180):
-            raise ValueError(f"Vehicle {index} has an invalid longitude")
-
-        features.append(
-            {
-                "type": "Feature",
-                "properties": {
-                    "system_id": OPERATOR,
-                    "form_factor": vehicle.get("form_factor"),
-                    **availability_properties(vehicle, index),
-                },
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [longitude, latitude],
-                },
-            }
-        )
+        try:
+            feature = to_feature(vehicle, index)
+        except ValueError:
+            skipped += 1
+            continue
+        features.append(feature)
 
     timestamp = iso_timestamp(captured_at)
     return {
@@ -131,7 +116,35 @@ def to_geojson(payload: Any, captured_at: datetime) -> dict[str, Any]:
         "captured_at": timestamp,
         "operator": OPERATOR,
         "feature_count": len(features),
+        "skipped_count": skipped,
         "features": features,
+    }
+
+
+def to_feature(vehicle: dict[str, Any], index: int = 0) -> dict[str, Any]:
+    """Build one GeoJSON feature, or raise ValueError for a bad record."""
+    location = vehicle.get("location")
+    if not isinstance(location, dict):
+        raise ValueError(f"Vehicle {index} has no location object")
+
+    latitude = location.get("latitude")
+    longitude = location.get("longitude")
+    if not is_coordinate(latitude, -90, 90):
+        raise ValueError(f"Vehicle {index} has an invalid latitude")
+    if not is_coordinate(longitude, -180, 180):
+        raise ValueError(f"Vehicle {index} has an invalid longitude")
+
+    return {
+        "type": "Feature",
+        "properties": {
+            "system_id": OPERATOR,
+            "form_factor": vehicle.get("form_factor"),
+            **availability_properties(vehicle, index),
+        },
+        "geometry": {
+            "type": "Point",
+            "coordinates": [longitude, latitude],
+        },
     }
 
 
@@ -211,78 +224,3 @@ def fetch_payload(
                 time.sleep(2 ** (attempt - 1))
 
     raise RuntimeError(f"API request failed after 3 attempts: {last_error}")
-
-
-def write_geojson(geojson: dict[str, Any], output_dir: Path, captured_at: datetime) -> Path:
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / f"voi-vehicles-{filename_timestamp(captured_at)}.geojson"
-
-    descriptor, temporary_name = tempfile.mkstemp(
-        dir=output_dir,
-        prefix=f".{output_path.name}.",
-        suffix=".tmp",
-        text=True,
-    )
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as output_file:
-            json.dump(geojson, output_file, ensure_ascii=False, separators=(",", ":"))
-            output_file.write("\n")
-        os.replace(temporary_name, output_path)
-    except BaseException:
-        try:
-            os.unlink(temporary_name)
-        except FileNotFoundError:
-            pass
-        raise
-
-    return output_path
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Download the current Voi positions as GeoJSON."
-    )
-    parser.add_argument(
-        "--api-url",
-        default=DEFAULT_API_URL,
-        help="Vehicle API endpoint",
-    )
-    parser.add_argument(
-        "--output-dir",
-        type=Path,
-        default=Path("voi-vehicle-snapshots"),
-        help="Directory for the GeoJSON snapshot",
-    )
-    parser.add_argument(
-        "--timeout",
-        type=float,
-        default=30,
-        help="Timeout for each API request in seconds",
-    )
-    return parser.parse_args()
-
-
-def main() -> int:
-    args = parse_args()
-    captured_at = utc_now()
-
-    try:
-        api_key = read_api_key()
-        payload = fetch_payload(args.api_url, captured_at, args.timeout, api_key)
-        geojson = to_geojson(payload, captured_at)
-        output_path = write_geojson(geojson, args.output_dir, captured_at)
-    except (OSError, RuntimeError, ValueError) as error:
-        print(f"Voi snapshot failed: {error}", file=sys.stderr)
-        return 1
-
-    print(output_path.resolve())
-    print(
-        f"Stored {geojson['feature_count']} Voi positions captured at "
-        f"{geojson['captured_at']}",
-        file=sys.stderr,
-    )
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

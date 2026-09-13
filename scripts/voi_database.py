@@ -26,9 +26,10 @@ def initialize(connection):
 def store_snapshot(connection, geojson, source_url):
     captured_at = geojson["captured_at"]
     inserted = connection.execute(
-        """INSERT INTO voi_snapshots (captured_at, title, source_url, feature_count)
-           VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING RETURNING captured_at""",
-        (captured_at, geojson["title"], source_url, len(geojson["features"])),
+        """INSERT INTO voi_snapshots (captured_at, title, source_url, feature_count, skipped_count)
+           VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING RETURNING captured_at""",
+        (captured_at, geojson["title"], source_url, len(geojson["features"]),
+         geojson.get("skipped_count")),
     ).fetchone()
     if not inserted:
         return False
@@ -72,7 +73,9 @@ def main():
     source_url = os.environ.get("VOI_API_URL", DEFAULT_API_URL)
     geojson = to_geojson(fetch_payload(source_url, captured_at, timeout=30), captured_at)
     inserted = persist_with_retry(geojson, source_url)
-    print(f"{'Stored' if inserted else 'Already stored'} {geojson['feature_count']} Voi positions at {geojson['captured_at']}")
+    skipped = geojson.get("skipped_count") or 0
+    print(f"{'Stored' if inserted else 'Already stored'} {geojson['feature_count']} Voi positions at {geojson['captured_at']}"
+          + (f" ({skipped} unusable records skipped)" if skipped else ""))
 
 
 if __name__ == "__main__":

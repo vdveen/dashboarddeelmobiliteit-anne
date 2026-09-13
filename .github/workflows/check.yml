@@ -1,6 +1,8 @@
 name: Check pull requests
 on:
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
@@ -21,3 +23,11 @@ jobs:
       - run: npm run build
         env:
           CI: false
+  collector:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python3 -m unittest scripts.test_voi_availability scripts.test_collect_voi_vehicles

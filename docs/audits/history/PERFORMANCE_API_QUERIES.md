@@ -1,3 +1,5 @@
+*Historical, dated 2026-07-09. Findings may be superseded; see [docs/audits/README.md](../README.md).*
+
 # Performance report: slow vehicle / dashboard API queries
 
 Findings and fixes for the Dashboard Deelmobiliteit developers (Stichting CROW),

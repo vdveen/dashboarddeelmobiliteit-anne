@@ -1,3 +1,5 @@
+*Historical, dated 2026-07-07. Findings may be superseded; see [docs/audits/README.md](../README.md).*
+
 # Bug report: accounts with single-operator data access
 
 Feedback for the Dashboard Deelmobiliteit developers (Stichting CROW), collected

@@ -1,0 +1,132 @@
+{
+  "command": "npm audit --json",
+  "revision": "f2162fdf",
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 10,
+      "moderate": 11,
+      "high": 41,
+      "critical": 2,
+      "total": 64
+    },
+    "dependencies": {
+      "prod": 1976,
+      "dev": 87,
+      "optional": 34,
+      "peer": 10,
+      "peerOptional": 0,
+      "total": 2106
+    }
+  },
+  "direct_findings": {
+    "@craco/craco": {
+      "severity": "moderate",
+      "via": [
+        "react-scripts"
+      ],
+      "fixAvailable": {
+        "name": "@craco/craco",
+        "version": "5.9.0",
+        "isSemVerMajor": true
+      }
+    },
+    "gh-pages": {
+      "severity": "critical",
+      "via": [
+        {
+          "source": 1097162,
+          "name": "gh-pages",
+          "dependency": "gh-pages",
+          "title": "tschaub gh-pages vulnerable to prototype pollution",
+          "url": "https://github.com/advisories/GHSA-8mmm-9v2q-x3f9",
+          "severity": "critical",
+          "cwe": [
+            "CWE-1321"
+          ],
+          "cvss": {
+            "score": 9.8,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+          },
+          "range": "<5.0.0"
+        }
+      ],
+      "fixAvailable": {
+        "name": "gh-pages",
+        "version": "6.3.0",
+        "isSemVerMajor": true
+      }
+    },
+    "npm": {
+      "severity": "high",
+      "via": [
+        "@npmcli/arborist",
+        "@npmcli/run-script",
+        "cacache",
+        "libnpmaccess",
+        "libnpmdiff",
+        "libnpmexec",
+        "libnpmfund",
+        "libnpmhook",
+        "libnpmorg",
+        "libnpmpack",
+        "libnpmpublish",
+        "libnpmsearch",
+        "libnpmteam",
+        "libnpmversion",
+        "make-fetch-happen",
+        "minimatch",
+        "node-gyp",
+        "npm-profile",
+        "npm-registry-fetch",
+        "pacote",
+        "semver",
+        "tar"
+      ],
+      "fixAvailable": {
+        "name": "npm",
+        "version": "12.0.2",
+        "isSemVerMajor": true
+      }
+    },
+    "react-router-dom": {
+      "severity": "moderate",
+      "via": [
+        {
+          "source": 1124270,
+          "name": "react-router-dom",
+          "dependency": "react-router-dom",
+          "title": "React Router: Open redirect leading to XSS",
+          "url": "https://github.com/advisories/GHSA-jjmj-jmhj-qwj2",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-601"
+          ],
+          "cvss": {
+            "score": 6.9,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:C/C:H/I:L/A:N"
+          },
+          "range": ">=6.30.2 <=6.30.4"
+        },
+        "react-router"
+      ],
+      "fixAvailable": true
+    },
+    "react-scripts": {
+      "severity": "high",
+      "via": [
+        "@svgr/webpack",
+        "css-minimizer-webpack-plugin",
+        "jest",
+        "resolve-url-loader",
+        "webpack-dev-server",
+        "workbox-webpack-plugin"
+      ],
+      "fixAvailable": {
+        "name": "react-scripts",
+        "version": "0.0.0",
+        "isSemVerMajor": true
+      }
+    }
+  }
+}

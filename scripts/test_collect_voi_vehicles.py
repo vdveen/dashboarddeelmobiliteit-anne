@@ -1,9 +1,7 @@
 import io
 import json
-import tempfile
 import unittest
 from datetime import datetime, timezone
-from pathlib import Path
 from unittest import mock
 from urllib.error import HTTPError
 
@@ -12,7 +10,6 @@ from scripts.collect_voi_vehicles import (
     fetch_payload,
     read_api_key,
     to_geojson,
-    write_geojson,
 )
 
 
@@ -66,6 +63,7 @@ class ToGeoJsonTest(unittest.TestCase):
         self.assertEqual(result["captured_at"], "2026-09-03T17:05:49Z")
         self.assertEqual(result["title"], "Voi vehicle positions at 2026-09-03T17:05:49Z")
         self.assertEqual(result["feature_count"], 1)
+        self.assertEqual(result["skipped_count"], 0)
         self.assertEqual(result["features"][0]["geometry"]["coordinates"], [5.1, 52.1])
         self.assertIs(result["features"][0]["properties"]["is_non_operational"], False)
 
@@ -75,15 +73,53 @@ class ToGeoJsonTest(unittest.TestCase):
         self.assertIs(properties["is_non_operational"], True)
         self.assertIs(properties["is_available"], False)
 
-    def test_rejects_a_vehicle_without_non_operational(self):
+    def test_skips_a_vehicle_without_non_operational(self):
         payload = {"park_events": [park_event(is_non_operational=None)]}
-        with self.assertRaisesRegex(ValueError, "is_non_operational"):
-            to_geojson(payload, CAPTURED_AT)
 
-    def test_rejects_an_invalid_coordinate(self):
+        result = to_geojson(payload, CAPTURED_AT)
+
+        self.assertEqual(result["feature_count"], 0)
+        self.assertEqual(result["skipped_count"], 1)
+
+    def test_skips_an_invalid_coordinate(self):
         payload = {"park_events": [park_event(location={"latitude": 91, "longitude": 5.1})]}
-        with self.assertRaisesRegex(ValueError, "invalid latitude"):
-            to_geojson(payload, CAPTURED_AT)
+
+        result = to_geojson(payload, CAPTURED_AT)
+
+        self.assertEqual(result["feature_count"], 0)
+        self.assertEqual(result["skipped_count"], 1)
+
+    def test_skips_a_vehicle_without_a_location(self):
+        payload = {"park_events": [park_event(location=None)]}
+
+        result = to_geojson(payload, CAPTURED_AT)
+
+        self.assertEqual(result["feature_count"], 0)
+        self.assertEqual(result["skipped_count"], 1)
+
+    def test_one_bad_record_does_not_discard_the_snapshot(self):
+        payload = {
+            "park_events": [
+                park_event(),
+                park_event(location={"latitude": 52.2, "longitude": 5.2}),
+                park_event(is_non_operational="yes"),
+                park_event(location={"latitude": 52.3, "longitude": 5.3}),
+            ]
+        }
+
+        result = to_geojson(payload, CAPTURED_AT)
+
+        self.assertEqual(result["feature_count"], 3)
+        self.assertEqual(result["skipped_count"], 1)
+        self.assertEqual(len(result["features"]), 3)
+
+    def test_other_operators_are_filtered_not_skipped(self):
+        payload = {"park_events": [park_event(system_id="check", location=None)]}
+
+        result = to_geojson(payload, CAPTURED_AT)
+
+        self.assertEqual(result["feature_count"], 0)
+        self.assertEqual(result["skipped_count"], 0)
 
     def test_rejects_an_unexpected_response_shape(self):
         with self.assertRaisesRegex(ValueError, "park_events"):
@@ -131,19 +167,6 @@ class FetchPayloadTest(unittest.TestCase):
                 fetch_payload("https://example.test/park_events", CAPTURED_AT, 5, "secret")
 
         self.assertEqual(len(calls), 1)
-
-
-class WriteGeoJsonTest(unittest.TestCase):
-    def test_uses_the_capture_time_in_the_filename(self):
-        with tempfile.TemporaryDirectory() as directory:
-            output_path = write_geojson(
-                {"type": "FeatureCollection", "features": []},
-                Path(directory),
-                CAPTURED_AT,
-            )
-
-            self.assertEqual(output_path.name, "voi-vehicles-2026-09-03T17-05-49Z.geojson")
-            self.assertTrue(output_path.is_file())
 
 
 if __name__ == "__main__":

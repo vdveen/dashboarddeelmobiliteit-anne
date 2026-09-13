@@ -1,0 +1,10 @@
+npm notice run dashboarddeelmobiliteit-app@0.1.0 test
+npm notice run craco test --watchAll=false --runInBand src/helpers/rentalsCsvImport.test.js src/components/Map/MapUtils/popupDom.test.ts
+PASS src/components/Map/MapUtils/popupDom.test.ts
+PASS src/helpers/rentalsCsvImport.test.js
+
+Test Suites: 2 passed, 2 total
+Tests:       16 passed, 16 total
+Snapshots:   0 total
+Time:        3.309 s
+Ran all test suites matching /src\/helpers\/rentalsCsvImport.test.js|src\/components\/Map\/MapUtils\/popupDom.test.ts/i.

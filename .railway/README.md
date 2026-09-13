@@ -18,7 +18,7 @@ Keep database credentials in Railway service variables. `voi-vehicle-monitor` al
 
 ## Inspect collection
 
-Run `railway service logs --service voi-vehicle-monitor --latest --lines 50`. A successful run reports the position count and snapshot timestamp. The database commits the snapshot and all positions together. Repeating the same boundary does not duplicate the snapshot. A missed run is not automatically backfilled.
+Run `railway service logs --service voi-vehicle-monitor --latest --lines 50`. A successful run reports the position count and snapshot timestamp, and names the number of unusable records skipped when there are any. The database commits the snapshot and all positions together. Repeating the same boundary does not duplicate the snapshot. A missed run is not automatically backfilled.
 
 Railway schedules the job every ten minutes. Container startup can delay the HTTP request by a few seconds, so the collector rounds the timestamp down to the nearest ten-minute boundary (`floor_to_interval` in `collect_voi_vehicles.py`). Every snapshot therefore lands on :00, :10, :20, :30, :40, or :50, and the `voi_snapshots` primary key still rejects a second run for the same boundary. `collected_at` records when the database stored it.
 
@@ -56,11 +56,13 @@ The collector reads the authenticated `park_events` endpoint, which requires `ti
 
 The public `vehicles_in_public_space` endpoint is no longer used. It supplies only `system_id`, `form_factor`, and `location`, and ignores the API key.
 
+A record with no location object, an out-of-range coordinate, or a non-boolean `is_non_operational` is skipped rather than failing the run, because the cron does not retry a boundary. The count lands in `voi_snapshots.skipped_count` and in `/health` as `latest_skipped`. A structurally wrong response (not an object, or no `park_events` array) still fails.
+
 The archive preserves nullable `is_non_operational`, `is_reserved`, and `is_available` fields when supplied. Missing values remain SQL NULL and GeoJSON null. Explicit non-operational or reserved status implies unavailable. A non-defect vehicle is not automatically classified as available. Until the source supplies status, the available-only filter returns no positions.
 
 ## Read the HTTP API
 
-`GET /index.json` lists snapshot paths in time order. It accepts optional `from` and `to` ISO-8601 UTC parameters and defaults to the last seven days when neither is given; `?from=` alone runs to now. An unparseable timestamp or a reversed window returns HTTP 400. `GET /snapshots/voi-vehicles-YYYY-MM-DDTHH-MM-SSZ.geojson` returns a GeoJSON FeatureCollection. Add `?available=true`, `?available=false`, or `?available=unknown` to filter availability. All HTTP database transactions are read-only. The API exposes no collection or SQL execution endpoint.
+`GET /index.json` lists snapshot paths in time order, each with the `skipped_count` recorded for that snapshot (`null` for snapshots stored before the column existed). It accepts optional `from` and `to` ISO-8601 UTC parameters and defaults to the last seven days when neither is given; `?from=` alone runs to now. An unparseable timestamp or a reversed window returns HTTP 400. `GET /snapshots/voi-vehicles-YYYY-MM-DDTHH-MM-SSZ.geojson` returns a GeoJSON FeatureCollection. Add `?available=true`, `?available=false`, or `?available=unknown` to filter availability. All HTTP database transactions are read-only. The API exposes no collection or SQL execution endpoint.
 
 `POST /availability` counts vehicles per snapshot inside a polygon, for a lasso selection in the viewer. The JSON body takes `polygon` (a WGS84 GeoJSON `Polygon` or `MultiPolygon`), plus optional `from` and `to` with the same default window as the index. `GET /availability?polygon=<geojson>&from=&to=` accepts the same arguments for quick testing. The API rejects another geometry type, a polygon that fails `ST_IsValid`, or more than 5000 vertices with HTTP 400 and a message. The response is `{"from": iso, "to": iso, "series": [{"captured_at": iso, "total": n, "operational": n, "non_operational": n, "unknown": n}]}`. The three status counts partition `total`: `operational` counts `is_non_operational IS FALSE`, `non_operational` counts `IS TRUE`, and `unknown` counts `IS NULL`. Snapshots collected before 2026-09-08T09:00Z stored no status, so their vehicles all count as unknown rather than operational. Snapshots with no matching vehicle appear with zero counts, so the series has no gaps. The response is `Cache-Control: no-store`, and the endpoint answers an `OPTIONS` preflight with `Content-Type` allowed.
 
@@ -84,7 +86,7 @@ Database connection failures, deadlocks, and serialization failures retry the sa
 
 `/index.json` and `/availability` retain their seven-day default and `from`/`to` parameters, with a maximum window of 31 days. Query older history in separate windows. Index responses over 4500 entries, snapshots over 100000 positions, and POST bodies over 1 MB fail explicitly. The polygon validation also rejects unclosed rings and non-finite or out-of-range coordinates. Unknown status remains separate from operational counts.
 
-`/health` reports `latest_capture`, `age_seconds`, and `stale`. A missing capture or one older than 30 minutes is stale even when the database responds. This checks freshness, not historical completeness.
+`/health` reports `latest_capture`, `age_seconds`, `stale`, `latest_skipped`, `database_bytes`, and `positions`. A missing capture or one older than 30 minutes is stale even when the database responds. This checks freshness, not historical completeness. `database_bytes` is `pg_database_size`, so it tracks the 5 GB volume against the roughly 6 GB/year growth rate; revisit retention once it passes 4 GB.
 
 Retention remains indefinite: this PR enables no automatic deletion. The 5 GB Hobby volume is finite. At the current ten-minute cadence, the estimate is roughly 6 GB/year, or about nine months of capacity. Monitor Railway volume usage. Before it fills, upgrade the plan and increase the existing volume, or approve a separate archival/pruning migration. Do not recreate the database or detach its volume.
 

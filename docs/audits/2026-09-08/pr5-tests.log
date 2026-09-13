@@ -1,0 +1,12 @@
+npm notice run dashboarddeelmobiliteit-app@0.1.0 test
+npm notice run craco test --watchAll=false --runInBand src/reducers/publicDefaults.test.js
+PASS src/reducers/publicDefaults.test.js
+  ✓ preserves shared filters for shared-first (4 ms)
+  ✓ preserves shared filters for metadata-first (1 ms)
+  ✓ applies defaults once to a fresh visitor but preserves a choice made before metadata (4 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       3 passed, 3 total
+Snapshots:   0 total
+Time:        2.091 s
+Ran all test suites matching /src\/reducers\/publicDefaults.test.js/i.

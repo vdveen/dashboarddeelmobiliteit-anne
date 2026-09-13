@@ -1,3 +1,5 @@
+*Historical, dated 2026-08-24. Findings may be superseded; see [docs/audits/README.md](../README.md).*
+
 # Recommended fixes for the stichting-crow source repository
 
 ## Scope

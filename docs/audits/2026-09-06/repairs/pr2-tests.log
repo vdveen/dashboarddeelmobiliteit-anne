@@ -1,0 +1,10 @@
+npm notice run dashboarddeelmobiliteit-app@0.1.0 test
+npm notice run craco test --watchAll=false --runInBand src/helpers/stats/availability-kpi.test.ts src/components/Chart/BeleidszonesAvailabilityKpi.test.tsx
+PASS src/helpers/stats/availability-kpi.test.ts
+PASS src/components/Chart/BeleidszonesAvailabilityKpi.test.tsx
+
+Test Suites: 2 passed, 2 total
+Tests:       14 passed, 14 total
+Snapshots:   0 total
+Time:        6.631 s
+Ran all test suites matching /src\/helpers\/stats\/availability-kpi.test.ts|src\/components\/Chart\/BeleidszonesAvailabilityKpi.test.tsx/i.

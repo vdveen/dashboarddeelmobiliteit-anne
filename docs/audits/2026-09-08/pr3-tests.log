@@ -1,0 +1,12 @@
+npm notice run dashboarddeelmobiliteit-app@0.1.0 test
+npm notice run craco test --watchAll=false --runInBand src/api/dedupedFetch.test.ts src/poll-api/requestScope.test.js src/poll-api/metadataAccessControlList.test.js src/helpers/authentication.test.js
+PASS src/poll-api/requestScope.test.js
+PASS src/helpers/authentication.test.js
+PASS src/poll-api/metadataAccessControlList.test.js
+PASS src/api/dedupedFetch.test.ts
+
+Test Suites: 4 passed, 4 total
+Tests:       14 passed, 14 total
+Snapshots:   0 total
+Time:        4.518 s
+Ran all test suites matching /src\/api\/dedupedFetch.test.ts|src\/poll-api\/requestScope.test.js|src\/poll-api\/metadataAccessControlList.test.js|src\/helpers\/authentication.test.js/i.

@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fork audit, 3 to 11 September 2026</title>
+<style>
+  :root {
+    --ink: #17313b;
+    --ink-soft: #4a6572;
+    --line: #dfe6ea;
+    --bg: #fbfcfd;
+    --card: #ffffff;
+    --high: #b3261e;
+    --high-bg: #fdf0ef;
+    --med: #9a6700;
+    --med-bg: #fff8e8;
+    --low: #1a5f7a;
+    --low-bg: #eef6fa;
+    --good: #17694a;
+    --good-bg: #eef7f2;
+    --code-bg: #f4f6f8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 0 1.25rem 6rem;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  header.top { padding: 3.5rem 0 2rem; border-bottom: 2px solid var(--ink); margin-bottom: 2.5rem; }
+  h1 { font-size: 2.1rem; line-height: 1.2; margin: 0 0 .6rem; letter-spacing: -.02em; }
+  .sub { color: var(--ink-soft); font-size: 1.02rem; margin: 0; }
+  .meta { color: var(--ink-soft); font-size: .87rem; margin-top: 1.2rem; }
+  h2 {
+    font-size: 1.3rem; margin: 3rem 0 1rem; letter-spacing: -.01em;
+    padding-bottom: .45rem; border-bottom: 1px solid var(--line);
+  }
+  h3 { font-size: 1.02rem; margin: 0 0 .5rem; letter-spacing: -.005em; }
+  p { margin: 0 0 1rem; }
+  ul, ol { margin: 0 0 1rem; padding-left: 1.3rem; }
+  li { margin-bottom: .4rem; }
+  code {
+    background: var(--code-bg); padding: .1em .38em; border-radius: 4px;
+    font: .855em/1.4 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    word-break: break-word;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--line); border-left: 3px solid var(--ink-soft);
+    border-radius: 5px; padding: .85rem 1rem; overflow-x: auto; margin: 0 0 1rem;
+    font: .82rem/1.55 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  .finding {
+    background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+    padding: 1.3rem 1.4rem; margin-bottom: 1.1rem;
+  }
+  .finding.high { border-left: 4px solid var(--high); }
+  .finding.med  { border-left: 4px solid var(--med); }
+  .finding.low  { border-left: 4px solid var(--low); }
+  .finding.good { border-left: 4px solid var(--good); }
+  .tags { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .7rem; align-items: center; }
+  .badge {
+    display: inline-block; font-size: .7rem; font-weight: 650; letter-spacing: .05em;
+    text-transform: uppercase; padding: .18rem .5rem; border-radius: 3px;
+  }
+  .badge.high { background: var(--high-bg); color: var(--high); }
+  .badge.med  { background: var(--med-bg);  color: var(--med); }
+  .badge.low  { background: var(--low-bg);  color: var(--low); }
+  .badge.good { background: var(--good-bg); color: var(--good); }
+  .badge.repro { background: #eceff1; color: #46606d; }
+  .where { font-size: .8rem; color: var(--ink-soft); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  table { width: 100%; border-collapse: collapse; margin: 0 0 1.4rem; font-size: .9rem; }
+  th, td { text-align: left; padding: .6rem .7rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-soft); font-weight: 650; }
+  td.n { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; color: var(--ink-soft); }
+  .lede {
+    background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+    padding: 1.4rem 1.5rem; margin-bottom: 1.5rem;
+  }
+  .lede p:last-child { margin-bottom: 0; }
+  .callout {
+    background: var(--high-bg); border: 1px solid #f0d4d1; border-radius: 6px;
+    padding: .9rem 1.1rem; margin: 0 0 1rem; font-size: .93rem;
+  }
+  .callout.neutral { background: var(--low-bg); border-color: #cfe2ea; }
+  .callout p:last-child { margin-bottom: 0; }
+  hr.soft { border: 0; border-top: 1px solid var(--line); margin: 2.5rem 0; }
+  .footnote { color: var(--ink-soft); font-size: .85rem; }
+  a { color: #1a5f7a; }
+  @media (max-width: 620px) {
+    h1 { font-size: 1.65rem; }
+    body { padding: 0 .9rem 4rem; }
+    .finding { padding: 1.1rem; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>Fork audit: two weeks of commits</h1>
+  <p class="sub">38 merges onto <code>main</code> between 3 and 11 September, reviewed for accidental regressions and for changes that fight the way you actually use this app.</p>
+  <p class="meta">Reviewed at <code>523b4be4</code>. Test suite green: 36 suites, 205 tests. Scoped typecheck passes. Nothing in this report has been changed; it is all observation.</p>
+</header>
+
+<div class="lede">
+  <p><strong>The short version.</strong> The CSV revert was not a one-off. The same instinct that added a 10 MB file cap and a 50,000 row cap to a local CSV importer also added a 31 day cap to the trip distance chart, a 31 day ceiling on the Voi availability API, and a rule that throws away an entire ten minute Voi snapshot if one vehicle record is malformed. I found four of these, plus one genuine wiring bug that can hang the app with the spinner stuck on.</p>
+  <p>The audit that drove the eight <code>fix/audit-*</code> PRs was good work. It found real bugs, and the P1 fixes (popup XSS, availability failures reported as 0%, the UTC and DST timestamp bug) are correct and worth keeping. The problem is what happened in the last mile. The audit said "a sensible file-size limit" and "establish a bounded request contract", and the implementations turned those into hard numbers nobody measured. The audit's own words on the trips chart were "Backend response limits and maximum practical periods were not established by this audit". The implementation shipped 31 days anyway.</p>
+</div>
+
+<h2>Ranked findings</h2>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>What</th><th>Where it came from</th><th>Severity</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="n">1</td><td>Loading spinner sticks on forever, zones never load</td><td class="n">PR&nbsp;#15 × 6d572760</td><td>High</td></tr>
+    <tr><td class="n">2</td><td>Trip distance chart refuses 4 of the 8 date presets</td><td class="n">PR&nbsp;#20</td><td>High</td></tr>
+    <tr><td class="n">3</td><td>One bad record destroys a whole Voi snapshot, permanently</td><td class="n">a8df4c2c</td><td>High</td></tr>
+    <tr><td class="n">4</td><td>Voi-only default never re-applies, new operators leak in</td><td class="n">PR&nbsp;#17</td><td>Medium</td></tr>
+    <tr><td class="n">5</td><td>Snapshot prefetch is aborted right before it would be used</td><td class="n">PR&nbsp;#19</td><td>Medium</td></tr>
+    <tr><td class="n">6</td><td>You store nine months of Voi data and can query 31 days</td><td class="n">PR&nbsp;#21</td><td>Medium</td></tr>
+    <tr><td class="n">7</td><td>CSV import hides the Plaats, Zones, date and distance filters</td><td class="n">PR&nbsp;#18</td><td>Medium</td></tr>
+    <tr><td class="n">8</td><td>Availability chart fires one request per day, errors go to console</td><td class="n">51c49558</td><td>Medium</td></tr>
+    <tr><td class="n">9</td><td>CI typecheck covers 8 files out of 286</td><td class="n">PR&nbsp;#14</td><td>Low</td></tr>
+    <tr><td class="n">10</td><td>Python collector tests never run in CI</td><td class="n">PR&nbsp;#14</td><td>Low</td></tr>
+    <tr><td class="n">11</td><td>Two collector entry points disagree about timestamps</td><td class="n">d67eca08</td><td>Low</td></tr>
+    <tr><td class="n">12</td><td>Analysis artifacts committed to the repo root</td><td class="n">b6bd60e8</td><td>Low</td></tr>
+  </tbody>
+</table>
+
+<h2>1. The spinner can stick on and zones never arrive</h2>
+
+<div class="finding high">
+  <div class="tags">
+    <span class="badge high">High</span>
+    <span class="badge repro">Reproduced</span>
+    <span class="where">src/poll-api/requestScope.js:26</span>
+  </div>
+  <p>This is the one real bug, as opposed to over-caution. It is an interaction between two changes that were each reviewed on their own and never reviewed together.</p>
+
+  <p>PR #15 added <code>scopedMetadataStore</code>, which wraps the Redux store and silently drops any dispatch if the selection changed since the request started. The selection it watches is token, <code>filter.gebied</code>, <code>filter.zones</code>, and <code>layers.displaymode</code>.</p>
+
+  <p>The next day, <code>6d572760</code> (regional presets) added a multi-municipality branch to <code>updateZones</code> that dispatches <code>SHOW_LOADING: true</code>, awaits a fetch, then clears up in a <code>finally</code> block. Every dispatch in that <code>finally</code> goes through the guard. If you change the data layer while the zones request is in flight, the guard eats all of them.</p>
+
+  <p>Here is the dispatch sequence, from a reproduction I ran against the real modules:</p>
+<pre><code>healthy:   SET_ZONES(0)  SET_ZONES_LOADED(false)  SHOW_LOADING(true)
+           SET_ZONES(1)  SET_ZONES_LOADED(true)   SHOW_LOADING(false)
+
+displaymode changes mid-flight:
+           SET_ZONES(0)  SET_ZONES_LOADED(false)  SHOW_LOADING(true)
+           ...and nothing else. The last three are dropped.</code></pre>
+
+  <p>The end state is <code>zones_loaded: false</code>, an empty zone list, and <code>showloading: true</code>. The global spinner stays on. Because the zone geodata effect in <code>App.tsx</code> is gated on <code>metadata.zones_loaded</code>, zone geometry never loads either.</p>
+
+  <p>Nothing recovers it. The <code>updateZones</code> effect depends on <code>[isBeleidszonesPath, isLoggedIn, metadata_loaded, metadata.gebieden, filter.gebied, beleidszonesFilterZones]</code>. It does not depend on <code>displaymode</code> at all, and on any page other than beleidszones it does not depend on <code>filter.zones</code> either. So the guard blocks completions for two keys the effect never re-runs on. You have to change municipality to get out of it.</p>
+
+  <p><strong>What I would do.</strong> The supersession guard (<code>owners.get(channel) === owner</code>) is the part that earns its keep, and it is correct. The <code>selection() === initial</code> comparison is the part that misfires. Either drop it and rely on supersession, or narrow it to the keys the effect actually re-runs on. Either way, <code>SHOW_LOADING: false</code> should never be droppable. A guard that can strand the UI in a loading state is worse than the stale data it was added to prevent.</p>
+</div>
+
+<h2>2. The trip distance chart refuses most of your date presets</h2>
+
+<div class="finding high">
+  <div class="tags">
+    <span class="badge high">High</span>
+    <span class="badge repro">Reproduced</span>
+    <span class="where">src/api/trips.js:6</span>
+  </div>
+  <p>This is the CSV problem again, in a different file. PR #20 added <code>MAX_TRIP_DAYS = 31</code>, <code>MAX_TRIP_BYTES = 10 MB</code>, and <code>MAX_TRIPS = 50000</code>. The day cap throws before any request is made.</p>
+
+  <p>The date picker offers eight presets. I ran each one through the real <code>getTripsWithDistance</code>:</p>
+<pre><code>Vandaag              OK
+Laatste 7 dagen      OK
+Laatste 30 d         OK
+Laatste 90 dagen     BLOCKED  "Kies voor ritafstanden een periode van maximaal 31 dagen."
+Laatste 12 maanden   BLOCKED
+Dit jaar             BLOCKED
+Vorig jaar           BLOCKED</code></pre>
+
+  <p>"Laatste 30 d" passes with zero margin. It computes to exactly 31 days, so it sits right on the boundary. Any seasonal comparison is off the table.</p>
+
+  <p>The 10 MB streaming guard and the response validation in the same commit are worth keeping. Checking <code>response.ok</code>, rejecting a malformed body, and surfacing a real error with a retry button all fix genuine defects. The day cap is the only part that removes a capability, and it is the part with no evidence behind it.</p>
+
+  <p><strong>What I would do.</strong> Raise or delete <code>MAX_TRIP_DAYS</code> and let the byte budget do the limiting, since that one is at least tied to something measurable. If the backend does fall over on 90 days, you will find out from the error path that this same PR added, which is the right way to learn it.</p>
+</div>
+
+<h2>3. One malformed vehicle throws away the whole snapshot</h2>
+
+<div class="finding high">
+  <div class="tags">
+    <span class="badge high">High</span>
+    <span class="badge repro">Reproduced</span>
+    <span class="where">scripts/collect_voi_vehicles.py:81</span>
+  </div>
+  <p><code>to_geojson</code> raises on the first vehicle with a missing location, an out of range coordinate, or a non-boolean <code>is_non_operational</code>. It raises for the whole payload, not for the record. I fed it a realistic 973 vehicle response with one bad entry at index 500:</p>
+<pre><code>healthy snapshot             -> 973 positions
+one null is_non_operational  -> ENTIRE SNAPSHOT LOST
+one null latitude            -> ENTIRE SNAPSHOT LOST
+one missing location         -> ENTIRE SNAPSHOT LOST
+one out-of-range longitude   -> ENTIRE SNAPSHOT LOST</code></pre>
+
+  <p>What makes this worse than a normal fail-closed choice is that the loss is permanent. The cron runs with <code>restartPolicyType: "NEVER"</code>, and <code>voi_database.main()</code> computes <code>floor_to_interval(utc_now())</code> fresh on every run. A failed 15:00 boundary is never retried, because the 15:10 run asks for 15:10. There is no backfill anywhere in the pipeline.</p>
+
+  <p>You already care about this. Your own recovery log from this morning counts the damage: "only 15:00Z and 15:10Z are missing". That was a database outage rather than a bad record, but the failure mode is identical and so is the cost.</p>
+
+  <p><strong>What I would do.</strong> Skip the bad record, count it, and put the count in the snapshot so a bad day is visible in the data instead of absent from it. Losing 973 good positions to protect yourself from one bad one is the wrong trade for an archive whose entire value is continuity. <code>required_bool</code> is the most brittle of the three, since it turns any upstream change in that one field into a total collection outage.</p>
+</div>
+
+<h2>4. The Voi-only default has stopped re-applying</h2>
+
+<div class="finding med">
+  <div class="tags">
+    <span class="badge med">Medium</span>
+    <span class="badge repro">Reproduced</span>
+    <span class="where">src/AppProvider.js:37</span>
+  </div>
+  <p>PR #17 made <code>APPLY_PUBLIC_DEFAULT_FILTERS</code> a no-op once <code>public_defaults_applied</code> is set, which is reasonable on its own. Then <code>AppProvider.js</code> added this:</p>
+<pre><code>if (persistedState.filter) persistedState.filter.public_defaults_applied = true;</code></pre>
+
+  <p>Any visitor with a saved filter now has the flag forced on at boot, so the Voi-only default can never run again. Before PR #17, the old <code>validatePersistedState</code> returned <code>{}</code> for a logged-out visitor, which threw the filter away and re-applied the Voi default on every single public load. That was crude, but it was self-healing.</p>
+
+  <p>The consequence is subtle. <code>aanbiedersexclude</code> is a list of operators to hide, so it only ever names the operators that existed when it was written. A new operator appearing in the ACL is not in that list, and the default that would have excluded it is switched off. I simulated a returning public visit with a new operator <code>baqme</code> in the ACL:</p>
+<pre><code>persisted aanbiedersexclude : check,donkey
+after APPLY_PUBLIC_DEFAULTS : check,donkey        (unchanged, the action is a no-op)
+expected for a Voi-only map : check,donkey,baqme
+new operator visible on the Voi map: yes</code></pre>
+
+  <p><strong>What I would do.</strong> This one is genuinely a judgement call and it depends on what you want the public view to be. If it is "my Voi monitor", the default should re-assert itself and the fix is to express it as "keep only Voi" rather than "exclude this frozen list". If it is "a starting point I then adjust", the current behaviour is correct and you can leave it. I lean toward the first, because the fork's entire purpose is Voi and a silently appearing competitor on the map is a confusing way to find out that a new operator launched.</p>
+  <p>Worth noting that the rest of PR #17 improved things. Keeping the filter for logged-out visitors is better than discarding it, and dropping the random-municipality-on-login is better for you specifically, since you always want the same region.</p>
+</div>
+
+<h2>5. Playback prefetch is aborted at the moment it becomes useful</h2>
+
+<div class="finding med">
+  <div class="tags">
+    <span class="badge med">Medium</span>
+    <span class="where">src/pages/VoiVehicleHistory.tsx:379</span>
+  </div>
+  <p>PR #19 is mostly a real improvement. Separating <code>displayedSnapshot</code> from <code>selectedSnapshot</code> fixes the genuine bug where the timestamp label disagreed with the map, and gating playback on frame readiness is the right call. The prefetch, though, cancels itself.</p>
+
+  <p>The prefetch effect depends on <code>selectedIndex</code> and its cleanup calls <code>controller.abort()</code>. So when the 900 ms timer advances the index from N to N+1, the cleanup fires and aborts the in-flight download of frame N+1. The effect then re-runs, sees <code>displayedSnapshot !== selectedSnapshot</code>, and returns early. The foreground loader starts the same download again from scratch.</p>
+
+  <p>The prefetch only helps when the download finishes inside 900 ms, which is exactly the case where you did not need a prefetch. When a frame is slow, which is the case the prefetch exists for, it is cancelled and restarted. You pay for a wasted connection on every frame and get no speedup.</p>
+
+  <p>Separately, <code>maxFrames = 4</code> is tight for a scrubbing viewer. Step back five frames and everything re-downloads. The audit asked for a bounded cache, not a small one, and at roughly 973 points per frame the 20 MB budget will not be the binding constraint anyway.</p>
+</div>
+
+<h2>6. Nine months of data behind a 31 day window</h2>
+
+<div class="finding med">
+  <div class="tags">
+    <span class="badge med">Medium</span>
+    <span class="where">scripts/voi_availability.py:15</span>
+  </div>
+  <p>Three caps line up at the same number. <code>MAX_WINDOW_DAYS = 31</code> rejects a wider <code>/availability</code> request with a 400. <code>/index.json</code> has <code>LIMIT 4501</code> and returns 413 above it, which is the same 31 days at ten minute intervals. The chart UI only offers 24 hours, 7 days, and 31 days.</p>
+
+  <p>Both server caps came from PR #21, the audit's proposal 10, on the same day you shipped the area chart whose longest preset is 31 days. So this is another audit-added ceiling rather than something the feature needed. They are at least consistent with each other, which is more than the other limits in this report can claim. But <code>AGENTS.md</code> says the 5 GB volume holds about nine months and retention is indefinite. So the system is designed to accumulate data that nothing can read. Seasonal questions are the obvious ones to ask of a year of bike positions, and right now you cannot ask them without going to the database directly.</p>
+
+  <p>The 31 day cap also does real work, since 4464 points is already more than a line chart can usefully draw. The answer is probably not a bigger cap but a coarser bucket. If the endpoint could aggregate to hourly or daily for long windows, a year would be 365 points and cheaper to compute than a day is now.</p>
+</div>
+
+<h2>7. A CSV import hides half the filter bar</h2>
+
+<div class="finding med">
+  <div class="tags">
+    <span class="badge med">Medium</span>
+    <span class="where">src/components/Filterbar/FilterbarRentals.jsx:61</span>
+  </div>
+  <p>This is from PR #18, the same commit whose size limits you already reverted. While a CSV import is active it hides the Plaats fieldset, the Zones fieldset, the date filter, the duration filter, the distance filter, and the origin/destination toggle, forces direction to <code>herkomst</code>, and removes the HB layer option.</p>
+
+  <p>The reasoning is sound. Imported rows are park events and the map selections do not constrain them, so leaving the controls live would imply a filter that is not being applied. But hiding six controls is the heaviest available response, and you reverted the other half of this commit specifically because it decided things on your behalf. The Plaats filter in particular is something you were working on as recently as today's commit.</p>
+
+  <p>Disabling them with a one line explanation would carry the same information without making the UI shift under you. The state handling underneath is careful, for what it is worth. <code>csv_previous_direction</code> is saved and restored correctly, it is stripped before the state is persisted, and it does not leak into API parameters because <code>pollTools</code> reads from a fixed field list.</p>
+</div>
+
+<h2>8. One request per day, and failures only reach the console</h2>
+
+<div class="finding med">
+  <div class="tags">
+    <span class="badge med">Medium</span>
+    <span class="where">src/api/operationalVehicleStats.ts:63</span>
+  </div>
+  <p>This is your own feature from <code>51c49558</code>, not an audit PR, and it landed after the audit baseline so nobody looked at it.</p>
+
+  <p><code>getOperationalVehicleCountsByDay</code> makes one <code>park_events</code> request per day in the selected period, four at a time, and downloads the full vehicle payload for each day to count non-defect vehicles. The <code>ontwikkelingaggregatie === 'day'</code> gate saves you on the long presets, since "Laatste 12 maanden" and "Dit jaar" switch to week and month aggregation. But "Laatste 90 dagen" stays on day aggregation, so that is 90 requests in 23 sequential rounds. A hand-picked range with day aggregation has no ceiling at all.</p>
+
+  <p>The error handling is the part I would fix first:</p>
+<pre><code>catch (error: any) {
+  if (error?.name !== 'AbortError') {
+    console.error('Unable to load available vehicle chart data', error);
+  }
+}</code></pre>
+
+  <p>A failure leaves the chart rendering without its non-defect series and says nothing. That is the same defect class as F01 in the audit, where a failed availability request became a confident 0%. The audit caught it in the KPI and fixed it there. This chart has it too and was never examined.</p>
+
+  <p>The contrast with finding 2 is the thing worth sitting with. One chart refuses 90 days outright on a guess about backend load. Its neighbour quietly fires 90 authenticated requests and hides the failures. Both shipped within 24 hours of each other.</p>
+</div>
+
+<h2>9 to 12. Process and housekeeping</h2>
+
+<div class="finding low">
+  <div class="tags"><span class="badge low">Low</span><span class="where">tsconfig.checked.json</span></div>
+  <h3>The CI typecheck is close to vacuous</h3>
+  <p><code>npm run typecheck</code> runs in CI and passes. It covers 8 files. <code>src</code> has 286 TypeScript files excluding tests. The eight are small pure helpers, which is a defensible starting point, but none of the new Voi work is in the list: not <code>voiSnapshotCache.ts</code>, not <code>operationalVehicleStats.ts</code>, not <code>VoiVehicleHistory.tsx</code>, not <code>VoiAvailabilityChart.tsx</code>. A green check that covers 3% of the code is worse than no check, because it reads like coverage you do not have. Adding each new file to the include list as you touch it would fix this over time without a big-bang cleanup.</p>
+</div>
+
+<div class="finding low">
+  <div class="tags"><span class="badge low">Low</span><span class="where">.github/workflows/check.yml</span></div>
+  <h3>The collector has Python tests and CI runs none of them</h3>
+  <p><code>check.yml</code> runs npm install, Jest, typecheck, and build. The <code>scripts/test_voi_*.py</code> suites never execute. The Python side is the part that actually produces your data, it is the part with no type checking, and it is the part where a failure is silent until you notice a gap in a chart.</p>
+  <p>I ran them here. 27 tests pass with nothing installed beyond the standard library:</p>
+<pre><code>python3 -m unittest scripts.test_voi_availability      14 tests  OK
+python3 -m unittest scripts.test_collect_voi_vehicles  13 tests  OK
+python3 -m unittest scripts.test_voi_reliability       ImportError: psycopg
+python3 -m unittest scripts.test_voi_database          ImportError: psycopg</code></pre>
+  <p>So two thirds of the coverage costs you three lines of YAML and no services. That is a direct payoff from the decision recorded in <code>AGENTS.md</code> to keep <code>voi_availability.py</code> free of Flask and psycopg so it can be tested anywhere. The two database suites need a driver and a disposable PostGIS instance, which is a fair reason to leave them out of CI for now.</p>
+</div>
+
+<div class="finding low">
+  <div class="tags"><span class="badge low">Low</span><span class="where">scripts/collect_voi_vehicles.py:267</span></div>
+  <h3>The two collector entry points disagree</h3>
+  <p><code>voi_database.main()</code> floors the timestamp to the ten minute boundary. <code>collect_voi_vehicles.main()</code>, the file-writing CLI, calls <code>utc_now()</code> and does not floor. Production uses the first one, so <code>AGENTS.md</code> is accurate, but a manual run produces a snapshot that will never line up with a stored boundary. The audit flagged exactly this shape of problem in F12 and asked for one publisher serving both entry points. One shared call would settle it.</p>
+</div>
+
+<div class="finding low">
+  <div class="tags"><span class="badge low">Low</span><span class="where">repo root</span></div>
+  <h3>Analysis output is sitting in the repo root</h3>
+  <p><code>b6bd60e8</code> is titled "Add Amersfoort non-operational vehicle chart" but it only commits <code>amersfoort-vehicle-availability-48h.svg</code>, a 92 line static SVG that nothing in <code>src</code> or <code>public</code> references. <code>voi_non_operational_percentage.png</code> is untracked next to it. Both are one-off analysis output. The commit message reads like a feature, which will be confusing in six months when you are scanning the log for when the chart was added.</p>
+</div>
+
+<hr class="soft">
+
+<h2>What holds up well</h2>
+
+<div class="finding good">
+  <div class="tags"><span class="badge good">Solid</span></div>
+  <p>It would be a bad audit that only listed problems, so here is the other side. Most of this fortnight is good work.</p>
+  <ul>
+    <li><strong>The P1 popup fix is complete and correctly scoped.</strong> Every popup path carrying external data now uses <code>setDOMContent</code>. The only remaining <code>setHTML</code> calls are in <code>src/components/Features/demo/</code>, which the audit explicitly said to skip because they have no external input. Someone read the instruction and followed it rather than converting everything for tidiness.</li>
+    <li><strong>F01 and F02 were real bugs and are properly fixed.</strong> A failed availability request used to become a confident 0% KPI, and request timestamps were being shifted by the browser offset and then stamped <code>Z</code>. Both would have quietly produced wrong numbers for as long as you used the app.</li>
+    <li><strong>The region zone filter fails closed correctly.</strong> <code>getRegionZoneIds</code> returns <code>[]</code> when boundaries are missing, and the caller turns that into <code>zone_ids=0</code>, a deliberately non-existent ID. The obvious mistake here would be sending no zone filter and getting national data back. Whoever wrote it saw that and handled it.</li>
+    <li><strong>PR #14 is the best of the eight.</strong> Dropping <code>gh-pages</code>, the npm CLI as a runtime dependency, and the unpinned <code>npx npm-force-resolutions</code> preinstall step all removed real fragility. Deleting the CRA "learn react" test was right, since it asserted a link that no longer exists. Shimming <code>configureStore</code> out of plain redux instead of adding <code>@reduxjs/toolkit</code> for one test is exactly the proportionate call for a fork with one user.</li>
+    <li><strong>The PostGIS schema is well built.</strong> GIST index on geometry, btree on <code>captured_at</code>, a foreign key from positions to snapshots, and <code>captured_at</code> as the primary key so a re-run at the same boundary is idempotent. The column comments say what NULL means, which is the thing people always leave out.</li>
+    <li><strong>The CROW merges were handled carefully.</strong> <code>f75928ae</code> kept the region-aware ACL check alongside the upstream admin exemption and added regression tests for all three regions plus partial access. That is the situation where fork work usually disappears, and it did not.</li>
+    <li><strong>Renaming "Beschikbaar" to "Operationeel" in <code>9181f356</code> was a good catch.</strong> Non-defect does not mean available, and the schema comment already said so. Fixing the label rather than the data was the right direction.</li>
+  </ul>
+</div>
+
+<h2>How I would sequence this</h2>
+
+<div class="lede">
+  <p><strong>Fix first.</strong> Finding 1, because a stuck spinner with no recovery is the only thing here that can make the app unusable in a session. Then finding 3, because every day it stays gives you more chances to lose a snapshot you cannot get back.</p>
+  <p><strong>Then revert.</strong> Findings 2 and 7 are the rest of the same commit family you already started unwinding. Finding 2 is a single constant.</p>
+  <p><strong>Then decide.</strong> Finding 4 is a real product question about what the public view is for, and I do not think there is a correct answer without your input. Finding 6 is worth doing properly as aggregation rather than as a bigger number.</p>
+  <p><strong>Worth knowing regardless.</strong> The eight audit PRs were all merged on 8 September, the same day the audit's own status document said "These eight new PRs are for review and have not been merged or deployed." The reviewer spot-checked four of the eight. Proposals 4, 5, 9, and 11 got no second look, and two of my findings sit in proposals 5 and 9. The audit was thorough about the code it was pointed at. The gap is that everything built between 7 and 11 September, which is the regional presets, the Voi area chart, the mobile redesign, the chart toggles, and the policy chart series, came after the baseline at <code>d40a67ed</code> and has never been reviewed by anything.</p>
+</div>
+
+<p class="footnote">Findings 1, 2, 3, and 4 were reproduced by running the real modules, not inferred from reading. The reproduction tests were temporary and have been removed; the working tree is unchanged apart from this file. Findings 5 through 12 come from reading the code and the configuration, and I have said where each one is so you can check my reasoning.</p>
+
+</div>
+</body>
+</html>

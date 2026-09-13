@@ -1,0 +1,13 @@
+test_converts_voi_positions_and_ignores_other_operators (test_collect_voi_vehicles.ToGeoJsonTest.test_converts_voi_positions_and_ignores_other_operators) ... ok
+test_rejects_an_invalid_coordinate (test_collect_voi_vehicles.ToGeoJsonTest.test_rejects_an_invalid_coordinate) ... ok
+test_rejects_an_unexpected_response_shape (test_collect_voi_vehicles.ToGeoJsonTest.test_rejects_an_unexpected_response_shape) ... ok
+test_uses_the_capture_time_in_the_filename (test_collect_voi_vehicles.WriteGeoJsonTest.test_uses_the_capture_time_in_the_filename) ... ok
+test_compresses_the_geojson_without_changing_it (test_publish_voi_snapshot.ArchiveEncodingTest.test_compresses_the_geojson_without_changing_it) ... ok
+test_updates_and_sorts_the_archive_index (test_publish_voi_snapshot.ArchiveEncodingTest.test_updates_and_sorts_the_archive_index) ... ok
+test_uses_the_capture_time_in_the_archive_path (test_publish_voi_snapshot.ArchiveEncodingTest.test_uses_the_capture_time_in_the_archive_path) ... ok
+test_commits_the_snapshot_and_index_in_one_branch_update (test_publish_voi_snapshot.PublishSnapshotTest.test_commits_the_snapshot_and_index_in_one_branch_update) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.001s
+
+OK

@@ -1,0 +1,10 @@
+npm notice run dashboarddeelmobiliteit-app@0.1.0 test
+npm notice run craco test --watchAll=false --runInBand src/helpers/csv.test.ts src/components/PrestatiesAanbieders/chartCsv.test.ts
+PASS src/components/PrestatiesAanbieders/chartCsv.test.ts
+PASS src/helpers/csv.test.ts
+
+Test Suites: 2 passed, 2 total
+Tests:       10 passed, 10 total
+Snapshots:   0 total
+Time:        3.602 s
+Ran all test suites matching /src\/helpers\/csv.test.ts|src\/components\/PrestatiesAanbieders\/chartCsv.test.ts/i.

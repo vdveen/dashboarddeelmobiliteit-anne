@@ -1,0 +1,2 @@
+npm notice run dashboarddeelmobiliteit-app@0.1.0 typecheck
+npm notice run tsc -p tsconfig.checked.json

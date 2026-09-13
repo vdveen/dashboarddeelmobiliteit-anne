@@ -7,6 +7,10 @@ CREATE TABLE IF NOT EXISTS voi_snapshots (
     source_url text NOT NULL,
     feature_count integer NOT NULL CHECK (feature_count >= 0)
 );
+-- Added after the first snapshots: existing databases upgrade on initialize().
+ALTER TABLE voi_snapshots ADD COLUMN IF NOT EXISTS skipped_count integer;
+COMMENT ON COLUMN voi_snapshots.skipped_count IS
+    'Records dropped from this snapshot for a bad location, coordinate, or status. NULL for snapshots stored before the column existed.';
 
 CREATE TABLE IF NOT EXISTS voi_positions (
     objectid integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

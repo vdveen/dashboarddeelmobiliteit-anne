@@ -48,10 +48,17 @@ def database_error(error):
 def health():
     with connect(readonly=True) as connection:
         connection.execute("SELECT 1").fetchone()
-        latest = connection.execute("SELECT max(captured_at) FROM voi_snapshots").fetchone()[0]
-    age = max(0, int((datetime.now(timezone.utc) - latest).total_seconds())) if latest else None
-    return jsonify(status="ok", latest_capture=iso_timestamp(latest) if latest else None,
-                   age_seconds=age, stale=age is None or age > 30 * 60)
+        latest = connection.execute(
+            "SELECT captured_at, skipped_count FROM voi_snapshots ORDER BY captured_at DESC LIMIT 1"
+        ).fetchone()
+        database_bytes = connection.execute("SELECT pg_database_size(current_database())").fetchone()[0]
+        positions = connection.execute("SELECT count(*) FROM voi_positions").fetchone()[0]
+    captured_at = latest[0] if latest else None
+    age = max(0, int((datetime.now(timezone.utc) - captured_at).total_seconds())) if captured_at else None
+    return jsonify(status="ok", latest_capture=iso_timestamp(captured_at) if captured_at else None,
+                   age_seconds=age, stale=age is None or age > 30 * 60,
+                   latest_skipped=latest[1] if latest else None,
+                   database_bytes=database_bytes, positions=positions)
 
 
 @app.get("/index.json")
@@ -59,7 +66,7 @@ def index():
     start, end = parse_window(request.args.get("from"), request.args.get("to"))
     with connect(readonly=True) as connection:
         rows = connection.execute(
-            "SELECT captured_at FROM voi_snapshots WHERE captured_at BETWEEN %s AND %s"
+            "SELECT captured_at, skipped_count FROM voi_snapshots WHERE captured_at BETWEEN %s AND %s"
             " ORDER BY captured_at LIMIT 4501",
             (start, end),
         ).fetchall()
@@ -67,7 +74,8 @@ def index():
         abort(413)
     return jsonify([
         {"captured_at": iso_timestamp(row[0]),
-         "path": f"snapshots/voi-vehicles-{filename_timestamp(row[0])}.geojson"}
+         "path": f"snapshots/voi-vehicles-{filename_timestamp(row[0])}.geojson",
+         "skipped_count": row[1]}
         for row in rows
     ])
 

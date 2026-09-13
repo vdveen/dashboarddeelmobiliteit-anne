@@ -1,0 +1,13 @@
+A failed five-minute availability chunk previously became a successful result with zero-filled observations. Local clock formatting also changed UTC instants and collapsed the repeated autumn hour. This change fails the whole load on an invalid or failed chunk, keeps UTC bucket identity, and applies Europe/Amsterdam only to reporting-day boundaries and hour windows.
+
+Missing buckets and provider values remain unknown. Only intervals with a numeric value for every included provider enter the KPI denominator, and the UI reports measurement coverage separately. CSV files use UTC timestamps, quoted cells, and blanks for unknown values. The helper enforces the 90-day cap, excludes the current incomplete bucket, and assigns inclusive chunk boundaries once. Account or selection changes abort old loads, and failed refreshes clear old results.
+
+The shared zone availability and rental request functions now preserve actual UTC instants. Their existing nullable HTTP-error contract remains for ordinary chart fallback; the five-minute loader rejects missing results explicitly. Caller-owned abort signals bypass shared request deduplication.
+
+Validation: 14 targeted tests pass in two suites, covering failed middle chunks, measured zero versus missing, both DST days, repeated hours, chunk boundaries, the cap, cancellation, stale refreshes, and actual availability/rental request bounds with caller abort signals. Production build passes with inherited warnings.
+
+Before rollout, compare one authenticated API sample with the rendered KPI and ordinary zone charts. The [published API documentation](https://docs.dashboarddeelmobiliteit.nl/api_docs/zone_statistics/) shows UTC timestamps but does not define missing values as zero. The conservative policy can produce low or zero coverage for sparse multi-provider responses. A sum of provider MAX values is not proof of simultaneous availability throughout the interval, and the UI describes the result as received measurements.
+
+This implements audit proposal 2 and removes KPI account/selection ownership from proposal 3. Multiple-operator grant semantics and other shared poller/cache behavior remain proposal 3 work.
+
+Combined validation: the three audit PR branches merge cleanly. The final combined production build passes. Jest has 58 passing tests across 11 suites and the same two inherited suite-loading failures recorded in the audit. See the [repair assessment and remaining work](https://github.com/vdveen/dashboarddeelmobiliteit-anne/blob/audit/fork-code-quality-2026-09-06/docs/FORK-REPAIRS-2026-09-06.md) for details and validation limits.
