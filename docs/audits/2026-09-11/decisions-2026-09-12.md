@@ -142,7 +142,7 @@ Decided by the owner on 12 September and implemented on 13 September. Commits ar
 | 20 | Left, noted. | |
 | 21 | Not done; rated low. | |
 | 22 | Ignored. | |
-| 23 | Investigation delegated; result recorded below when available. | |
+| 23 | Traced. The error is thrown inside the maplibre-gl web worker, not app code: `maplibre-gl.js` builds its worker by string-serialising two functions, and if Babel transpiles that file the destructuring helpers land outside the serialised bodies. The `ignore` entries in `craco.config.js` were cwd-relative strings, so the guard failed for any build from a copy, worktree or symlinked `node_modules` (which is how the 6 September browser check hit it, and why that check saw no map). When it fires the map is blank. Production builds from the canonical path and is unaffected. Fixed by matching the absolute path with a regex; the rebuilt bundle is byte-identical to the canonical build. | `craco.config.js` |
 | 24 | Fixed. `check.yml` runs on pushes to `main`. | `a098652e` |
 | 25 | Partly. `voiSnapshotCache.ts` and `voiSnapshots.ts` added to the checked set; the other touched files import untyped `.js`/`.jsx` modules and stay out. | `11684d03` |
 | 26 | Fixed. The 27 driver-free Python tests run in CI. | `a098652e` |

@@ -1,9 +1,13 @@
 module.exports = {
   babel: {
     loaderOptions: {
+      // maplibre-gl builds its web worker by string-serialising two functions.
+      // If Babel transpiles that file, the destructuring helpers land outside
+      // the serialised bodies and the worker throws "i is not defined", which
+      // leaves the map blank. Match the absolute path so the guard also holds
+      // when the build runs from a copy, worktree or symlinked node_modules.
       ignore: [
-        "./node_modules/mapbox-gl/dist/mapbox-gl.js",
-        "./node_modules/maplibre-gl/dist/maplibre-gl.js"
+        /node_modules[\\/](mapbox-gl|maplibre-gl)[\\/]dist[\\/]/,
       ],
     },
   },
