@@ -39,3 +39,6 @@ yarn.lock
 
 # Isolated Railway infrastructure dependencies
 /.railway/node_modules/
+
+# Agent tool scratch worktrees
+/.claude/
