@@ -327,12 +327,6 @@ function Menu({
         icon={'/images/components/Menu/aanbod.svg'}
       />
 
-      <MenuItem
-        pathName={pathName}
-        text={'Voi tijdlijn'}
-        path={'/monitor/voi'}
-        icon={'/images/components/Menu/ontwikkeling.svg'}
-      />
 
       <MenuItem
         pathName={pathName}
@@ -392,12 +386,6 @@ function Menu({
         text={'Aanbod'}
         path={'/map/park'}
         icon={'/images/components/Menu/aanbod.svg'}
-      />
-      <MenuItem
-        pathName={pathName}
-        text={'Voi tijdlijn'}
-        path={'/monitor/voi'}
-        icon={'/images/components/Menu/ontwikkeling.svg'}
       />
       <MenuItem
         pathName={pathName}

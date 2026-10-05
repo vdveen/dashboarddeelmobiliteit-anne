@@ -1,6 +1,7 @@
 import { edition } from './config/edition';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Navigate,
   Routes,
   Route,
   useLocation,
@@ -19,7 +20,6 @@ import DashboardPage from './pages/dashboard/DashboardPage';
 import Login from './pages/Login.jsx';
 import SetPassword from './pages/SetPassword.jsx';
 import Monitoring from './pages/Monitoring.jsx';
-import VoiVehicleHistory from './pages/VoiVehicleHistory';
 import { Toaster } from "./components/ui/toaster"
 
 import Admin from './components/Admin/Admin';
@@ -175,9 +175,6 @@ function App() {
       }
       if (pathname === '/monitoring') {
         return `Monitoring - ${baseTitle}`;
-      }
-      if (pathname === '/monitor/voi') {
-        return `Voi door de tijd - ${baseTitle}`;
       }
       if (pathname === '/login') {
         return `Inloggen - ${baseTitle}`;
@@ -542,7 +539,6 @@ function App() {
   //  or if pathName/filter is changed:
   //  reload park events data
   useEffect(() => {
-    if(pathName === '/monitor/voi') return;
     // displayMode
     if(displayMode !== 'displaymode-park') return;
     if(isLoggedIn && metadata.zones_loaded === false) return;
@@ -875,7 +871,8 @@ function App() {
             </Misc>
           </Overlay>
         } />
-        <Route path="/monitor/voi" element={<VoiVehicleHistory />} />
+        {/* The Voi tijdlijn moved into the Aanbod selection tool. */}
+        <Route path="/monitor/voi" element={<Navigate to="/map/park" replace />} />
         <Route path="/features" element={
           <Overlay>
             <Misc contentWidth="900px">

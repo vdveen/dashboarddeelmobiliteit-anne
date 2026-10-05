@@ -1,6 +1,6 @@
 # Operate the Voi snapshot archive
 
-Railway stores snapshots in PostgreSQL 16 with PostGIS 3.5 on a persistent volume. `voi-vehicle-monitor` collects at `*/10 * * * *` UTC and exits. `voi-snapshot-api` serves the timeline viewer. The named partial in `railway.ts` manages these resources without managing the dashboard web service.
+Railway stores snapshots in PostgreSQL 16 with PostGIS 3.5 on a persistent volume. `voi-vehicle-monitor` collects at `*/10 * * * *` UTC and exits. `voi-snapshot-api` serves the availability chart on the Aanbod page. The named partial in `railway.ts` manages these resources without managing the dashboard web service.
 
 ## Deploy changes
 

@@ -1,7 +1,8 @@
 # Use the Voi vehicle monitor
 
 This fork keeps its own archive of Voi vehicle positions in the Netherlands and
-shows it back as a timeline on a map. Nothing about this depends on GitHub
+shows, for any area drawn on the Aanbod map, how many of them were operational
+over time. Nothing about this depends on GitHub
 Actions any more: there is no hourly workflow, no artifact download, and no
 `voi-vehicle-data` branch. Three Railway services do the work.
 
@@ -24,7 +25,7 @@ snapshot.
 Each stored position carries an observation id, the system id, the form factor,
 a point geometry in EPSG:4326, and three nullable status flags. An observation
 id identifies one sighting, not a vehicle across snapshots, so you cannot follow
-an individual bike through the timeline.
+an individual bike across snapshots.
 
 ## What "unknown" means
 
@@ -62,24 +63,23 @@ that collects data or runs SQL.
   the series has no gaps. An invalid geometry, a wrong geometry type or an
   oversized polygon returns 400 with a message.
 
-The viewer picks the API address from `REACT_APP_VOI_API_URL` at build time and
-falls back to the production API service.
+The app picks the API address from `REACT_APP_VOI_API_URL` at build time and
+falls back to the production API service. It only calls `/availability`; the
+other endpoints remain for monitoring and for GIS or script access.
 
-## The viewer
+## The chart on Aanbod
 
-Open `/monitor/voi` in the deployed app (route `VoiVehicleHistory` in
-`src/App.tsx`). The page loads the snapshot index, then fetches one snapshot at
-a time and draws it on a PDOK background map, either as clusters or as a
-heatmap. Drag the timeline, scroll over the timeline panel, or use the arrow
-buttons to step between snapshots; the play button advances automatically and
-prefetches the next frame. The download button saves the snapshot you are
-looking at as GeoJSON.
+Open Aanbod (`/map/park`) and use the selection tool in the bottom-right
+corner. Draw an area by clicking polygon points or by dragging a lasso.
+Finishing the area counts the vehicles on the map, as before, and calls
+`/availability` for the same area. A chart then opens over the map with the
+operational and non-operational share (or, with *Aantal*, the counts) over the
+last 24 hours, 7 days or 31 days. The chart marks the Aanbod time and has its
+own CSV export. Closing the chart keeps the selection, and *Toon
+beschikbaarheid* in the selection panel reopens it. *Wis* removes both.
 
-The "Gebied" controls draw an area on the map, either by clicking polygon
-points or by dragging a lasso. Finishing an area calls `/availability` for it
-and opens a chart under the map showing operational, non-operational and
-unknown counts, and the operational share, over the last 7 or 31 days. The
-chart has its own CSV export. Clearing the area closes the chart.
+The old Voi tijdlijn page at `/monitor/voi` was removed; that path now
+redirects to Aanbod.
 
 ## When something looks wrong
 
@@ -94,7 +94,7 @@ snapshot and its positions commit together, so a failed run leaves neither.
 Transient HTTP and database failures retry a few times within the same run;
 after that the boundary is skipped.
 
-Gaps in the timeline are normal after an outage and are not repaired
+Gaps in the series are normal after an outage and are not repaired
 automatically. A flat unknown band in the distant past is the pre-2026-09-08
 status gap described above.
 

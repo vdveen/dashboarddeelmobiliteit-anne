@@ -1,19 +1,5 @@
-/* Area selection and the availability chart on the Voi monitor page. The
-   visual language follows VoiVehicleHistory.css: white translucent cards,
-   soft shadows and a segmented toggle. */
-
-.VoiAvailability-area {
-  margin-top: 0;
-}
-
-.VoiAvailability-areaHeading {
-  margin-bottom: 5px;
-  color: #718087;
-  font-size: 0.68rem;
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
+/* The Voi availability chart for an Aanbod selection: a white translucent
+   card with soft shadows and a segmented period toggle. */
 
 .VoiAvailability-segmented {
   display: flex;
@@ -57,20 +43,16 @@
   outline-offset: 2px;
 }
 
-.VoiAvailability-hint {
-  margin: 8px 0 0;
-  color: #8a969b;
-  font-size: 0.72rem;
-}
-
-/* Shares the timeline's horizontal extent (24px margins, 1120px max, centred),
-   but starts right of the heading card so the two never overlap. */
+/* Floats over the Aanbod map, above the floating menu. It clears the filter
+   bar on the left and leaves the bottom-right corner to the map controls and
+   the selection panel. */
 .VoiAvailability-card {
   position: absolute;
-  right: max(24px, calc((100% - 1120px) / 2));
-  bottom: 284px;
-  left: max(440px, calc((100% - 1120px) / 2));
-  z-index: 2;
+  right: 336px;
+  bottom: 84px;
+  left: 20px;
+  z-index: 1;
+  max-width: 880px;
   padding: 14px 20px 8px;
   border: 1px solid rgba(23, 49, 59, 0.13);
   border-radius: 20px;
@@ -78,6 +60,13 @@
   box-shadow: 0 18px 50px rgba(23, 49, 59, 0.2);
   backdrop-filter: blur(16px);
   color: #17313b;
+  font-family: Inter, sans-serif;
+  transition: left 0.6s ease-in;
+}
+
+.filter-open .VoiAvailability-card {
+  left: 344px; /* 324px filter bar + 20px */
+  transition: left 0.4s ease-out;
 }
 
 .VoiAvailability-card.is-collapsed {
@@ -211,22 +200,26 @@
   background: white;
 }
 
+/* Too narrow to keep clear of the selection panel, so cover it: the chart is
+   what the selection was drawn for, and collapsing or closing it uncovers the
+   panel again. */
 @media (max-width: 1023px) {
   .VoiAvailability-card {
-    left: 24px;
+    right: 72px;
+    z-index: 111; /* map control corners use 110 */
   }
 }
 
 @media (max-width: 639px) {
-  .VoiAvailability-card {
-    right: 8px;
-    bottom: 130px;
+  .VoiAvailability-card,
+  .filter-open .VoiAvailability-card {
+    right: 60px;
+    bottom: 140px; /* above the floating time and filter buttons */
     left: 8px;
-    z-index: 3;
     padding: 10px;
     border-radius: 10px;
     box-shadow: 0 5px 18px rgba(52, 62, 71, 0.2);
-    max-height: calc(100% - 252px);
+    max-height: calc(100% - 220px);
     overflow: auto;
   }
   .VoiAvailability-cardHeader {
@@ -287,15 +280,8 @@
     height: min(220px, 30vh);
     margin-top: 8px;
   }
-  .VoiAvailability-area .VoiAvailability-segmented {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
   .VoiAvailability-segmented button {
     min-height: 44px;
-  }
-  .VoiAvailability-hint {
-    margin: 5px 0 2px;
   }
 }
 
@@ -303,42 +289,4 @@
   margin-top: 1px;
   color: #8a969b;
   font-size: 0.7rem;
-}
-
-/* The same card over the Aanbod map. It sits above the floating menu, clears
-   the filter bar on the left, and leaves the bottom-right corner to the map
-   controls and the selection panel. */
-.VoiAvailability-card.VoiAvailability-card--map {
-  right: 336px;
-  bottom: 84px;
-  left: 20px;
-  z-index: 1;
-  max-width: 880px;
-  font-family: Inter, sans-serif;
-  transition: left 0.6s ease-in;
-}
-
-.filter-open .VoiAvailability-card.VoiAvailability-card--map {
-  left: 344px; /* 324px filter bar + 20px */
-  transition: left 0.4s ease-out;
-}
-
-/* Too narrow to keep clear of the selection panel, so cover it: the chart is
-   what the selection was drawn for, and collapsing or closing it uncovers the
-   panel again. */
-@media (max-width: 1023px) {
-  .VoiAvailability-card.VoiAvailability-card--map {
-    right: 72px;
-    z-index: 111; /* map control corners use 110 */
-  }
-}
-
-@media (max-width: 639px) {
-  .VoiAvailability-card.VoiAvailability-card--map,
-  .filter-open .VoiAvailability-card.VoiAvailability-card--map {
-    right: 60px;
-    bottom: 140px; /* above the floating time and filter buttons */
-    left: 8px;
-    max-height: calc(100% - 220px);
-  }
 }

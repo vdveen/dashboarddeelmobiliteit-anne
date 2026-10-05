@@ -1,7 +1,7 @@
-import type { FeatureCollection, Polygon, Position } from 'geojson';
+import type { Polygon, Position } from 'geojson';
 
 /**
- * Geometry helpers for the map drawing tool. Kept free of React and MapLibre so
+ * Geometry helpers for the Aanbod selection tool. Kept free of React and MapLibre so
  * the rules the snapshot API enforces (closed ring, vertex budget, finite
  * coordinates) can be unit tested on their own.
  */
@@ -15,11 +15,6 @@ export const MIN_RING_POSITIONS = 3;
  * below that limit to keep the request small without visibly changing the shape.
  */
 export const MAX_RING_POSITIONS = 1000;
-
-const EMPTY_FEATURE_COLLECTION: FeatureCollection = {
-  type: 'FeatureCollection',
-  features: [],
-};
 
 /** True when the position is a finite lon/lat pair inside the WGS84 domain. */
 export function isValidPosition(position: Position): boolean {
@@ -97,43 +92,3 @@ export function buildPolygon(
 
   return { type: 'Polygon', coordinates: [ring] };
 }
-
-/**
- * Live preview of a drawing in progress: a line while there are too few points
- * for an area, a polygon once there are enough.
- */
-export function toDrawingFeatureCollection(positions: Position[]): FeatureCollection {
-  const cleaned = dedupeConsecutive(positions.filter(isValidPosition));
-  if (cleaned.length < 2) return EMPTY_FEATURE_COLLECTION;
-
-  if (cleaned.length < MIN_RING_POSITIONS) {
-    return {
-      type: 'FeatureCollection',
-      features: [{
-        type: 'Feature',
-        properties: {},
-        geometry: { type: 'LineString', coordinates: cleaned },
-      }],
-    };
-  }
-
-  return {
-    type: 'FeatureCollection',
-    features: [{
-      type: 'Feature',
-      properties: {},
-      geometry: { type: 'Polygon', coordinates: [closeRing(cleaned)] },
-    }],
-  };
-}
-
-/** Feature collection that renders the finished polygon. */
-export function toPolygonFeatureCollection(polygon: Polygon | null): FeatureCollection {
-  if (!polygon) return EMPTY_FEATURE_COLLECTION;
-  return {
-    type: 'FeatureCollection',
-    features: [{ type: 'Feature', properties: {}, geometry: polygon }],
-  };
-}
-
-export const emptyFeatureCollection = (): FeatureCollection => EMPTY_FEATURE_COLLECTION;

@@ -36,15 +36,9 @@ import './VoiAvailability.css';
 
 export interface VoiAvailabilityChartProps {
   polygon: GeoJSON.Polygon | null;
-  /**
-   * Capture time of the snapshot whose vehicles are actually drawn on the map,
-   * marked in the chart. While another frame loads, the map keeps showing this
-   * one, so the marker follows the geometry rather than the slider.
-   */
+  /** Time the map shows (the Aanbod "Tijd"), marked in the chart. */
   selectedCapturedAt?: string | null;
   onClose: () => void;
-  /** Positions the card for the page it floats on. */
-  className?: string;
 }
 
 const PERIODS: { preset: PeriodPreset; label: string }[] = [
@@ -132,13 +126,12 @@ function summaryFor(rows: VoiChartRow[]): string {
 
 /**
  * Line chart of the operational share inside a drawn area over time. Floats
- * above the timeline on the Voi monitor page and over the Aanbod map.
+ * over the Aanbod map for the area drawn with the selection tool.
  */
 const VoiAvailabilityChart: React.FC<VoiAvailabilityChartProps> = ({
   polygon,
   selectedCapturedAt,
   onClose,
-  className,
 }) => {
   const [preset, setPreset] = useState<PeriodPreset>('7d');
   const [rows, setRows] = useState<VoiChartRow[]>([]);
@@ -362,9 +355,7 @@ const VoiAvailabilityChart: React.FC<VoiAvailabilityChartProps> = ({
 
   return (
     <section
-      className={['VoiAvailability-card', className, collapsed ? 'is-collapsed' : '']
-        .filter(Boolean)
-        .join(' ')}
+      className={`VoiAvailability-card${collapsed ? ' is-collapsed' : ''}`}
       aria-label="Beschikbaarheid in het getekende gebied"
     >
       <div className="VoiAvailability-cardHeader">
