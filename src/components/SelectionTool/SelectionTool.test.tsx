@@ -24,7 +24,7 @@ test('keeps drawing handlers stable across points and restores exact interaction
   for (const [lng, lat] of [[0,0],[1,0],[0,1]]) act(() => map.emit('click', { lngLat: { lng, lat } }));
   expect(map.dragPan.isEnabled()).toBe(false);
   expect(map.dragPan.enable).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByText('Afronden'));
+  fireEvent.click(screen.getByText('Polygoon afmaken'));
   expect(screen.getByRole('status')).toHaveTextContent('0 voertuigen');
   expect(map.dragPan.isEnabled()).toBe(true);
   expect(map.doubleClickZoom.isEnabled()).toBe(false);
@@ -41,6 +41,7 @@ test('lasso stays in drawing mode between pointer moves and finishes outside the
   render(<SelectionTool map={map} vehicles={{ data: { features: [] } }} />);
   fireEvent.click(screen.getByLabelText('Voertuigen selecteren'));
   fireEvent.click(screen.getByText('Lasso'));
+  expect(screen.queryByText('Polygoon afmaken')).not.toBeInTheDocument();
   const pointer = (target, type, x, y) => {
     const event = new MouseEvent(type, { clientX: x, clientY: y, button: 0, bubbles: true });
     Object.defineProperty(event, 'pointerId', { value: 1 });
@@ -64,7 +65,7 @@ test('reports the finished selection as a closed polygon and null once it is cle
   fireEvent.click(screen.getByText('Polygoon'));
   for (const [lng, lat] of [[0,0],[1,0],[0,1]]) act(() => map.emit('click', { lngLat: { lng, lat } }));
   expect(onSelectionChange).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'Polygon' }));
-  fireEvent.click(screen.getByText('Afronden'));
+  fireEvent.click(screen.getByText('Polygoon afmaken'));
   expect(onSelectionChange).toHaveBeenLastCalledWith({ type: 'Polygon', coordinates: [[[0,0],[1,0],[0,1],[0,0]]] });
   fireEvent.click(screen.getByText('Wis'));
   expect(onSelectionChange).toHaveBeenLastCalledWith(null);

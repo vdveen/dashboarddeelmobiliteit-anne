@@ -219,13 +219,13 @@ const SelectionTool = ({ map, vehicles, onSelectionChange, children }: Selection
     <div className="SelectionTool">
     {isOpen && <div className="SelectionTool-panel">
       <strong>Selectie</strong>
-      <p>{activeMode === 'polygon' ? 'Klik punten op de kaart. Kies Afronden of rechtsklik. Escape annuleert.' : activeMode === 'lasso' ? 'Sleep om een lasso te tekenen. Escape annuleert.' : 'Teken een gebied om voertuigen te tellen en de Voi-beschikbaarheid te zien.'}</p>
+      <p>{activeMode === 'polygon' ? 'Klik punten op de kaart. Kies Polygoon afmaken of rechtsklik. Escape annuleert.' : activeMode === 'lasso' ? 'Sleep om een lasso te tekenen. Escape annuleert.' : 'Teken een gebied om voertuigen te tellen en de Voi-beschikbaarheid te zien.'}</p>
       {vehicleCount !== null && <div className="SelectionTool-result" role="status">{vehicleCount} voertuigen in selectie</div>}
       {children}
       <div className="SelectionTool-actions">
         <button type="button" className={activeMode === 'polygon' ? 'is-active' : ''} onClick={() => startSelection('polygon')}>Polygoon</button>
         <button type="button" className={activeMode === 'lasso' ? 'is-active' : ''} onClick={() => startSelection('lasso')}>Lasso</button>
-        <button type="button" disabled={pointCount < MIN_POINTS || !activeMode} onClick={finishSelection}>Afronden</button>
+        {activeMode === 'polygon' && <button type="button" disabled={pointCount < MIN_POINTS} onClick={finishSelection}>Polygoon afmaken</button>}
         <button type="button" onClick={clearSelection}>Wis</button>
       </div>
     </div>}
