@@ -126,7 +126,7 @@ Decided by the owner on 12 September and implemented on 13 September. Commits ar
 | 4 | Fixed. Foreground loader adopts the in-flight prefetch; cache holds 30 frames. | `11684d03` |
 | 5 | Fixed. `pointercancel` discards the partial lasso. | `11684d03` |
 | 6 | Fixed. Header shows "Metingen laden..." while a new polygon loads. | `11684d03` |
-| 7 | Changed per owner: a longer period is clamped to its most recent 31 days and the chart says so. Byte and error handling kept. | `2621c32e` |
+| 7 | Changed per owner: a longer period is clamped to its most recent 31 days and the chart says so. Byte and error handling kept. On 5 October 2026 the 10 MB and 50,000-trip caps were removed: a 30-day all-operator selection in Noord-Holland exceeds them, so the chart only showed "Te veel ritdata". | `2621c32e`, see git log |
 | 8 | Left as is, owner decision. | |
 | 9 | Fixed. Filters stay visible but inert during a CSV import, with a note. | `4f819bd5` |
 | 10 | Fixed. Operators outside the edition scope are reconciled on every operator-list change; explicit opt-ins survive. | `4f819bd5` |

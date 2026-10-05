@@ -15,9 +15,7 @@ test('uses Amsterdam calendar bounds across DST and propagates HTTP failures and
 test('clamps a long selection to the most recent 31 days and leaves a short one alone', async () => {
   const ok = () => jest.fn().mockResolvedValue({
     ok: true,
-    headers: { get: () => null },
-    body: null,
-    text: async () => JSON.stringify({ trip_origins: [] })
+    json: async () => ({ trip_origins: [] })
   });
 
   global.fetch = ok();
@@ -33,12 +31,10 @@ test('clamps a long selection to the most recent 31 days and leaves a short one 
   expect(shortParams.get('start_time')).toBe('2026-08-22T22:00:00.000Z');
   expect(short.window.clamped).toBe(false);
 });
-test('allows the authenticated all-places request within the response budgets', async () => {
+test('allows the authenticated all-places request', async () => {
   global.fetch = jest.fn().mockResolvedValue({
     ok: true,
-    headers: { get: () => null },
-    body: null,
-    text: async () => JSON.stringify({ trip_origins: [] })
+    json: async () => ({ trip_origins: [] })
   });
   await expect(getTripsWithDistance('test', { ...filter, zones: '' }, {})).resolves.toMatchObject({ trip_origins: [] });
   expect(global.fetch.mock.calls[0][0]).not.toContain('zone_ids=');
