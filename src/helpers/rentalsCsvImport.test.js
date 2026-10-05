@@ -1,4 +1,5 @@
-import { parseRentalsCsv, importedParkingPoints } from './rentalsCsvImport';
+import { parseRentalsCsv, importedParkingPoints, csvDateRange, rowsInDateRange } from './rentalsCsvImport';
+import rentals from '../reducers/rentals';
 const header = 'system_id;lat;lon;start_time;end_time';
 const time = '2026-09-01T12:00:00+02:00';
 test('preserves quoted records and decimal commas and normalizes explicit time zones', () => {
@@ -38,4 +39,30 @@ test('imports one parking observation per row with stable IDs and provider filte
     distance_in_meters: null
   });
   expect(importedParkingPoints(rows, { aanbiedersexclude: 'voi' }).features.map(f => f.properties.id)).toEqual(['import-1']);
+});
+
+const rangeRows = () => parseRentalsCsv([header,
+  'a;52;4.8;2026-09-01T23:30:00+02:00;2026-09-02T00:30:00+02:00',
+  'b;52;4.8;2026-09-03T12:00:00+02:00;',
+  'c;52;4.8;2026-09-05T01:00:00+02:00;2026-09-06T00:30:00+02:00',
+].join('\n')).rows;
+
+test('derives the Amsterdam days a file covers from the first start to the last end', () => {
+  expect(csvDateRange(rangeRows())).toEqual({ start: '2026-09-01', end: '2026-09-06' });
+});
+
+test('keeps observations in public space during part of the selected Amsterdam days', () => {
+  const ids = range => rowsInDateRange(rangeRows(), range).map(row => row.system_id);
+  expect(ids({ start: '2026-09-02', end: '2026-09-02' })).toEqual(['a']);
+  expect(ids({ start: '2026-09-04', end: '2026-09-04' })).toEqual(['b']);
+  expect(ids({ start: '2026-09-06', end: '2026-09-07' })).toEqual(['b', 'c']);
+  expect(ids({ start: '2026-08-01', end: '2026-08-31' })).toEqual([]);
+  expect(ids(undefined)).toEqual(['a', 'b', 'c']);
+});
+
+test('changes the period of an active import only', () => {
+  const range = { start: '2026-09-02', end: '2026-09-03' };
+  expect(rentals(undefined, { type: 'SET_RENTALS_CSV_RANGE', payload: range }).csv_data).toBeNull();
+  const loaded = rentals(undefined, { type: 'SET_RENTALS_CSV_DATA', payload: { fileName: 'x.csv', rows: [], range: null } });
+  expect(rentals(loaded, { type: 'SET_RENTALS_CSV_RANGE', payload: range }).csv_data).toMatchObject({ fileName: 'x.csv', range });
 });

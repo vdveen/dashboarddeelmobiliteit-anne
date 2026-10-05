@@ -81,6 +81,26 @@ export function parseRentalsCsv(csvText) {
   return { rows };
 }
 
+const DAY = 'YYYY-MM-DD';
+
+/** Amsterdam calendar days the file covers, from the first start to the last end. */
+export function csvDateRange(rows) {
+  let first = rows[0].start_time, last = rows[0].end_time || rows[0].start_time;
+  rows.forEach(row => {
+    if (row.start_time < first) first = row.start_time;
+    if ((row.end_time || row.start_time) > last) last = row.end_time || row.start_time;
+  });
+  return { start: moment.tz(first, REPORTING_TIMEZONE).format(DAY), end: moment.tz(last, REPORTING_TIMEZONE).format(DAY) };
+}
+
+/** Keep observations that were in public space during part of the selected Amsterdam days. */
+export function rowsInDateRange(rows, range) {
+  if (!range) return rows;
+  const from = moment.tz(range.start, DAY, true, REPORTING_TIMEZONE).toISOString();
+  const until = moment.tz(range.end, DAY, true, REPORTING_TIMEZONE).add(1, 'day').toISOString();
+  return rows.filter(row => row.start_time < until && (!row.end_time || row.end_time > from));
+}
+
 export function importedParkingPoints(rows, filter) {
   const excludedProviders = (filter.aanbiedersexclude || '').split(',');
   const excludedTypes = (filter.voertuigtypesexclude || '').split(',');

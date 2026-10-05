@@ -3,8 +3,9 @@ const initialState = {
   destinations: {},
   origins_operatorstats: [],
   destinations_operatorstats: [],
-  // Imported CSV data ('Ruwe data import'): { fileName, rows } or null.
-  // If set, the map shows this data instead of API data
+  // Imported CSV data ('Ruwe data import'): { fileName, rows, fileRange, range }
+  // or null. Ranges are Amsterdam days ({ start, end } as YYYY-MM-DD); the map
+  // shows the rows within `range` instead of API data
   csv_data: null
 }
 
@@ -37,6 +38,12 @@ export default function rentals(state = initialState, action) {
     case 'SET_RENTALS_CSV_DATA': {
       return Object.assign({}, state, {
         csv_data: action.payload
+      })
+    }
+    case 'SET_RENTALS_CSV_RANGE': {
+      if (!state.csv_data) return state;
+      return Object.assign({}, state, {
+        csv_data: { ...state.csv_data, range: action.payload }
       })
     }
     case 'CLEAR_RENTALS_CSV_DATA': {
