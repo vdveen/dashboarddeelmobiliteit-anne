@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
 import Button from '../Button/Button';
 
-import { parseRentalsCsv } from '../../helpers/rentalsCsvImport';
+import { parseRentalsCsv, csvDateRange, rowsInDateRange } from '../../helpers/rentalsCsvImport';
 import { forceUpdateVerhuringenData } from '../../poll-api/pollVerhuringenData';
 
 // 'Ruwe data import' for the Verhuringen view: load a CSV export of
@@ -17,6 +17,11 @@ export default function FilteritemRuweDataImport() {
   const csvData = useSelector((state) => {
     return state.rentals ? state.rentals.csv_data : null;
   });
+
+  const rowsInRange = useMemo(
+    () => csvData ? rowsInDateRange(csvData.rows, csvData.range).length : 0,
+    [csvData]
+  );
 
   const readerRef = useRef(null);
   useEffect(() => () => readerRef.current?.abort(), []);
@@ -36,11 +41,14 @@ export default function FilteritemRuweDataImport() {
       if (readerRef.current !== reader) return;
       try {
         const { rows } = parseRentalsCsv(reader.result);
+        const fileRange = csvDateRange(rows);
         dispatch({
           type: 'SET_RENTALS_CSV_DATA',
           payload: {
             fileName: file.name,
-            rows: rows
+            rows: rows,
+            fileRange,
+            range: fileRange
           }
         });
         dispatch({ type: 'LAYER_SET_SINGLE_DATA_LAYER', payload: { displayMode: 'displaymode-rentals', layerName: 'verhuurdata-voertuigen' } });
@@ -91,11 +99,11 @@ export default function FilteritemRuweDataImport() {
             {csvData.fileName}
           </div>
           <div>
-            {csvData.rows.length} parkeerwaarnemingen geladen
+            {csvData.rows.length} parkeerwaarnemingen geladen, {rowsInRange} in de gekozen periode
           </div>
           <div className="mt-1">
             <small>
-              De kaart toont parkeerwaarnemingen uit dit bestand, geen ritten. Alleen aanbieder- en voertuigtypefilters gelden. Plaats, zone, datum, afstand en herkomst/bestemming gelden niet. Gebruik een punten-, cluster- of heatmaplaag.
+              De kaart toont parkeerwaarnemingen uit dit bestand, geen ritten. Alleen de periode en de aanbieder- en voertuigtypefilters gelden. Plaats, zone, afstand en herkomst/bestemming gelden niet. Gebruik een punten-, cluster- of heatmaplaag.
             </small>
           </div>
           <Button

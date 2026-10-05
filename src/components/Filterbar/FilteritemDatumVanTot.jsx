@@ -33,13 +33,20 @@ const getInitialDatesFromUrl = (defaultStartDate, defaultEndDate, filterOntwikke
   };
 };
 
+// Without `value`, the picker edits the shared ontwikkeling period in Redux and
+// the URL. With `value` ({ startDate, endDate }) and `onRangeChange`, it is a
+// controlled picker that leaves both alone. Presets either name a `view` or
+// carry their own `start` and `end`.
 function FilterItemDatumVanTot({
   presetButtons,
   defaultStartDate,
   defaultEndDate,
   defaultPresetView = undefined,
   showPresetOptionsByDefault = false,
+  value = undefined,
+  onRangeChange = undefined,
 }) {
+  const isControlled = value !== undefined;
   const dispatch = useDispatch();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -55,7 +62,7 @@ function FilterItemDatumVanTot({
     return state.filter && state.filter.ontwikkelingaggregatie ? state.filter.ontwikkelingaggregatie : 'day';
   });
 
-  const initialDates = getInitialDatesFromUrl(
+  const initialDates = isControlled ? value : getInitialDatesFromUrl(
     defaultStartDate,
     defaultEndDate,
     filterOntwikkelingVan,
@@ -111,12 +118,16 @@ function FilterItemDatumVanTot({
     }
   };
 
-  const isPresetActive = (view) => {
+  const presetConfigFor = (preset) => preset.start && preset.end
+    ? { start: preset.start, end: preset.end }
+    : getPresetDateConfig(preset.view);
+
+  const isPresetActive = (preset) => {
     if (!startDate || !endDate) {
       return false;
     }
 
-    const presetConfig = getPresetDateConfig(view);
+    const presetConfig = presetConfigFor(preset);
     if (!presetConfig) {
       return false;
     }
@@ -128,6 +139,7 @@ function FilterItemDatumVanTot({
   };
 
   const setAggregationLevel = (newlevel) => {
+    if (isControlled) return;
     dispatch({
       type: 'SET_FILTER_ONTWIKKELING_AGGREGATIE',
       payload: newlevel
@@ -141,6 +153,10 @@ function FilterItemDatumVanTot({
     // strip hours, add 24 h
     let tot = new Date(end.toDateString());
     // tot.setDate(tot.getDate() + 1);
+    if (isControlled) {
+      onRangeChange(van, tot);
+      return;
+    }
     dispatch({
       type: 'SET_FILTER_ONTWIKKELING_VANTOT',
       payload: { van: van.toISOString(), tot: tot.toISOString() }
@@ -161,6 +177,7 @@ function FilterItemDatumVanTot({
 
   // Initialize from URL parameters on mount, or use defaults if no URL params
   useEffect(() => {
+    if (isControlled) return;
     const startDateParam = searchParams.get('start_date');
     const endDateParam = searchParams.get('end_date');
     
@@ -201,6 +218,7 @@ function FilterItemDatumVanTot({
   // first day of a custom range (which leaves endDate=null) would re-trigger
   // this effect and revert the picker before the user can pick the end date.
   useEffect(() => {
+    if (isControlled) return;
     const startDateParam = searchParams.get('start_date');
     const endDateParam = searchParams.get('end_date');
     if (!startDateParam || !endDateParam) {
@@ -221,6 +239,15 @@ function FilterItemDatumVanTot({
     );
   }, [searchParams]);
 
+  // A controlled picker follows its `value`
+  const valueStartKey = isControlled ? toDateKey(value.startDate) : null;
+  const valueEndKey = isControlled ? toDateKey(value.endDate) : null;
+  useEffect(() => {
+    if (!isControlled) return;
+    setStartDate(value.startDate);
+    setEndDate(value.endDate);
+  }, [valueStartKey, valueEndKey]);
+
   const onChange = (dates) => {
     const [start, end] = dates;
     setStartDate(start);
@@ -236,8 +263,8 @@ function FilterItemDatumVanTot({
     e.preventDefault();
     
     if(isOpen && endDate===null) {
-      setStartDate(filterOntwikkelingVan)
-      setEndDate(filterOntwikkelingTot)
+      setStartDate(isControlled ? value.startDate : filterOntwikkelingVan)
+      setEndDate(isControlled ? value.endDate : filterOntwikkelingTot)
     }
     
     setIsOpen(!isOpen);
@@ -246,8 +273,9 @@ function FilterItemDatumVanTot({
   const moveFilterDatum = (movestart) => {
     let start = startDate;
     let end = endDate;
+    const aggregatie = isControlled ? 'day' : filterOntwikkelingAggregatie;
     if(movestart) {
-      switch(filterOntwikkelingAggregatie) {
+      switch(aggregatie) {
         case 'week':
           start = addDays(startDate, -7);
           break;
@@ -260,7 +288,7 @@ function FilterItemDatumVanTot({
           break;
       }
     } else {
-      switch(filterOntwikkelingAggregatie) {
+      switch(aggregatie) {
         case 'week':
           end = addDays(endDate, 7);
           break;
@@ -281,19 +309,19 @@ function FilterItemDatumVanTot({
   }
   
   
-  const setView = (view) => {
-    const presetConfig = getPresetDateConfig(view);
+  const setView = (preset) => {
+    const presetConfig = presetConfigFor(preset);
     if (!presetConfig) {
       return;
     }
     const { start, end, agg } = presetConfig;
     
-    setAggregationLevel(agg);
+    if (agg) setAggregationLevel(agg);
 
     setStartDate(start)
     setEndDate(end)
     
-    updateFilter(start, end, agg);
+    updateFilter(start, end, agg || false);
   }
 
   const renderPickerInline = () => {
@@ -329,8 +357,8 @@ function FilterItemDatumVanTot({
           {presetsToRender.map((preset, index) => (
             <div
               key={preset.key || `fdvt-po${index + 1}`}
-              className={`filter-datum-van-tot-option${isPresetActive(preset.view) ? ' active' : ''}`}
-              onClick={() => { setView(preset.view) }}
+              className={`filter-datum-van-tot-option${isPresetActive(preset) ? ' active' : ''}`}
+              onClick={() => { setView(preset) }}
             >
               {preset.label}
             </div>
@@ -360,8 +388,8 @@ function FilterItemDatumVanTot({
         {presetsToRender.map((preset, index) => (
           <div
             key={preset.key || `fdvt-po${index + 1}`}
-            className={`filter-datum-van-tot-option${isPresetActive(preset.view) ? ' active' : ''}`}
-            onClick={() => { setView(preset.view) }}
+            className={`filter-datum-van-tot-option${isPresetActive(preset) ? ' active' : ''}`}
+            onClick={() => { setView(preset) }}
           >
             {preset.label}
           </div>

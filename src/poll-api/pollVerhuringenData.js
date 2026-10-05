@@ -1,6 +1,6 @@
 import { requestScope } from './requestScope';
 // import moment from 'moment';
-import { importedParkingPoints } from '../helpers/rentalsCsvImport';
+import { importedParkingPoints, rowsInDateRange } from '../helpers/rentalsCsvImport';
 import {
   createFilterparameters,
   convertDistanceToBin,
@@ -101,11 +101,13 @@ const processRentalsResult = (state, type, rentals) => {
 
 // Render imported CSV data ('Ruwe data import') instead of API data.
 // The CSV contains park_events without trip distance, so the afstand filter
-// does not apply; aanbieders- and voertuigtype-filters are applied client-side.
+// does not apply; the CSV period, aanbieders- and voertuigtype-filters are
+// applied client-side.
 const processCsvRentalsResult = (state, csvData) => {
-  const geoJson = importedParkingPoints(csvData.rows, state.filter);
+  const rows = rowsInDateRange(csvData.rows, csvData.range);
+  const geoJson = importedParkingPoints(rows, state.filter);
   const operatorstats = Object.create(null);
-  csvData.rows.forEach(row => { operatorstats[row.system_id] = (operatorstats[row.system_id] || 0) + 1; });
+  rows.forEach(row => { operatorstats[row.system_id] = (operatorstats[row.system_id] || 0) + 1; });
   store_verhuringendata.dispatch({ type: 'SET_RENTALS_ORIGINS', payload: geoJson });
   store_verhuringendata.dispatch({ type: 'SET_RENTALS_ORIGINS_OPERATORSTATS', payload: operatorstats });
   store_verhuringendata.dispatch({ type: 'SET_RENTALS_DESTINATIONS', payload: { type: 'FeatureCollection', features: [] } });

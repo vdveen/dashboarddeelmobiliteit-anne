@@ -16,6 +16,7 @@ import {
 import FilteritemHerkomstBestemming from './FilteritemHerkomstBestemming';
 import FilteritemVoertuigTypes from './FilteritemVoertuigTypes';
 import FilteritemRuweDataImport from './FilteritemRuweDataImport';
+import FilteritemCsvPeriode from './FilteritemCsvPeriode.jsx';
 import LogoDashboardDeelmobiliteit from '../Logo/LogoDashboardDeelmobiliteit';
 
 import Fieldset from '../Fieldset/Fieldset';
@@ -137,8 +138,10 @@ function Filterbar({
           </div>
         </div> }
 
-        { isLoggedIn && showduur && <FilteritemDuur /> }
+        { isLoggedIn && showduur && ! hasImport && <FilteritemDuur /> }
       </InertDuringImport>
+
+      { isrentals && hasImport && <FilteritemCsvPeriode /> }
 
       { isLoggedIn && showvantot && <FilteritemDatumVanTot /> }
 
