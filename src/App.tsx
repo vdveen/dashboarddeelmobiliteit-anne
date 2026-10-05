@@ -884,8 +884,6 @@ function App() {
         } />
         {/* The Voi tijdlijn moved into the Aanbod selection tool. */}
         <Route path="/monitor/voi" element={<Navigate to="/map/park" replace />} />
-        {/* Old URL, renamed upstream to /functionaliteiten. */}
-        <Route path="/features" element={<Navigate to="/functionaliteiten" replace />} />
         <Route path="/functionaliteiten" element={
           <Overlay>
             <SidebarLayout title="Dashboard Deelmobiliteit functionaliteiten" contentWidth="900px">
