@@ -14,14 +14,11 @@ import appReducer from './reducers';
 import {
   sanitizeActiveDataLayers,
   sanitizeDataLayerOrder,
-  sanitizeOverlayLayers,
-  DISPLAYMODE_VERHUURDATA_HB,
-  DISPLAYMODE_VERHUURDATA_VOERTUIGEN,
-  DISPLAYMODE_RENTALS
+  sanitizeOverlayLayers
 } from './reducers/layers';
 import App from './App';
 import RegionRouteGuard from './components/RegionRouteGuard';
-import { validatePersistedState } from './helpers/persistedState';
+import { migrateRentalsDefaultToClusters, validatePersistedState } from './helpers/persistedState';
 
 const composeEnhancers = window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ || compose;
 
@@ -43,25 +40,12 @@ persistedState = validatePersistedState(persistedState);
 // A saved choice takes precedence even when older versions omitted the marker.
 if (persistedState.filter) persistedState.filter.public_defaults_applied = true;
 
-// HB is the standard rentals view. Apply that once to sessions that still
-// have the previous default (individual rental vehicles), then leave later
-// choices alone.
-const RENTALS_DEFAULT_MIGRATION_KEY = 'CROWDD_rentals_default_hb_v1';
+// Clusters are the standard rentals view. Apply that once to sessions that
+// still have the previous default (individual rental vehicles), then leave
+// later choices alone.
+const RENTALS_DEFAULT_MIGRATION_KEY = 'CROWDD_rentals_default_clusters_v1';
 if (!localStorage.getItem(RENTALS_DEFAULT_MIGRATION_KEY)) {
-  const layers = persistedState.layers;
-  if (layers) {
-    if (layers.view_rentals === DISPLAYMODE_VERHUURDATA_VOERTUIGEN) {
-      layers.view_rentals = DISPLAYMODE_VERHUURDATA_HB;
-    }
-    const rentalsLayers = layers.active_data_layers?.[DISPLAYMODE_RENTALS];
-    if (
-      Array.isArray(rentalsLayers)
-      && rentalsLayers.length === 1
-      && rentalsLayers[0] === DISPLAYMODE_VERHUURDATA_VOERTUIGEN
-    ) {
-      layers.active_data_layers[DISPLAYMODE_RENTALS] = [DISPLAYMODE_VERHUURDATA_HB];
-    }
-  }
+  migrateRentalsDefaultToClusters(persistedState.layers);
   localStorage.setItem(RENTALS_DEFAULT_MIGRATION_KEY, '1');
 }
 

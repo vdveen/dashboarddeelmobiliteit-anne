@@ -53,7 +53,7 @@ function Map({mapContainer}) {
   });
 
   const viewRentals = useSelector((state: StateType) => {
-    return state.layers ? state.layers.view_rentals : DISPLAYMODE_VERHUURDATA_VOERTUIGEN;
+    return state.layers ? state.layers.view_rentals : DISPLAYMODE_VERHUURDATA_CLUSTERS;
   });
   
   let layers = [], activeSources = [];
