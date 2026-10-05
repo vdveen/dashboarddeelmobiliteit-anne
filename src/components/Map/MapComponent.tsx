@@ -66,7 +66,7 @@ import { useBackgroundLayer } from './MapUtils/useBackgroundLayer';
 import { updateStreetVisibilityForSatellite } from './MapUtils/backgroundLayerManager';
 import { getProviderColorForProvider } from '../../helpers/providers';
 import { isOperatorPrestatiesView } from '../../helpers/prestatiesAanbiedersViewMode';
-import SelectionTool from '../SelectionTool/SelectionTool';
+import ParkSelectionTool from '../SelectionTool/ParkSelectionTool';
 import { getAclOrganisationType } from '../../helpers/authentication';
 import {
   selectDataLayerOrder,
@@ -829,8 +829,8 @@ const MapComponent = (props): JSX.Element => {
   return <>
     {/* The map container (HTML element) */}
     <div ref={mapContainer} className={`map flex-1 ${filterbarOpen ? 'filter-open' : ''}`} />
-    {/* Vehicle selection tool */}
-    {displayMode === DISPLAYMODE_PARK && activeDataLayers[DISPLAYMODE_PARK]?.length > 0 && <SelectionTool map={map.current} vehicles={vehicles} />}
+    {/* Vehicle selection tool, with the Voi availability chart for the selection */}
+    {displayMode === DISPLAYMODE_PARK && activeDataLayers[DISPLAYMODE_PARK]?.length > 0 && <ParkSelectionTool map={map.current} vehicles={vehicles} />}
     {/* Isochrone layer */}
     {isLoggedIn ? <IsochroneTools map={map.current} /> : null}
     {/* Attribution (bottom-right control stack) */}

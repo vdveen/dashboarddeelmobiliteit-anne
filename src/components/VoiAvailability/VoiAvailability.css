@@ -304,3 +304,41 @@
   color: #8a969b;
   font-size: 0.7rem;
 }
+
+/* The same card over the Aanbod map. It sits above the floating menu, clears
+   the filter bar on the left, and leaves the bottom-right corner to the map
+   controls and the selection panel. */
+.VoiAvailability-card.VoiAvailability-card--map {
+  right: 336px;
+  bottom: 84px;
+  left: 20px;
+  z-index: 1;
+  max-width: 880px;
+  font-family: Inter, sans-serif;
+  transition: left 0.6s ease-in;
+}
+
+.filter-open .VoiAvailability-card.VoiAvailability-card--map {
+  left: 344px; /* 324px filter bar + 20px */
+  transition: left 0.4s ease-out;
+}
+
+/* Too narrow to keep clear of the selection panel, so cover it: the chart is
+   what the selection was drawn for, and collapsing or closing it uncovers the
+   panel again. */
+@media (max-width: 1023px) {
+  .VoiAvailability-card.VoiAvailability-card--map {
+    right: 72px;
+    z-index: 111; /* map control corners use 110 */
+  }
+}
+
+@media (max-width: 639px) {
+  .VoiAvailability-card.VoiAvailability-card--map,
+  .filter-open .VoiAvailability-card.VoiAvailability-card--map {
+    right: 60px;
+    bottom: 140px; /* above the floating time and filter buttons */
+    left: 8px;
+    max-height: calc(100% - 220px);
+  }
+}
