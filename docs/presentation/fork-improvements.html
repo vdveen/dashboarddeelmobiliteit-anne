@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="no-js">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=1600">
 <title>Dashboard Deelmobiliteit · fork improvements</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,8 +21,8 @@ html,body{height:100%;background:#e7e5de;overflow:hidden}
 body{font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased;font-feature-settings:"cv11","ss01","tnum" 0}
 
 /* stage: designed at 1600x900, scaled to fit */
-.viewport{position:fixed;inset:0;display:grid;place-items:center}
-.stage{position:relative;width:1600px;height:900px;flex:none;transform:scale(var(--s,1));transform-origin:center;
+.viewport{position:fixed;inset:0}
+.stage{position:absolute;left:50%;top:50%;width:1600px;height:900px;transform:translate(-50%,-50%) scale(var(--s,1));transform-origin:center;
   background:var(--paper);overflow:hidden;border-radius:calc(6px / var(--s,1));
   box-shadow:0 1px 2px rgba(15,28,63,.05),0 30px 80px -30px rgba(15,28,63,.25)}
 .stage::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.55;
@@ -240,6 +240,14 @@ h2{font-size:52px;line-height:1.04;letter-spacing:-.035em;font-weight:620;margin
 .notes-panel h5{font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:#8e97b3;margin-bottom:8px}
 .notes-panel ul{padding-left:18px}
 
+/* without JavaScript (Quick Look, file previews): every slide, stacked and static */
+.no-js,.no-js body{overflow:auto;height:auto}
+.no-js .viewport{position:static}
+.no-js .stage{position:relative;left:auto;top:auto;transform:none;height:auto;border-radius:0}
+.no-js .slide{position:relative;height:900px;border-bottom:1px solid var(--line)}
+.no-js .brand,.no-js .counter,.no-js .progress,.no-js .hint{display:none}
+.no-js *,.no-js *::before,.no-js *::after{transition:none !important;animation:none !important}
+
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{transition-duration:.01ms !important;transition-delay:0s !important;animation:none !important}
 }
@@ -257,7 +265,7 @@ h2{font-size:52px;line-height:1.04;letter-spacing:-.035em;font-weight:620;margin
   <div class="counter"><b id="cur">01</b> / <span id="tot">11</span></div>
 
   <!-- 0 · Title -->
-  <section class="slide s-title" data-title="Title">
+  <section class="slide is-active s-title" data-title="Title">
     <svg class="title-art" viewBox="0 0 760 760" aria-hidden="true">
       <path class="loop-fill" d="M560 380 C 590 470 520 560 400 585 C 290 608 180 560 160 470 C 140 380 190 260 300 220 C 420 178 540 260 560 380 Z"/>
       <path class="draw" style="--len:1400;--dur:2.6s;--delay:.9s" d="M560 380 C 590 470 520 560 400 585 C 290 608 180 560 160 470 C 140 380 190 260 300 220 C 420 178 540 260 560 380 Z" fill="none" stroke="#0f1c3f" stroke-width="2.5" stroke-dasharray="1400" stroke-linecap="round"/>
@@ -276,9 +284,9 @@ h2{font-size:52px;line-height:1.04;letter-spacing:-.035em;font-weight:620;margin
     <h1 class="a" style="--i:1">Dashboard<br>Deelmobiliteit</h1>
     <p class="sub a" style="--i:2">What the fork added, July to October 2026</p>
     <div class="stats">
-      <div class="stat a" style="--i:4"><b data-count="28">0</b><span>merged pull requests</span></div>
-      <div class="stat a" style="--i:5"><b data-count="99">0</b><span>commits</span></div>
-      <div class="stat a" style="--i:6"><b data-count="4.0" data-dec="1" data-suffix="M">0</b><span>Voi positions collected</span></div>
+      <div class="stat a" style="--i:4"><b data-count="28">28</b><span>merged pull requests</span></div>
+      <div class="stat a" style="--i:5"><b data-count="99">99</b><span>commits</span></div>
+      <div class="stat a" style="--i:6"><b data-count="4.0" data-dec="1" data-suffix="M">4.0M</b><span>Voi positions collected</span></div>
       <div class="stat a" style="--i:7"><b>0</b><span>logins needed to see the map</span></div>
     </div>
     <div class="footline a" style="--i:8">vdveen/dashboarddeelmobiliteit-anne &nbsp;·&nbsp; Provincie Noord-Holland editie</div>
@@ -292,7 +300,7 @@ h2{font-size:52px;line-height:1.04;letter-spacing:-.035em;font-weight:620;margin
   </section>
 
   <!-- 1 · Public map -->
-  <section class="slide" data-title="Public map">
+  <section class="slide is-active" data-title="Public map">
     <div class="split">
       <div>
         <div class="kicker a" style="--i:0"><em>01</em> Public access</div>
@@ -321,7 +329,7 @@ h2{font-size:52px;line-height:1.04;letter-spacing:-.035em;font-weight:620;margin
   </section>
 
   <!-- 2 · Selection tool -->
-  <section class="slide" data-title="Selection">
+  <section class="slide is-active" data-title="Selection">
     <div class="split">
       <div>
         <div class="kicker a" style="--i:0"><em>02</em> Selection</div>
@@ -348,7 +356,7 @@ h2{font-size:52px;line-height:1.04;letter-spacing:-.035em;font-weight:620;margin
               <path class="lasso-fill" d="M720.0 560.0 L728.2 577.8 L732.3 595.3 L731.3 612.5 L724.6 629.1 L712.2 645.0 L694.4 659.9 L672.0 673.8 L646.2 686.3 L618.5 697.5 L590.0 707.2 L561.8 715.3 L534.7 721.7 L508.8 726.3 L484.1 729.1 L460.0 730.0 L435.9 729.1 L411.2 726.3 L385.3 721.7 L358.2 715.3 L330.0 707.2 L301.5 697.5 L273.8 686.3 L248.0 673.8 L225.6 659.9 L207.8 645.0 L195.4 629.1 L188.7 612.5 L187.7 595.3 L191.8 577.8 L200.0 560.0 L211.0 542.2 L223.6 524.7 L236.7 507.5 L249.6 490.9 L261.9 475.0 L273.7 460.1 L285.5 446.2 L298.3 433.7 L312.8 422.5 L330.0 412.8 L350.3 404.7 L374.0 398.3 L400.7 393.7 L429.7 390.9 L460.0 390.0 L490.3 390.9 L519.3 393.7 L546.0 398.3 L569.7 404.7 L590.0 412.8 L607.2 422.5 L621.7 433.7 L634.5 446.2 L646.3 460.1 L658.1 475.0 L670.4 490.9 L683.3 507.5 L696.4 524.7 L709.0 542.2 L720.0 560.0 Z"/>
               <path mask="url(#lassoMask)" d="M720.0 560.0 L728.2 577.8 L732.3 595.3 L731.3 612.5 L724.6 629.1 L712.2 645.0 L694.4 659.9 L672.0 673.8 L646.2 686.3 L618.5 697.5 L590.0 707.2 L561.8 715.3 L534.7 721.7 L508.8 726.3 L484.1 729.1 L460.0 730.0 L435.9 729.1 L411.2 726.3 L385.3 721.7 L358.2 715.3 L330.0 707.2 L301.5 697.5 L273.8 686.3 L248.0 673.8 L225.6 659.9 L207.8 645.0 L195.4 629.1 L188.7 612.5 L187.7 595.3 L191.8 577.8 L200.0 560.0 L211.0 542.2 L223.6 524.7 L236.7 507.5 L249.6 490.9 L261.9 475.0 L273.7 460.1 L285.5 446.2 L298.3 433.7 L312.8 422.5 L330.0 412.8 L350.3 404.7 L374.0 398.3 L400.7 393.7 L429.7 390.9 L460.0 390.0 L490.3 390.9 L519.3 393.7 L546.0 398.3 L569.7 404.7 L590.0 412.8 L607.2 422.5 L621.7 433.7 L634.5 446.2 L646.3 460.1 L658.1 475.0 L670.4 490.9 L683.3 507.5 L696.4 524.7 L709.0 542.2 L720.0 560.0" fill="none" stroke="#0f1c3f" stroke-width="4" stroke-dasharray="11 6"/>
             </svg>
-            <div class="count-chip"><div class="lbl">Selectie</div><div class="num" data-count="29" data-delay="2900">0<small>voertuigen in selectie</small></div></div>
+            <div class="count-chip"><div class="lbl">Selectie</div><div class="num" data-count="29" data-delay="2900">29<small>voertuigen in selectie</small></div></div>
           </div>
         </div>
         <div class="inset a" style="--i:9;width:270px;right:-28px;bottom:70px"><img src="data:image/webp;base64,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" alt="Selection panel in polygon mode with the Polygoon afmaken button"></div>
@@ -364,7 +372,7 @@ h2{font-size:52px;line-height:1.04;letter-spacing:-.035em;font-weight:620;margin
   </section>
 
   <!-- 3 · Availability chart -->
-  <section class="slide" data-title="Availability chart">
+  <section class="slide is-active" data-title="Availability chart">
     <div class="split wide">
       <div>
         <div class="kicker a" style="--i:0"><em>03</em> History</div>
@@ -404,7 +412,7 @@ h2{font-size:52px;line-height:1.04;letter-spacing:-.035em;font-weight:620;margin
   </section>
 
   <!-- 4 · Iteration story -->
-  <section class="slide center" data-title="Iteration">
+  <section class="slide is-active center" data-title="Iteration">
     <div class="kicker a" style="--i:0"><em>04</em> How it got there</div>
     <h2 class="a" style="--i:1;max-width:1100px">The chart found its home on the second try</h2>
     <div class="timeline">
@@ -444,7 +452,7 @@ h2{font-size:52px;line-height:1.04;letter-spacing:-.035em;font-weight:620;margin
   </section>
 
   <!-- 5 · Richer charts I -->
-  <section class="slide" data-title="All vehicles">
+  <section class="slide is-active" data-title="All vehicles">
     <div class="split wide">
       <div>
         <div class="kicker a" style="--i:0"><em>05</em> Richer charts</div>
@@ -477,7 +485,7 @@ h2{font-size:52px;line-height:1.04;letter-spacing:-.035em;font-weight:620;margin
   </section>
 
   <!-- 6 · Honest data -->
-  <section class="slide" data-title="Honest data">
+  <section class="slide is-active" data-title="Honest data">
     <div class="split" style="grid-template-columns:450px 1fr">
       <div>
         <div class="kicker a" style="--i:0"><em>06</em> Honest data</div>
@@ -521,7 +529,7 @@ h2{font-size:52px;line-height:1.04;letter-spacing:-.035em;font-weight:620;margin
   </section>
 
   <!-- 7 · Policy depth -->
-  <section class="slide center" data-title="Policy depth">
+  <section class="slide is-active center" data-title="Policy depth">
     <div class="kicker a" style="--i:0"><em>07</em> Policy depth</div>
     <h2 class="a" style="--i:1">From counts to policy questions</h2>
     <div class="cards">
@@ -601,7 +609,7 @@ h2{font-size:52px;line-height:1.04;letter-spacing:-.035em;font-weight:620;margin
   </section>
 
   <!-- 8 · CSV import -->
-  <section class="slide" data-title="CSV import">
+  <section class="slide is-active" data-title="CSV import">
     <div class="split wide">
       <div>
         <div class="kicker a" style="--i:0"><em>08</em> Your own data</div>
@@ -631,15 +639,15 @@ h2{font-size:52px;line-height:1.04;letter-spacing:-.035em;font-weight:620;margin
   </section>
 
   <!-- 9 · Under the hood -->
-  <section class="slide center" data-title="Under the hood">
+  <section class="slide is-active center" data-title="Under the hood">
     <div class="kicker a" style="--i:0"><em>09</em> Under the hood</div>
     <h2 class="a" style="--i:1">What runs underneath</h2>
     <p class="lead a" style="--i:2;max-width:none">None of this is on screen, but the charts depend on it.</p>
     <div class="tiles">
       <div class="tile a" style="--i:3"><b>10 min</b><span>A cron job on Railway stores every Voi vehicle position, rounded to the ten-minute mark so a late run never writes twice.</span></div>
-      <div class="tile a" style="--i:4"><b data-count="4.0" data-dec="1" data-suffix="M">0</b><span>vehicle positions in PostGIS, behind a small read-only API.</span></div>
+      <div class="tile a" style="--i:4"><b data-count="4.0" data-dec="1" data-suffix="M">4.0M</b><span>vehicle positions in PostGIS, behind a small read-only API.</span></div>
       <div class="tile a" style="--i:5"><b>0.7 <small style="font-size:24px;letter-spacing:-.02em;color:var(--muted)">/ 5 GB</small></b><span>of the database volume used. At this rate it fills around June 2027.</span><div class="meter" style="--w:14%"><b></b></div></div>
-      <div class="tile a" style="--i:6"><b data-count="8">0</b><span>audit rounds merged as their own pull requests, plus three merges of CROW's upstream work.</span></div>
+      <div class="tile a" style="--i:6"><b data-count="8">8</b><span>audit rounds merged as their own pull requests, plus three merges of CROW's upstream work.</span></div>
     </div>
     <aside class="notes">
       <ul>
@@ -650,7 +658,7 @@ h2{font-size:52px;line-height:1.04;letter-spacing:-.035em;font-weight:620;margin
   </section>
 
   <!-- 10 · Closing -->
-  <section class="slide center" data-title="Closing">
+  <section class="slide is-active center" data-title="Closing">
     <div class="kicker a" style="--i:0"><em>10</em> Summary</div>
     <h2 class="a" style="--i:1;font-size:64px">From a closed analysis tool<br>to a public product</h2>
     <div class="journey">
@@ -681,12 +689,14 @@ h2{font-size:52px;line-height:1.04;letter-spacing:-.035em;font-weight:620;margin
 
 <script>
 (() => {
+  document.documentElement.classList.remove('no-js');
   const stage = document.getElementById('stage');
   const slides = [...stage.querySelectorAll('.slide')];
   const bar = document.getElementById('bar'), cur = document.getElementById('cur');
   const notes = document.getElementById('notes'), notesBody = document.getElementById('notesBody');
   const hint = document.getElementById('hint');
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  slides.forEach(s => s.classList.remove('is-active'));
   document.getElementById('tot').textContent = String(slides.length).padStart(2, '0');
 
   const fit = () => {
@@ -752,7 +762,7 @@ h2{font-size:52px;line-height:1.04;letter-spacing:-.035em;font-weight:620;margin
     bar.style.width = ((idx + 1) / slides.length * 100) + '%';
     const nt = s.querySelector('.notes');
     notesBody.innerHTML = nt ? nt.innerHTML : '';
-    if (!fromHash) history.replaceState(null, '', '#' + (idx + 1));
+    if (!fromHash) try { history.replaceState(null, '', '#' + (idx + 1)); } catch (e) {}
     if (idx > 0) hint.classList.add('gone');
   };
 
