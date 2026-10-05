@@ -6,8 +6,6 @@ import {
   decimatePositions,
   dedupeConsecutive,
   isValidPosition,
-  toDrawingFeatureCollection,
-  toPolygonFeatureCollection,
 } from './polygonGeometry';
 
 const square: Position[] = [[5.1, 52.1], [5.2, 52.1], [5.2, 52.2], [5.1, 52.2]];
@@ -100,37 +98,5 @@ describe('buildPolygon', () => {
     expect(ring.length).toBeLessThanOrEqual(1001);
     expect(ring.length).toBeGreaterThan(3);
     expect(ring[0]).toEqual(ring[ring.length - 1]);
-  });
-});
-
-describe('toDrawingFeatureCollection', () => {
-  it('is empty below two positions', () => {
-    expect(toDrawingFeatureCollection([[5.1, 52.1]]).features).toEqual([]);
-  });
-
-  it('draws a line for two positions', () => {
-    expect(toDrawingFeatureCollection([[5.1, 52.1], [5.2, 52.1]]).features[0].geometry).toEqual({
-      type: 'LineString',
-      coordinates: [[5.1, 52.1], [5.2, 52.1]],
-    });
-  });
-
-  it('draws a closed polygon from three positions on', () => {
-    expect(toDrawingFeatureCollection(square).features[0].geometry).toEqual({
-      type: 'Polygon',
-      coordinates: [[...square, square[0]]],
-    });
-  });
-});
-
-describe('toPolygonFeatureCollection', () => {
-  it('is empty without a polygon', () => {
-    expect(toPolygonFeatureCollection(null).features).toEqual([]);
-  });
-
-  it('wraps the polygon in a feature', () => {
-    const polygon = buildPolygon(square);
-
-    expect(toPolygonFeatureCollection(polygon).features[0].geometry).toEqual(polygon);
   });
 });

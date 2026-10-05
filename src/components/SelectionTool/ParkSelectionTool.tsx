@@ -40,7 +40,6 @@ const ParkSelectionTool = ({ map, vehicles }: ParkSelectionToolProps): JSX.Eleme
     </SelectionTool>
     {polygon && chartOpen && container && createPortal(
       <VoiAvailabilityChart
-        className="VoiAvailability-card--map"
         polygon={polygon}
         selectedCapturedAt={datum}
         onClose={() => setChartOpen(false)}
