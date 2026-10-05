@@ -13,13 +13,33 @@ import moment from 'moment';
 import { dedupedFetch } from './dedupedFetch';
 import { statsTimeToUtc } from '../helpers/stats/time';
 
-const ALLOWED_PHASES = [
+export const ALLOWED_PHASES = [
   'active',
-  'concept',
   'retirement_concept',
   'published_retirement',
   'committed_retirement_concept',
 ] as const;
+
+/**
+ * Zones shown on /stats/beleidszones: published/active (and retirement) hubs
+ * and verbodsgebieden, plus analysezones that stay in concept phase.
+ * Concept-phase hubs and verbodsgebieden are drafts and are excluded.
+ */
+export const isBeleidszoneWithStats = (z: {
+  geography_type?: string;
+  phase?: string | null;
+}): boolean => {
+  if (z.phase == null) return true;
+  if ((ALLOWED_PHASES as readonly string[]).includes(z.phase)) return true;
+  return z.geography_type === 'monitoring' && z.phase === 'concept';
+};
+
+export const BELEIDSZONES_MDS_PHASES_PARAM =
+  'phases=active&phases=retirement_concept&phases=published_retirement' +
+  '&phases=committed_retirement_concept&phases=concept';
+
+export const BELEIDSZONES_MDS_PHASES_PARAM_WITH_ARCHIVED =
+  `${BELEIDSZONES_MDS_PHASES_PARAM}&phases=archived`;
 
 /** Zone from MDS public/zones API (zone_id, geography_id, name, prev_geographies, etc.) */
 export interface Beleidszone {
@@ -34,6 +54,9 @@ export interface Beleidszone {
   geography_type?: string;
   municipality?: string;
   phase?: string;
+  stop?: {
+    capacity?: Record<string, number | string>;
+  } | null;
   [key: string]: unknown;
 }
 
@@ -49,8 +72,26 @@ export interface BeleidszoneForFilter {
   modified_at?: string;
   retire_date?: string;
   municipality?: string;
+  geography_type?: 'stop' | 'no_parking' | 'monitoring';
+  phase?: string;
+  /** Maximum capacity of a hub (combined, or summed over modalities) */
+  capacity?: number;
   [key: string]: unknown;
 }
+
+/**
+ * Returns the maximum capacity of a hub: the combined capacity if set,
+ * otherwise the sum of the capacities per modality.
+ * Returns undefined if no (positive) capacity is set.
+ */
+export const getZoneCapacity = (z: Beleidszone): number | undefined => {
+  const capacity = z.stop?.capacity;
+  if (!capacity) return undefined;
+  const total = capacity.combined != null
+    ? Number(capacity.combined)
+    : Object.values(capacity).reduce<number>((sum, v) => sum + (Number(v) || 0), 0);
+  return Number.isFinite(total) && total > 0 ? total : undefined;
+};
 
 function zoneDisplayName(z: Beleidszone, baseName: string): string {
   const now = moment();
@@ -83,6 +124,9 @@ function mapZone(z: Beleidszone, gmCode: string): BeleidszoneForFilter {
     modified_at: z.modified_at,
     retire_date: z.retire_date,
     municipality: z.municipality ?? gmCode,
+    geography_type: z.geography_type as BeleidszoneForFilter['geography_type'],
+    phase: z.phase,
+    capacity: getZoneCapacity(z),
   };
 }
 
@@ -112,8 +156,7 @@ const getFetchOptions = (token: string | null) => {
   return { headers };
 };
 
-const phasesParam =
-  'phases=active&phases=concept&phases=retirement_concept&phases=published_retirement&phases=committed_retirement_concept';
+const phasesParam = BELEIDSZONES_MDS_PHASES_PARAM;
 
 /** Cache for MDS public/zones responses by (gmCode, phases). Avoids refetch when only filter.zones changes. */
 const mdsZonesCache = new Map<string, Beleidszone[]>();
@@ -143,7 +186,7 @@ async function fetchZonesFromMds(
 /**
  * Fetches zones for a municipality from MDS public/zones.
  * Used for the filterbar zone list on /stats/beleidszones.
- * Only includes zones with phase: active, concept, retirement_concept, published_retirement, committed_retirement_concept.
+ * Includes active/retirement hubs and verbodsgebieden, plus concept analysezones.
  * Additionally includes zones whose zone_id is in zoneIdsToInclude (e.g. from URL params), even if archived.
  *
  * @param gmCode Municipality code (e.g. GM0599)
@@ -159,11 +202,7 @@ export const getBeleidszonesZones = async (
   const mainZones = await fetchZonesFromMds(gmCode, phasesParam);
 
   let result = mainZones
-    .filter(
-      (z: Beleidszone) =>
-        z.zone_id != null &&
-        (z.phase == null || ALLOWED_PHASES.includes(z.phase as (typeof ALLOWED_PHASES)[number]))
-    )
+    .filter((z: Beleidszone) => z.zone_id != null && isBeleidszoneWithStats(z))
     .map((z: Beleidszone) => mapZone(z, gmCode));
 
   if (zoneIdsToInclude?.length) {
@@ -185,8 +224,7 @@ export const getBeleidszonesZones = async (
   return result;
 };
 
-const phasesParamWithArchived =
-  phasesParam + '&phases=archived';
+const phasesParamWithArchived = BELEIDSZONES_MDS_PHASES_PARAM_WITH_ARCHIVED;
 
 /**
  * Fetches all zones for a municipality including archived.

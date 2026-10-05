@@ -11,10 +11,14 @@ import moment from 'moment';
 import thunk from 'redux-thunk';
 
 import appReducer from './reducers';
-import { sanitizeActiveDataLayers, sanitizeDataLayerOrder, sanitizeOverlayLayers } from './reducers/layers';
+import {
+  sanitizeActiveDataLayers,
+  sanitizeDataLayerOrder,
+  sanitizeOverlayLayers
+} from './reducers/layers';
 import App from './App';
 import RegionRouteGuard from './components/RegionRouteGuard';
-import { validatePersistedState } from './helpers/persistedState';
+import { migrateRentalsDefaultToClusters, validatePersistedState } from './helpers/persistedState';
 
 const composeEnhancers = window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ || compose;
 
@@ -35,6 +39,15 @@ if (theState) {
 persistedState = validatePersistedState(persistedState);
 // A saved choice takes precedence even when older versions omitted the marker.
 if (persistedState.filter) persistedState.filter.public_defaults_applied = true;
+
+// Clusters are the standard rentals view. Apply that once to sessions that
+// still have the previous default (individual rental vehicles), then leave
+// later choices alone.
+const RENTALS_DEFAULT_MIGRATION_KEY = 'CROWDD_rentals_default_clusters_v1';
+if (!localStorage.getItem(RENTALS_DEFAULT_MIGRATION_KEY)) {
+  migrateRentalsDefaultToClusters(persistedState.layers);
+  localStorage.setItem(RENTALS_DEFAULT_MIGRATION_KEY, '1');
+}
 
 // The data-layer UI uses radio-button behaviour (one layer per display mode).
 // Older persisted states may contain multiple active layers; sanitize them.
