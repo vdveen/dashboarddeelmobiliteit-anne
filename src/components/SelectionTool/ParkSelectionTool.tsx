@@ -34,7 +34,7 @@ const ParkSelectionTool = ({ map, vehicles }: ParkSelectionToolProps): JSX.Eleme
     <SelectionTool map={map} vehicles={vehicles} onSelectionChange={handleSelectionChange}>
       {polygon && !chartOpen && (
         <button type="button" className="SelectionTool-showChart" onClick={() => setChartOpen(true)}>
-          Toon Voi-grafiek
+          Toon beschikbaarheid
         </button>
       )}
     </SelectionTool>
