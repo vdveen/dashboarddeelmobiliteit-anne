@@ -73,3 +73,20 @@
   background: #0f1c3f;
   color: #FFFFFF;
 }
+
+.SelectionTool-showChart {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 7px 9px;
+  border: 1px solid #8cc9e9;
+  border-radius: 6px;
+  background: #e8f5fb;
+  color: #126d9f;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.SelectionTool-showChart:hover {
+  background: #d6eef9;
+}

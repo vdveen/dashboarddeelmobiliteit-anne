@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
+import type { Polygon } from 'geojson';
 import MapControlsPortal from '../Map/MapControls/MapControlsPortal';
+import { buildPolygon } from '../VoiAvailability/polygonGeometry';
 import './SelectionTool.css';
 
 type SelectionMode = 'polygon' | 'lasso';
@@ -8,6 +10,13 @@ type SelectionMode = 'polygon' | 'lasso';
 type SelectionToolProps = {
   map: any;
   vehicles: any;
+  /**
+   * Receives the finished selection, thinned to what the Voi availability API
+   * accepts, and null once the selection is cleared or the tool unmounts.
+   */
+  onSelectionChange?: (polygon: Polygon | null) => void;
+  /** Extra content for the panel, below the vehicle count. */
+  children?: ReactNode;
 };
 
 const SELECTION_SOURCE_ID = 'vehicle-selection-tool';
@@ -27,7 +36,7 @@ const createPolygonFeatureCollection = (coordinates) => ({
   }] : []
 });
 
-const SelectionTool = ({ map, vehicles }: SelectionToolProps): JSX.Element => {
+const SelectionTool = ({ map, vehicles, onSelectionChange, children }: SelectionToolProps): JSX.Element => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeMode, setActiveMode] = useState<SelectionMode | null>(null);
   const points = useRef<number[][]>([]);
@@ -35,6 +44,10 @@ const SelectionTool = ({ map, vehicles }: SelectionToolProps): JSX.Element => {
   features.current = vehicles?.data?.features || [];
   const [pointCount, setPointCount] = useState(0);
   const [vehicleCount, setVehicleCount] = useState<number | null>(null);
+  const onSelectionChangeRef = useRef(onSelectionChange);
+  onSelectionChangeRef.current = onSelectionChange;
+
+  useEffect(() => () => onSelectionChangeRef.current?.(null), []);
 
   const updateSelectionSource = useCallback((nextCoordinates) => {
     points.current = nextCoordinates;
@@ -46,6 +59,7 @@ const SelectionTool = ({ map, vehicles }: SelectionToolProps): JSX.Element => {
     setActiveMode(null);
     setVehicleCount(null);
     updateSelectionSource([]);
+    onSelectionChangeRef.current?.(null);
   }, [updateSelectionSource]);
 
   const countSelection = useCallback(() => {
@@ -62,6 +76,7 @@ const SelectionTool = ({ map, vehicles }: SelectionToolProps): JSX.Element => {
   const finishSelection = useCallback(() => {
     if (points.current.length < MIN_POINTS) { clearSelection(); return; }
     setActiveMode(null);
+    onSelectionChangeRef.current?.(buildPolygon(points.current));
   }, [clearSelection]);
 
   const startSelection = (mode: SelectionMode) => {
@@ -204,8 +219,9 @@ const SelectionTool = ({ map, vehicles }: SelectionToolProps): JSX.Element => {
     <div className="SelectionTool">
     {isOpen && <div className="SelectionTool-panel">
       <strong>Selectie</strong>
-      <p>{activeMode === 'polygon' ? 'Klik punten op de kaart. Kies Afronden of rechtsklik. Escape annuleert.' : activeMode === 'lasso' ? 'Sleep om een lasso te tekenen. Escape annuleert.' : 'Teken een gebied om voertuigen te tellen.'}</p>
+      <p>{activeMode === 'polygon' ? 'Klik punten op de kaart. Kies Afronden of rechtsklik. Escape annuleert.' : activeMode === 'lasso' ? 'Sleep om een lasso te tekenen. Escape annuleert.' : 'Teken een gebied om voertuigen te tellen en de Voi-beschikbaarheid te zien.'}</p>
       {vehicleCount !== null && <div className="SelectionTool-result" role="status">{vehicleCount} voertuigen in selectie</div>}
+      {children}
       <div className="SelectionTool-actions">
         <button type="button" className={activeMode === 'polygon' ? 'is-active' : ''} onClick={() => startSelection('polygon')}>Polygoon</button>
         <button type="button" className={activeMode === 'lasso' ? 'is-active' : ''} onClick={() => startSelection('lasso')}>Lasso</button>

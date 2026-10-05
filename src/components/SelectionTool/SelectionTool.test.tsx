@@ -55,3 +55,21 @@ test('lasso stays in drawing mode between pointer moves and finishes outside the
   expect(screen.getByRole('status')).toHaveTextContent('0 voertuigen');
   expect(map.dragPan.isEnabled()).toBe(true);
 });
+
+test('reports the finished selection as a closed polygon and null once it is cleared or unmounted', () => {
+  const map = mapStub();
+  const onSelectionChange = jest.fn();
+  const { unmount } = render(<SelectionTool map={map} vehicles={{ data: { features: [] } }} onSelectionChange={onSelectionChange} />);
+  fireEvent.click(screen.getByLabelText('Voertuigen selecteren'));
+  fireEvent.click(screen.getByText('Polygoon'));
+  for (const [lng, lat] of [[0,0],[1,0],[0,1]]) act(() => map.emit('click', { lngLat: { lng, lat } }));
+  expect(onSelectionChange).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'Polygon' }));
+  fireEvent.click(screen.getByText('Afronden'));
+  expect(onSelectionChange).toHaveBeenLastCalledWith({ type: 'Polygon', coordinates: [[[0,0],[1,0],[0,1],[0,0]]] });
+  fireEvent.click(screen.getByText('Wis'));
+  expect(onSelectionChange).toHaveBeenLastCalledWith(null);
+  fireEvent.click(screen.getByText('Lasso'));
+  onSelectionChange.mockClear();
+  unmount();
+  expect(onSelectionChange).toHaveBeenCalledWith(null);
+});
