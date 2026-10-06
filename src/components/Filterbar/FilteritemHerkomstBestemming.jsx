@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import './css/FilteritemHerkomstBestemming.css';
 
 import {StateType} from '../../types/StateType';
+import { isRentalsLayerActive, selectActiveDataLayers } from '../../helpers/layerSelectors';
 
 import {
   DISPLAYMODE_PARK,
@@ -10,14 +11,13 @@ import {
   DISPLAYMODE_ZONES_PUBLIC,
   DISPLAYMODE_ZONES_ADMIN,
   DISPLAYMODE_OTHER,
+  DISPLAYMODE_VERHUURDATA_HB,
 } from '../../reducers/layers.js';
 
 export default function FilteritemHerkomstBestemming() {
   const dispatch = useDispatch()
 
-  const viewRentals = useSelector((state: StateType) => {
-    return state.layers ? state.layers.view_rentals : null;
-  });
+  const activeDataLayers = useSelector(selectActiveDataLayers);
 
   const displayMode = useSelector((state: StateType) => {
     return state.layers ? state.layers.displaymode : DISPLAYMODE_PARK;
@@ -30,8 +30,12 @@ export default function FilteritemHerkomstBestemming() {
     }
     return value;
   });
+  // Imported CSV data shows park events, not trip starts or ends
+  const hasCsvData = useSelector((state: StateType) => {
+    return !!(state.rentals && state.rentals.csv_data);
+  });
   const isrentals=displayMode===DISPLAYMODE_RENTALS;
-  const is_hb_view=(isrentals && viewRentals==='verhuurdata-hb');
+  const is_hb_view=(isrentals && isRentalsLayerActive(activeDataLayers, DISPLAYMODE_VERHUURDATA_HB));
 
   const setFilterHerkomstBestemming = (value) => e => {
     dispatch({ type: 'SET_FILTER_HERKOMSTBESTEMMING', payload: value })
@@ -51,6 +55,13 @@ export default function FilteritemHerkomstBestemming() {
         <div className={classNameHerkomst} onClick={setFilterHerkomstBestemming('herkomst')}>Herkomst</div>
         <div className={classNameBestemming} onClick={setFilterHerkomstBestemming('bestemming')}>Bestemming</div>
       </div>
+      {!is_hb_view && !hasCsvData && <p className="my-2 px-4">
+        <small>
+          {filterHerkomstBestemming==='bestemming'
+            ? 'De kaart toont waar ritten eindigden.'
+            : 'De kaart toont waar ritten begonnen.'}
+        </small>
+      </p>}
       {is_hb_view && <p className="my-2 px-4">
         {filterHerkomstBestemming==='herkomst' && <small>
           Je ziet nu waar men vandaan kwam, voordat men reisde naar het door jou geselecteerde vlak.

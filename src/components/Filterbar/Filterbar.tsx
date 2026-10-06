@@ -272,7 +272,9 @@ function Filterbar({
           {isLoggedIn && showafstand && <FilteritemMarkersAfstand />}
 
           {isLoggedIn && showherkomstbestemming && (
-            <FilteritemHerkomstBestemming />
+            <Fieldset title="Ritstart of riteinde">
+              <FilteritemHerkomstBestemming />
+            </Fieldset>
           )}
 
           {showvervoerstype && (
