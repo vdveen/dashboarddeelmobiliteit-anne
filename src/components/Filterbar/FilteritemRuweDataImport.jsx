@@ -101,11 +101,6 @@ export default function FilteritemRuweDataImport() {
           <div>
             {csvData.rows.length} parkeerwaarnemingen geladen, {rowsInRange} in de gekozen periode
           </div>
-          <div className="mt-1">
-            <small>
-              De kaart toont parkeerwaarnemingen uit dit bestand, geen ritten. Alleen de periode en de aanbieder- en voertuigtypefilters gelden. Plaats, zone, afstand en herkomst/bestemming gelden niet. Gebruik een punten-, cluster- of heatmaplaag.
-            </small>
-          </div>
           <Button
             theme="white"
             classes="w-full"

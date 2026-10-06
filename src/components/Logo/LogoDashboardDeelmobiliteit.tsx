@@ -9,7 +9,7 @@ function LogoDashboardDeelmobiliteit({
   color = '#343E47'
 }: LogoDashboardDeelmobiliteitProps) {
   return (
-    <div className="">
+    <div style={{ display: 'inline-block' }}>
       <div style={{
         font: 'normal normal bold 20px/24px Inter',
         color
@@ -17,7 +17,6 @@ function LogoDashboardDeelmobiliteit({
         Dashboard Deelmobiliteit
       </div>
       <div style={{
-        width: '155px',
         marginTop: '4px',
         borderBottom: '3px solid #15AEEF'
       }} />
@@ -30,7 +29,7 @@ function LogoDashboardDeelmobiliteit({
         <img
           src={edition.logo}
           alt={edition.logoAlt}
-          style={{ height: '24px', width: 'auto' }}
+          style={{ flex: '1 1 0', minWidth: 0, height: 'auto' }}
         />
         <span style={{
           font: 'normal normal 600 11px/14px Inter',

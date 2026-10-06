@@ -118,11 +118,7 @@ function Filterbar({
         </Fieldset>
       )}
 
-      {hasImport && (
-        <div className="Filterbar-importNote">
-          Deze filters gelden niet voor ge&iuml;mporteerde CSV-punten.
-        </div>
-      )}
+      { isrentals && hasImport && <FilteritemCsvPeriode /> }
 
       <InertDuringImport inert={hasImport}>
         { isLoggedIn && showdatum && <FilteritemDatum /> }
@@ -140,8 +136,6 @@ function Filterbar({
 
         { isLoggedIn && showduur && ! hasImport && <FilteritemDuur /> }
       </InertDuringImport>
-
-      { isrentals && hasImport && <FilteritemCsvPeriode /> }
 
       { isLoggedIn && showvantot && <FilteritemDatumVanTot /> }
 

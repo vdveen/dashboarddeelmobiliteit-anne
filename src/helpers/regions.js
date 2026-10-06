@@ -9,6 +9,10 @@ export const REGIONS = [
   { name: 'Regio GV&A', gm_code: [...amersfoort, ...gooiEnVechtstreek].join(',') },
 ];
 
+// Regions and municipalities that get the Voi highlight in the place list
+export const isPriorityArea = (selection) =>
+  !!getRegion(selection) || PRIORITY_MUNICIPALITY_CODES.includes(selection);
+
 export const getMunicipalityCodes = (selection) =>
   [...new Set((selection || '').split(',').map(code => code.trim()).filter(Boolean))];
 

@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import FilterbarExtended from './FilterbarExtended.jsx';
 import useFilterbarExtended from '../../customHooks/useFilterbarExtended';
 import './css/FilteritemGebieden.css';
-import { getAreaOptions, getAreaName, getMunicipalityOptions } from '../../helpers/regions';
+import { getAreaOptions, getAreaName, getMunicipalityOptions, isPriorityArea } from '../../helpers/regions';
 
 import {StateType} from '../../types/StateType';
 
@@ -133,7 +133,7 @@ function FilteritemGebieden({ includeRegions = false }) {
                 if(filterGebied === a.gm_code) {
                   return (<div key={'item-'+a.gm_code} className="form-item-selected form-item" onClick={e=>{toggleGebieden(false);setFilterGebied("")}}>{a.name}</div>)
                 } else {
-                  return (<div key={'item-'+a.gm_code} className="form-item" onClick={e=>{toggleGebieden(false);setFilterGebied(a.gm_code);}}>{a.name}</div>)
+                  return (<div key={'item-'+a.gm_code} className={`form-item${isPriorityArea(a.gm_code) ? ' form-item-priority' : ''}`} onClick={e=>{toggleGebieden(false);setFilterGebied(a.gm_code);}}>{a.name}</div>)
                 }
               })
             }
