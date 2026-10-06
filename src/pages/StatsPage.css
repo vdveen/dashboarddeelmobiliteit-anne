@@ -1,7 +1,8 @@
 .StatsPage h1,
 .StatsPage h2,
 .StatsPage .StatsPageHeader-subtitle,
-.StatsPage .StatsPageHeader-controls {
+.StatsPage .StatsPageHeader-controls,
+.StatsPage .StatsPage-indent {
   margin-left: 58px;
 }
 
@@ -21,4 +22,20 @@
   grid-template-columns: repeat(auto-fit, minmax(min(800px, 100%), 1fr));
   gap: 2rem;
   margin-top: 2rem;
+}
+
+/* On phones the plot-area indent costs too much width: align everything
+   with the page edge instead, and keep the same 12px gap on both sides */
+@media (max-width: 639px) {
+  .StatsPage {
+    padding-right: 0.75rem;
+  }
+
+  .StatsPage h1,
+  .StatsPage h2,
+  .StatsPage .StatsPageHeader-subtitle,
+  .StatsPage .StatsPageHeader-controls,
+  .StatsPage .StatsPage-indent {
+    margin-left: 0;
+  }
 }

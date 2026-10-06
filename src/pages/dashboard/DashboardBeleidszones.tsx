@@ -258,7 +258,7 @@ function DashboardBeleidszones() {
     <div className="DashboardBeleidszones StatsPage pt-4 pb-24">
       <PageTitle className="my-2">{getPageTitle}</PageTitle>
 
-      <div className="my-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-gray-600" style={{marginLeft: '58px'}}>
+      <div className="StatsPage-indent my-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-gray-600">
         {hasExactlyOneZone && selectedZone?.geography_type && (
           <span>{readable_geotype(selectedZone.geography_type)}</span>
         )}
@@ -302,7 +302,7 @@ function DashboardBeleidszones() {
 
       {/* Interval control, same design and position as on the Beleidsinfo page */}
       {aggregationButtonsToRender.length > 0 && (
-        <div className="flex items-center gap-2 my-4" style={{marginLeft: '58px'}}>
+        <div className="StatsPage-indent flex items-center gap-2 my-4">
           <AggregationLevelControl
             levels={aggregationButtonsToRender}
             activeLevel={filter.ontwikkelingaggregatie}
@@ -311,7 +311,7 @@ function DashboardBeleidszones() {
         </div>
       )}
 
-      <div style={{marginLeft: '58px'}}>
+      <div className="StatsPage-indent">
         <ZonePreviewMap className="my-4" />
       </div>
 
@@ -327,7 +327,7 @@ function DashboardBeleidszones() {
       </div>
 
       {hasExactlyOneZone && (
-        <div style={{marginLeft: '58px'}}>
+        <div className="StatsPage-indent">
           <BeleidszonesAvailabilityKpi
             zoneId={selectedZoneIds[0]}
             zoneName={selectedZone?.name}

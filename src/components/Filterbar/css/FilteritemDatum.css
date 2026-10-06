@@ -83,3 +83,26 @@
   background-color: white;
   z-index: 2;
 }
+
+/* The date, time, calendar button and both carets must fit the 217px box
+   of the sidebar, so the picker uses tighter padding than its defaults. */
+.filter-datum-box-1 .filter-datum-caret {
+  padding: 0 0.25em;
+}
+
+.filter-datum-dtpicker {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.filter-datum-dtpicker .react-datetime-picker__button {
+  padding: 4px 3px;
+}
+
+.filter-datum-dtpicker .react-datetime-picker__inputGroup__input {
+  padding: 1px 1px;
+}
+
+.filter-datum-dtpicker .react-datetime-picker__inputGroup__input--hasLeadingZero {
+  padding-left: calc(1px + 0.54em);
+}

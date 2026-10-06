@@ -53,6 +53,39 @@ export function FilteritemMarkersAfstand() {
   });
 }
 
+// Bars lower than this cannot hold the two text lines; their label sits on top
+const BAR_HEIGHT_PX = 96;
+const MIN_LABEL_INSIDE_PX = 30;
+
+// White text on dark bars, dark text on light ones (relative luminance)
+const textColorFor = (hex) => {
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
+    .map(c => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.4 ? '#343E47' : '#FFFFFF';
+};
+
+function MarkerBar({count, percentage, fraction, color}) {
+  const height = Math.round(BAR_HEIGHT_PX * fraction);
+  const labelInside = height >= MIN_LABEL_INSIDE_PX;
+  const label = (
+    <div
+      className="filter-markers-itemcount"
+      style={labelInside ? {color: textColorFor(color)} : undefined}
+    >
+      <span>{count}</span>
+      <span>{percentage}%</span>
+    </div>
+  );
+  return (
+    <div className="filter-markers-bartrack" style={{height: BAR_HEIGHT_PX}}>
+      {! labelInside && label}
+      <div className="filter-markers-bar" style={{height, background: color}}>
+        {labelInside && label}
+      </div>
+    </div>
+  );
+}
+
 function FilteritemMarkers({label, filtername, markers, addmarker, removemarker, clearmarkers}) {
   const dispatch = useDispatch()
 
@@ -103,6 +136,10 @@ function FilteritemMarkers({label, filtername, markers, addmarker, removemarker,
     return marker.count !== undefined ? total + marker.count : total;
   }, 0);
 
+  // The bars under the markers form a histogram: the largest bin fills the
+  // full bar height, the others scale to it.
+  const maxCount = markers.reduce((max, marker) => Math.max(max, marker.count || 0), 0);
+
   return (
     <div className="filter-markers-container">
       {filterMarkersExclude!=='' ? <div className="filter-markers-title-row">
@@ -134,9 +171,12 @@ function FilteritemMarkers({label, filtername, markers, addmarker, removemarker,
                   { marker.name }
                 </div>
                 {marker.count!==undefined && totalCount>0 &&
-                  <div className="filter-markers-itemcount">
-                    { marker.count } ({ Math.round(100 * marker.count / totalCount) }%)
-                  </div>
+                  <MarkerBar
+                    count={marker.count}
+                    percentage={Math.round(100 * marker.count / totalCount)}
+                    fraction={marker.count / maxCount}
+                    color={marker.color}
+                  />
                 }
               </div>)
           })

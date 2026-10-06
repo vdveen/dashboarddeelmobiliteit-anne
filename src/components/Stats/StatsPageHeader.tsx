@@ -76,21 +76,21 @@ function StatsPageHeader({
       </p>
 
       {aggregationLevels.length > 0 && (
-        <div className="StatsPageHeader-controls flex items-center gap-2 mt-3">
+        <div className="StatsPageHeader-controls flex flex-wrap items-center gap-x-2 gap-y-3 mt-3">
           <AggregationLevelControl
             levels={aggregationLevels}
             activeLevel={activeAggregationLevel}
             onChange={onChangeAggregationLevel}
           />
 
-          <span className="mx-1 h-5 w-px bg-gray-200" aria-hidden="true" />
+          <span className="mx-1 h-5 w-px bg-gray-200 hidden sm:inline-block" aria-hidden="true" />
 
           <button
             type="button"
             role="switch"
             aria-checked={compareWithPreviousPeriod}
             onClick={() => onChangeCompareWithPreviousPeriod(!compareWithPreviousPeriod)}
-            className="StatsPageHeader-compare inline-flex items-center gap-2 text-xs text-gray-600 select-none"
+            className="StatsPageHeader-compare inline-flex items-center gap-2 text-left text-xs text-gray-600 select-none"
           >
             <span
               className={
