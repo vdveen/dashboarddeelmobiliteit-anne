@@ -18,6 +18,9 @@ const initialState = {
   destinations: {},
   origins_operatorstats: [],
   destinations_operatorstats: [],
+  // Trips per afstand bin ({0: n, 1: n, 2: n, 3: n}) or null
+  origins_distancestats: null,
+  destinations_distancestats: null,
   // Imported CSV data ('Ruwe data import'): { fileName, rows, fileRange, range }
   // or null. Ranges are Amsterdam days ({ start, end } as YYYY-MM-DD); the map
   // shows the rows within `range` instead of API data
@@ -69,25 +72,29 @@ export default function rentals(state = initialState, action) {
     case 'SET_RENTALS_ORIGINS': {
       return Object.assign({}, state, {
         origins: action.payload,
-        origins_operatorstats: []
+        origins_operatorstats: [],
+        origins_distancestats: null
       })
     }
     case 'SET_RENTALS_DESTINATIONS': {
       return Object.assign({}, state, {
         destinations: action.payload,
-        destinations_operatorstats: []
+        destinations_operatorstats: [],
+        destinations_distancestats: null
       })
     }
     case 'CLEAR_RENTALS_ORIGINS': {
       return Object.assign({}, state, {
         origins: [],
-        origins_operatorstats: []
+        origins_operatorstats: [],
+        origins_distancestats: null
       })
     }
     case 'CLEAR_RENTALS_DESTINATIONS': {
       return Object.assign({}, state, {
         destinations: [],
-        destinations_operatorstats: []
+        destinations_operatorstats: [],
+        destinations_distancestats: null
       })
     }
     case 'SET_RENTALS_CSV_DATA': {
@@ -119,6 +126,16 @@ export default function rentals(state = initialState, action) {
     case 'SET_RENTALS_DESTINATIONS_OPERATORSTATS': {
       return Object.assign({}, state, {
         destinations_operatorstats: action.payload
+      })
+    }
+    case 'SET_RENTALS_ORIGINS_DISTANCESTATS': {
+      return Object.assign({}, state, {
+        origins_distancestats: action.payload
+      })
+    }
+    case 'SET_RENTALS_DESTINATIONS_DISTANCESTATS': {
+      return Object.assign({}, state, {
+        destinations_distancestats: action.payload
       })
     }
     default:

@@ -34,13 +34,23 @@ export function FilteritemMarkersParkeerduur() {
 }
 
 export function FilteritemMarkersAfstand() {
-  const markers = useSelector((state: StateType) => {
-    return [
-      { id: 0, color: '#48E248', fillcolor: '#48E248', name: '1km'},
-      { id: 1, color: '#44BD48', fillcolor: '#44BD48', name: '2km'},
-      { id: 2, color: '#3B7747', fillcolor: '#3B7747', name: '5km'},
-      { id: 3, color: '#343E47', fillcolor: '#343E47', name: '> 5km'}
-    ];
+  // Number of trips per afstand bin, as calculated in pollVerhuringenData
+  const distancestats = useSelector((state: StateType) => {
+    if(! state.rentals) return null;
+    const isBestemming = state.filter && state.filter.herkomstbestemming === 'bestemming';
+    return isBestemming ? state.rentals.destinations_distancestats : state.rentals.origins_distancestats;
+  });
+
+  const markers = [
+    { id: 0, color: '#48E248', fillcolor: '#48E248', name: '1km'},
+    { id: 1, color: '#44BD48', fillcolor: '#44BD48', name: '2km'},
+    { id: 2, color: '#3B7747', fillcolor: '#3B7747', name: '5km'},
+    { id: 3, color: '#343E47', fillcolor: '#343E47', name: '> 5km'}
+  ].map(marker => {
+    return distancestats && distancestats[marker.id] !== undefined ?
+      Object.assign({}, marker, { count: distancestats[marker.id] })
+      :
+      marker;
   });
   
   return FilteritemMarkers({

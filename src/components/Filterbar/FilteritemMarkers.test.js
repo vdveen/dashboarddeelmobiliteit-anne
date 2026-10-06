@@ -63,3 +63,25 @@ test('afstand legend is unaffected', () => {
   );
   expect(counts()).toEqual([]);
 });
+
+test('afstand histogram uses the trips of the chosen direction', () => {
+  const rentals = {
+    origins_distancestats: {0: 30, 1: 10, 2: 10, 3: 0},
+    destinations_distancestats: {0: 5, 1: 5, 2: 0, 3: 10}
+  };
+  const { unmount } = render(
+    <Provider store={createStore(() => ({ rentals, filter: { herkomstbestemming: 'herkomst' } }))}>
+      <FilteritemMarkersAfstand />
+    </Provider>
+  );
+  expect(counts()).toEqual(['30 60%', '10 20%', '10 20%', '0 0%']);
+  expect(barHeights()).toEqual(['96px', '32px', '32px', '0px']);
+  unmount();
+
+  render(
+    <Provider store={createStore(() => ({ rentals, filter: { herkomstbestemming: 'bestemming' } }))}>
+      <FilteritemMarkersAfstand />
+    </Provider>
+  );
+  expect(counts()).toEqual(['5 25%', '5 25%', '0 0%', '10 50%']);
+});

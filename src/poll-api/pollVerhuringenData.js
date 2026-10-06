@@ -51,6 +51,10 @@ const processRentalsResult = (state, type, rentals) => {
   let aanbiedersexclude = state.filter.aanbiedersexclude.split(",") || []
   let afstandexclude = state.filter.afstandexclude.split(",") || [];
 
+  // Number of trips per afstand bin, used for the Afstand histogram. The
+  // afstand filter itself is *not* applied, so excluding a bin keeps its count.
+  let distancestats = {0: 0, 1: 0, 2: 0, 3: 0};
+
   // Map data
   activeRentals[`trip_${type}`].forEach(v => {
     const distance_bin = convertDistanceToBin(v.distance_in_meters);
@@ -80,8 +84,12 @@ const processRentalsResult = (state, type, rentals) => {
 
     operatorstats[v.system_id || v.value]+=1;
 
-    let markerVisible = !afstandexclude.includes(distance_bin.toString());
-    markerVisible = markerVisible && (aanbiedersexclude.includes(v.system_id || v.value) === false)
+    const passesAanbiedersFilter = aanbiedersexclude.includes(v.system_id || v.value) === false;
+    if(passesAanbiedersFilter) {
+      distancestats[distance_bin]+=1;
+    }
+
+    const markerVisible = passesAanbiedersFilter && !afstandexclude.includes(distance_bin.toString());
     if(markerVisible) {
       geoJson.features.push(feature);
     }
@@ -96,6 +104,11 @@ const processRentalsResult = (state, type, rentals) => {
   store_verhuringendata.dispatch({
     type: `SET_RENTALS_${type.toUpperCase()}_OPERATORSTATS`,
     payload: operatorstats
+  })
+
+  store_verhuringendata.dispatch({
+    type: `SET_RENTALS_${type.toUpperCase()}_DISTANCESTATS`,
+    payload: distancestats
   })
 }
 
