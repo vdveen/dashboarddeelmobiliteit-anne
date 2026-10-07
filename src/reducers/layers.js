@@ -25,12 +25,14 @@ export const DATASOURCE_VERHUUR = 'rentals';
 export const DATA_LAYER_ORDER_GROUP = 'data-group';
 export const DATA_LAYER_ORDER_CBS = 'cbs-zones';
 export const DATA_LAYER_ORDER_SERVICE_AREAS = 'servicegebieden';
+export const DATA_LAYER_ORDER_PARKING_HUBS = 'parkeerhubs';
 export const DATA_LAYER_ORDER_HUBS = 'hubs';
 export const DATA_LAYER_ORDER_VERBODSGEBIEDEN = 'verbodsgebieden';
 
 export const VALID_DATA_LAYER_ORDER_IDS = [
   DATA_LAYER_ORDER_GROUP,
   DATA_LAYER_ORDER_CBS,
+  DATA_LAYER_ORDER_PARKING_HUBS,
   DATA_LAYER_ORDER_SERVICE_AREAS,
   DATA_LAYER_ORDER_HUBS,
   DATA_LAYER_ORDER_VERBODSGEBIEDEN
@@ -38,6 +40,7 @@ export const VALID_DATA_LAYER_ORDER_IDS = [
 
 // Overlay layers (Andere datalaag) that can be toggled per display mode
 export const VALID_OVERLAY_LAYER_IDS = [
+  DATA_LAYER_ORDER_PARKING_HUBS,
   DATA_LAYER_ORDER_SERVICE_AREAS,
   DATA_LAYER_ORDER_HUBS,
   DATA_LAYER_ORDER_VERBODSGEBIEDEN
@@ -54,6 +57,7 @@ export const DEFAULT_DATA_LAYER_ORDER = {
   'displaymode-park': [
     DATA_LAYER_ORDER_GROUP,
     DATA_LAYER_ORDER_CBS,
+    DATA_LAYER_ORDER_PARKING_HUBS,
     DATA_LAYER_ORDER_SERVICE_AREAS,
     DATA_LAYER_ORDER_HUBS,
     DATA_LAYER_ORDER_VERBODSGEBIEDEN
@@ -61,11 +65,13 @@ export const DEFAULT_DATA_LAYER_ORDER = {
   'displaymode-rentals': [
     DATA_LAYER_ORDER_GROUP,
     DATA_LAYER_ORDER_CBS,
+    DATA_LAYER_ORDER_PARKING_HUBS,
     DATA_LAYER_ORDER_SERVICE_AREAS,
     DATA_LAYER_ORDER_HUBS,
     DATA_LAYER_ORDER_VERBODSGEBIEDEN
   ],
   'displaymode-service-areas': [
+    DATA_LAYER_ORDER_PARKING_HUBS,
     DATA_LAYER_ORDER_SERVICE_AREAS,
     DATA_LAYER_ORDER_HUBS,
     DATA_LAYER_ORDER_VERBODSGEBIEDEN,
@@ -74,6 +80,7 @@ export const DEFAULT_DATA_LAYER_ORDER = {
   'displaymode-policy-hubs': [
     DATA_LAYER_ORDER_HUBS,
     DATA_LAYER_ORDER_VERBODSGEBIEDEN,
+    DATA_LAYER_ORDER_PARKING_HUBS,
     DATA_LAYER_ORDER_SERVICE_AREAS,
     DATA_LAYER_ORDER_CBS
   ]
@@ -83,7 +90,7 @@ export const DEFAULT_OVERLAY_LAYERS = {
   enabled: {
     'displaymode-park': [],
     'displaymode-rentals': [],
-    'displaymode-service-areas': [DATA_LAYER_ORDER_SERVICE_AREAS],
+    'displaymode-service-areas': [DATA_LAYER_ORDER_PARKING_HUBS, DATA_LAYER_ORDER_SERVICE_AREAS],
     'displaymode-policy-hubs': []
   },
   phases: {

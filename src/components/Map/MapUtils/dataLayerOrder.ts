@@ -5,12 +5,14 @@ import {
   DATA_LAYER_ORDER_GROUP,
   DATA_LAYER_ORDER_CBS,
   DATA_LAYER_ORDER_SERVICE_AREAS,
+  DATA_LAYER_ORDER_PARKING_HUBS,
   DATA_LAYER_ORDER_HUBS,
   DATA_LAYER_ORDER_VERBODSGEBIEDEN,
   DEFAULT_DATA_LAYER_ORDER,
   sanitizeDataLayerOrder
 } from '../../../reducers/layers.js';
 import { canMutateMapLayers, whenMapLayersMutable } from './mapGuards';
+import { PARKING_HUBS_MAP_LAYER_IDS } from './map.service_areas';
 
 const CBS_MAP_LAYER_IDS = [
   'zones-geodata',
@@ -88,6 +90,9 @@ const getMapLayerIdsForListItem = (listId: string, displayMode: string): string[
   }
   if (listId === DATA_LAYER_ORDER_SERVICE_AREAS) {
     return SERVICE_AREAS_MAP_LAYER_IDS;
+  }
+  if (listId === DATA_LAYER_ORDER_PARKING_HUBS) {
+    return PARKING_HUBS_MAP_LAYER_IDS;
   }
   if (listId === DATA_LAYER_ORDER_HUBS) {
     return displayMode === DISPLAYMODE_POLICY_HUBS

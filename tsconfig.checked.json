@@ -16,7 +16,8 @@
     "src/components/Map/MapControls/MapControlsPortal.tsx",
     "src/components/VoiAvailability/polygonGeometry.ts",
     "src/components/VoiAvailability/voiAvailabilityChart.ts",
-    "src/api/voiSnapshots.ts"
+    "src/api/voiSnapshots.ts",
+    "src/helpers/service-areas/roles.ts"
   ],
   "exclude": [
     "node_modules"

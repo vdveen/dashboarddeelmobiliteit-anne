@@ -23,7 +23,7 @@ import { setBackgroundLayer } from '../../Map/MapUtils/map';
 import { setMapStyle } from '../../../actions/layers';
 import { ServiceAreaDelta } from '../../../types/ServiceAreaDelta';
 import moment from 'moment';
-import { loadServiceAreas, loadServiceAreasHistory, loadServiceAreaDeltas } from '../../../helpers/service-areas';
+import { loadServiceAreas, loadServiceAreasHistory, loadServiceAreaDeltas, splitServiceAreasForMap } from '../../../helpers/service-areas';
 import { useBackgroundLayer } from '../../Map/MapUtils/useBackgroundLayer';
 import { whenMapLayersMutable } from '../../Map/MapUtils/mapGuards';
 import { selectOverlayLayers, isOverlayLayerEnabled, selectDataLayerOrder } from '../../../helpers/layerSelectors';
@@ -239,7 +239,7 @@ const DdServiceAreasLayer = ({
 
     // Only render if we're not showing a delta (delta takes precedence)
     if (!versionParam) {
-      renderServiceAreas(map, visible_operators[0], serviceAreaForMunicipality.geometries);
+      renderServiceAreas(map, splitServiceAreasForMap([serviceAreaForMunicipality]).areas);
 
       // Re-apply the user-defined z-order now that the layers exist again
       applyDataLayerOrderWhenReady(map, dataLayerOrder[DISPLAYMODE_SERVICE_AREAS], DISPLAYMODE_SERVICE_AREAS);
