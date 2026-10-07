@@ -31,8 +31,9 @@ export const getTripsWithDistance = async (token, filter, metadata, signal, orga
     is_logged_in: true,
     organisationType,
   }).join('&'));
-  params.set('start_time', start.toISOString());
-  params.set('end_time', end.toISOString());
+  // The API only accepts whole-second UTC timestamps (no milliseconds).
+  params.set('start_time', start.clone().utc().format('YYYY-MM-DDTHH:mm:ss[Z]'));
+  params.set('end_time', end.clone().utc().format('YYYY-MM-DDTHH:mm:ss[Z]'));
   const response = await fetch(`${process.env.REACT_APP_MAIN_API_URL}/dashboard-api/v2/trips/origins?${params}`, {
     headers: { authorization: `Bearer ${token}` }, signal
   });
