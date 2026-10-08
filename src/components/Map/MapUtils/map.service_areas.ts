@@ -151,8 +151,8 @@ export const PARKING_HUBS_MAP_LAYER_IDS = [
 // hubs show as dots instead
 const PARKING_HUB_ICON_MIN_ZOOM = 12;
 
-// Blue of the parking sign; the hub circles are filled with it too, so they
-// match the sign and stand out from the operator-coloured vehicles in them
+// Blue of the parking sign; also used for the hub circles so they stand out
+// from the operator-coloured vehicles parked in them
 const PARKING_HUB_COLOR = '#1565c0';
 
 // Blue square with a white P, like a Dutch parking sign (🅿)
@@ -236,7 +236,7 @@ const renderParkingHubs = (
     type: 'fill',
     paint: {
       'fill-color': PARKING_HUB_COLOR,
-      'fill-opacity': 1
+      'fill-opacity': 0.6
     }
   });
   map.addLayer({
