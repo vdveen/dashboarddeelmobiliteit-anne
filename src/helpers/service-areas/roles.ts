@@ -10,7 +10,8 @@
  * - border: a band with a hole around the service area, where riding is
  *           possible but parking is not.
  * - area:   the service area itself.
- * - hub:    small circular parking spots (Voi: ~3 m radius, 12 to 16 vertices).
+ * - hub:    parking spots: circles (~3 m radius, 12 to 16 vertices) or, in
+ *           cities such as Groningen, small polygons drawn per spot.
  *
  * Other operators publish plain areas, sometimes with no-go holes; those stay
  * 'area' because no other feature of the operator lies inside their bounds.
@@ -54,6 +55,26 @@ const isCircularRing = (ring: Ring): boolean => {
   const min = Math.min(...distances);
   const max = Math.max(...distances);
   return min > 0 && max / min <= MAX_CIRCLE_RADIUS_SPREAD;
+};
+
+// Any hole-free polygon smaller than this is a parking spot. Voi's spot sizes
+// run continuously into larger zones, so this is a chosen cut-off, not a gap
+// in the data.
+const MAX_HUB_AREA_M2 = 1000;
+
+// Area of a ring in m², projected around its own latitude; accurate enough
+// for spot-sized polygons
+const ringAreaM2 = (ring: Ring): number => {
+  if (ring.length < 3) return 0;
+  const metresPerDegree = 111320;
+  const lonScale = Math.cos((ring[0][1] * Math.PI) / 180);
+  let twiceArea = 0;
+  for (let i = 0; i < ring.length - 1; i++) {
+    const [x1, y1] = ring[i];
+    const [x2, y2] = ring[i + 1];
+    twiceArea += x1 * lonScale * y2 - x2 * lonScale * y1;
+  }
+  return (Math.abs(twiceArea) / 2) * metresPerDegree * metresPerDegree;
 };
 
 const bboxOf = (rings: Ring[]): BBox | null => {
@@ -104,8 +125,10 @@ export const classifyServiceAreaFeatures = (
 
   const initialRoles = shapes.map(({ polygons, hasHoles }): ServiceAreaRole => {
     if (polygons.length === 0) return 'area';
-    if (!hasHoles && polygons.every((polygon) => isCircularRing(polygon[0]))) {
-      return 'hub';
+    if (!hasHoles) {
+      const isCircle = polygons.every((polygon) => isCircularRing(polygon[0]));
+      const area = polygons.reduce((sum, polygon) => sum + ringAreaM2(polygon[0]), 0);
+      if (isCircle || area < MAX_HUB_AREA_M2) return 'hub';
     }
     if (polygons.some((polygon) => polygon.length > 1 && distinctVertices(polygon[0]).length === 4)) {
       return 'mask';

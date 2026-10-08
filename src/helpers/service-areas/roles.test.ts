@@ -48,12 +48,13 @@ describe('classifyServiceAreaFeatures', () => {
     expect(classifyServiceAreaFeatures(voiFeatures)).toEqual(['hub', 'mask', 'border', 'area', 'hub']);
   });
 
-  it('keeps small non-circular polygons as areas', () => {
+  it('treats polygons under 1000 m² as hubs and larger ones as areas', () => {
+    // ~7 x 11 m parking spot, ~68 x 111 m zone
     const roles = classifyServiceAreaFeatures([
       feature([[boxRing(5.38, 52.15, 5.3801, 52.1501)]]),
-      feature([[circleRing(5.38, 52.15, 0.00003, 6)]])
+      feature([[boxRing(5.38, 52.15, 5.381, 52.151)]])
     ]);
-    expect(roles).toEqual(['area', 'area']);
+    expect(roles).toEqual(['hub', 'area']);
   });
 
   it('keeps an area with no-go holes as an area', () => {
