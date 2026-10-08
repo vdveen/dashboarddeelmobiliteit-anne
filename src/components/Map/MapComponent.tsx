@@ -41,11 +41,12 @@ import {
   DISPLAYMODE_SERVICE_AREAS,
   DISPLAYMODE_POLICY_HUBS,
   DATA_LAYER_ORDER_SERVICE_AREAS,
+  DATA_LAYER_ORDER_PARKING_HUBS,
   DATA_LAYER_ORDER_HUBS,
   DATA_LAYER_ORDER_VERBODSGEBIEDEN,
 } from '../../reducers/layers.js';
 import { removeHubsFromMap } from './MapUtils/map.policy_hubs';
-import { removeServiceAreasFromMap } from './MapUtils/map.service_areas';
+import { removeServiceAreasFromMap, removeParkingHubsFromMap } from './MapUtils/map.service_areas';
 import { removeServiceAreaDeltaFromMap } from './MapUtils/map.service_area_delta';
 
 import './MapComponent.css';
@@ -567,6 +568,9 @@ const MapComponent = (props): JSX.Element => {
       removeServiceAreasFromMap(map.current);
       removeServiceAreaDeltaFromMap(map.current);
     }
+    if (!isOverlayLayerEnabled(overlayLayers, displayMode, DATA_LAYER_ORDER_PARKING_HUBS)) {
+      removeParkingHubsFromMap(map.current);
+    }
   }, [displayMode, didMapLoad, overlayLayers]);
 
   // Set vehicles sources
@@ -834,6 +838,11 @@ const MapComponent = (props): JSX.Element => {
     return showSearchBar();
   }
 
+  // On /map/servicegebieden DdServiceAreasLayer draws the areas itself
+  const showServiceAreasOverlay = stateLayers.displaymode !== DISPLAYMODE_SERVICE_AREAS
+    && isOverlayLayerEnabled(overlayLayers, stateLayers.displaymode, DATA_LAYER_ORDER_SERVICE_AREAS);
+  const showParkingHubsOverlay = isOverlayLayerEnabled(overlayLayers, stateLayers.displaymode, DATA_LAYER_ORDER_PARKING_HUBS);
+
   return <>
     {/* The map container (HTML element) */}
     <div ref={mapContainer} className={`map flex-1 ${filterbarOpen ? 'filter-open' : ''}`} />
@@ -854,9 +863,12 @@ const MapComponent = (props): JSX.Element => {
       <DdPolicyHubsLayer map={map.current} />
     </>}
     {/* Overlay layers (Andere datalaag) on non-native pages */}
-    {stateLayers.displaymode !== DISPLAYMODE_SERVICE_AREAS
-      && isOverlayLayerEnabled(overlayLayers, stateLayers.displaymode, DATA_LAYER_ORDER_SERVICE_AREAS)
-      && <DdServiceAreasOverlay map={map.current} />}
+    {(showServiceAreasOverlay || showParkingHubsOverlay)
+      && <DdServiceAreasOverlay
+        map={map.current}
+        showAreas={showServiceAreasOverlay}
+        showHubs={showParkingHubsOverlay}
+      />}
     {stateLayers.displaymode !== DISPLAYMODE_POLICY_HUBS
       && (isOverlayLayerEnabled(overlayLayers, stateLayers.displaymode, DATA_LAYER_ORDER_HUBS)
         || isOverlayLayerEnabled(overlayLayers, stateLayers.displaymode, DATA_LAYER_ORDER_VERBODSGEBIEDEN))

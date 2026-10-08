@@ -45,6 +45,7 @@ import {
   DATA_LAYER_ORDER_GROUP,
   DATA_LAYER_ORDER_CBS,
   DATA_LAYER_ORDER_SERVICE_AREAS,
+  DATA_LAYER_ORDER_PARKING_HUBS,
   DATA_LAYER_ORDER_HUBS,
   DATA_LAYER_ORDER_VERBODSGEBIEDEN,
   VALID_OVERLAY_PHASES,
@@ -86,6 +87,7 @@ const PARK_OPTIONS: VisualizationOption[] = [
 
 const OVERLAY_LABELS: { [id: string]: string } = {
   [DATA_LAYER_ORDER_SERVICE_AREAS]: 'Servicegebieden',
+  [DATA_LAYER_ORDER_PARKING_HUBS]: 'Parkeerhubs',
   [DATA_LAYER_ORDER_HUBS]: 'Hubs',
   [DATA_LAYER_ORDER_VERBODSGEBIEDEN]: 'Verbodsgebieden'
 };
@@ -207,7 +209,7 @@ const DataLayerList = ({
   const isItemChecked = (id: string) => {
     if (id === DATA_LAYER_ORDER_GROUP) return true;
     if (id === DATA_LAYER_ORDER_CBS) return zonesVisible;
-    if (id === DATA_LAYER_ORDER_SERVICE_AREAS) {
+    if (id === DATA_LAYER_ORDER_SERVICE_AREAS || id === DATA_LAYER_ORDER_PARKING_HUBS) {
       return isOverlayLayerEnabled(overlayLayers, displayMode, id);
     }
     if (id === DATA_LAYER_ORDER_HUBS || id === DATA_LAYER_ORDER_VERBODSGEBIEDEN) {
@@ -398,6 +400,7 @@ const DataLayerList = ({
   const renderItem = (id: string) => {
     const checked = isItemChecked(id);
     const isOverlayRow = id === DATA_LAYER_ORDER_SERVICE_AREAS
+      || id === DATA_LAYER_ORDER_PARKING_HUBS
       || id === DATA_LAYER_ORDER_HUBS
       || id === DATA_LAYER_ORDER_VERBODSGEBIEDEN;
     return (

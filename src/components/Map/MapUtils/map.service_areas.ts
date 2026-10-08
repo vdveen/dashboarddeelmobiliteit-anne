@@ -1,4 +1,3 @@
-import { getProviderColorForProvider } from "../../../helpers/providers";
 import { canMutateMapLayers, whenMapLayersMutable } from './mapGuards';
 
 type HexagonType = any;
@@ -66,46 +65,44 @@ const removeServiceAreasFromMap = (map: any) => {
     }
 }
 
-async function renderPolygons_fill(map, operator: string, geojson) {
+// Paint per role (see helpers/service-areas/roles.ts). The service area
+// itself stays faint so the map underneath remains readable; the band along
+// its edge, where parking is not allowed, gets a strong fill and outline.
+const AREA_FILL_OPACITY = 0.12;
+const BORDER_FILL_OPACITY = 0.45;
+
+const renderPolygons_fill = (map, geojson: GeoJSON.FeatureCollection) => {
     const sourceId = 'service_areas';
     let layerId = `${sourceId}-layer-fill`
       , source = map.getSource(sourceId);
-    const layer = map.getLayer(layerId)
-  
-    // Add the source if we haven't created them yet
+
     if (! source) {
       map.addSource(sourceId, {
         type: 'geojson',
         data: geojson,
         generateId: true // This ensures that all features have unique IDs
       });
-  
-      // Set source variable
-      source = map.getSource(sourceId);
+    } else {
+      source.setData(geojson);
     }
-    if (! layer) {
-      // Add hexes (fill + 1px outline)
+
+    if (! map.getLayer(layerId)) {
       map.addLayer({
         id: layerId,
         source: sourceId,
-        type: 'fill'
+        type: 'fill',
+        paint: {
+          'fill-color': ['get', 'color'],
+          'fill-opacity': [
+            'match', ['get', 'role'],
+            'border', BORDER_FILL_OPACITY,
+            AREA_FILL_OPACITY
+          ]
+        }
       });
     }
-    // If source was already present: Update data
-    else {
-      // Update the geojson data
-      source.setData(geojson);
-    }
-    
-    // Set fill color
-    // map.setPaintProperty(layerId, 'fill-color', '#8f3af8');
-    map.setPaintProperty(layerId, 'fill-color', getProviderColorForProvider(operator));
 
-    // Set opacity
-    map.setPaintProperty(layerId, 'fill-opacity', 0.6);
-  
-    // Add line layer for wider outline/borders, on top of fill layer
-    // Info here: https://stackoverflow.com/questions/50351902/in-a-mapbox-gl-js-layer-of-type-fill-can-we-control-the-stroke-thickness/50372832#50372832
+    // Outline on top of the fill
     layerId = `${sourceId}-layer-border`;
     if (map.getLayer(layerId)) return;
     map.addLayer({
@@ -113,47 +110,180 @@ async function renderPolygons_fill(map, operator: string, geojson) {
       source: sourceId,
       type: 'line',
       paint: {
-        'line-color': [
-          "case",
-          ["==", ["get", "selected"], 1], '#15aeef',
-          ["boolean", ["feature-state", "hover"], false], '#666',
-          '#DDD'
-        ],
+        'line-color': ['get', 'color'],
+        'line-opacity': 0.9,
         'line-width': [
-          "case",
-          ["==", ["get", "selected"], 1], 5,
-          ["boolean", ["feature-state", "hover"], false], 2,
-          1
+          'match', ['get', 'role'],
+          'border', 2.5,
+          1.5
         ]
       }
     });
 }
 
-const renderServiceAreas = async (
+const renderServiceAreas = (
   map: any,
-  operator: string,
-  geojson: any,
+  geojson: GeoJSON.FeatureCollection,
 ) => {
   if (!map) return;
   if (!canMutateMapLayers(map)) {
-    whenMapLayersMutable(map, () => renderServiceAreas(map, operator, geojson));
+    whenMapLayersMutable(map, () => renderServiceAreas(map, geojson));
     return;
   }
 
-//   // Create feature collection based on geometriesForUser & hbDataResponse
-  const featureCollection = geojson;
-
   // Remove old sources first
   removeServiceAreasFromMap(map);
-  // Render hexes
-  renderPolygons_fill(map, operator, featureCollection);
-//   // Render outline border
-//   renderPolygons_border(map, featureCollection.geojsonForOuterBorder, filter);
-//   // Render percentages inside the polygons
-//   renderPercentageValues(map, featureCollection.geojson, filter);
+  renderPolygons_fill(map, geojson);
+}
+
+const PARKING_HUBS_SOURCE = 'service_area_hubs';
+const PARKING_HUB_POINTS_SOURCE = 'service_area_hub_points';
+const PARKING_HUB_ICON = 'service-area-parking-hub-icon';
+
+export const PARKING_HUBS_MAP_LAYER_IDS = [
+  `${PARKING_HUBS_SOURCE}-layer-fill`,
+  `${PARKING_HUBS_SOURCE}-layer-border`,
+  `${PARKING_HUB_POINTS_SOURCE}-layer-dot`,
+  `${PARKING_HUB_POINTS_SOURCE}-layer-icon`
+];
+
+// Zoomed out further than this, hundreds of icons merge into one blob, so
+// hubs show as dots instead
+const PARKING_HUB_ICON_MIN_ZOOM = 12;
+
+// Blue of the parking sign; the hub circles are filled with it too, so they
+// match the sign and stand out from the operator-coloured vehicles in them
+const PARKING_HUB_COLOR = '#1565c0';
+
+// Blue square with a white P, like a Dutch parking sign (🅿)
+const addParkingHubIcon = (map) => {
+  if (map.hasImage(PARKING_HUB_ICON)) return;
+  const size = 48;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const radius = 9;
+  const inset = 2;
+  ctx.beginPath();
+  ctx.moveTo(inset + radius, inset);
+  ctx.arcTo(size - inset, inset, size - inset, size - inset, radius);
+  ctx.arcTo(size - inset, size - inset, inset, size - inset, radius);
+  ctx.arcTo(inset, size - inset, inset, inset, radius);
+  ctx.arcTo(inset, inset, size - inset, inset, radius);
+  ctx.closePath();
+  ctx.fillStyle = PARKING_HUB_COLOR;
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#ffffff';
+  ctx.stroke();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 34px Arial, Helvetica, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('P', size / 2, size / 2 + 2);
+
+  map.addImage(PARKING_HUB_ICON, ctx.getImageData(0, 0, size, size), { pixelRatio: 2 });
+}
+
+const removeParkingHubsFromMap = (map: any) => {
+  if (!map) return;
+  if (!canMutateMapLayers(map)) {
+    whenMapLayersMutable(map, () => removeParkingHubsFromMap(map));
+    return;
+  }
+
+  try {
+    PARKING_HUBS_MAP_LAYER_IDS.forEach((layerId) => {
+      if (map.getLayer(layerId)) map.removeLayer(layerId);
+    });
+    [PARKING_HUBS_SOURCE, PARKING_HUB_POINTS_SOURCE].forEach((sourceId) => {
+      if (map.getSource(sourceId)) map.removeSource(sourceId);
+    });
+  } catch {
+    // Map may already be torn down during route navigation.
+  }
+}
+
+/**
+ * Draw parking hubs as their circle plus a parking icon standing just above
+ * it. The circles are a few metres wide, so the icon is what makes them
+ * findable; placing it above keeps the circle itself visible.
+ */
+const renderParkingHubs = (
+  map: any,
+  hubs: GeoJSON.FeatureCollection,
+  hubPoints: GeoJSON.FeatureCollection
+) => {
+  if (!map) return;
+  if (!canMutateMapLayers(map)) {
+    whenMapLayersMutable(map, () => renderParkingHubs(map, hubs, hubPoints));
+    return;
+  }
+
+  removeParkingHubsFromMap(map);
+  addParkingHubIcon(map);
+
+  map.addSource(PARKING_HUBS_SOURCE, { type: 'geojson', data: hubs });
+  map.addSource(PARKING_HUB_POINTS_SOURCE, { type: 'geojson', data: hubPoints });
+
+  map.addLayer({
+    id: `${PARKING_HUBS_SOURCE}-layer-fill`,
+    source: PARKING_HUBS_SOURCE,
+    type: 'fill',
+    paint: {
+      'fill-color': PARKING_HUB_COLOR,
+      'fill-opacity': 1
+    }
+  });
+  map.addLayer({
+    id: `${PARKING_HUBS_SOURCE}-layer-border`,
+    source: PARKING_HUBS_SOURCE,
+    type: 'line',
+    paint: {
+      'line-color': PARKING_HUB_COLOR,
+      'line-width': 1.5
+    }
+  });
+  map.addLayer({
+    id: `${PARKING_HUB_POINTS_SOURCE}-layer-dot`,
+    source: PARKING_HUB_POINTS_SOURCE,
+    type: 'circle',
+    maxzoom: PARKING_HUB_ICON_MIN_ZOOM,
+    paint: {
+      'circle-color': PARKING_HUB_COLOR,
+      'circle-radius': 2.5,
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-width': 0.5
+    }
+  });
+  map.addLayer({
+    id: `${PARKING_HUB_POINTS_SOURCE}-layer-icon`,
+    source: PARKING_HUB_POINTS_SOURCE,
+    type: 'symbol',
+    minzoom: PARKING_HUB_ICON_MIN_ZOOM,
+    layout: {
+      'icon-image': PARKING_HUB_ICON,
+      'icon-anchor': 'bottom',
+      'icon-offset': [0, -3],
+      'icon-size': [
+        'interpolate', ['linear'], ['zoom'],
+        PARKING_HUB_ICON_MIN_ZOOM, 0.55,
+        14, 0.75,
+        18, 1
+      ],
+      'icon-allow-overlap': true,
+      'icon-ignore-placement': true
+    }
+  });
 }
 
 export {
     renderServiceAreas,
-    removeServiceAreasFromMap
+    removeServiceAreasFromMap,
+    renderParkingHubs,
+    removeParkingHubsFromMap
 }
