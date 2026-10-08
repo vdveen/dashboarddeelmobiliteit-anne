@@ -33,11 +33,15 @@ export const loadServiceAreaDeltas = async (
   return await fetchServiceAreaDelta(versionId);
 };
 
+// The API reads a comma-joined value as one operator name, so repeat the
+// parameter: operators=check&operators=voi
 const operatorsQueryParam = (visible_operators: string[] | null | undefined): string | null => {
   if (!visible_operators || visible_operators.length === 0) {
     return null;
   }
-  return visible_operators.map((x) => x.toLowerCase().replace(' ', '')).join(',');
+  return visible_operators
+    .map((x) => `operators=${encodeURIComponent(x.toLowerCase().replace(' ', ''))}`)
+    .join('&');
 };
 
 const fetchServiceAreas = async (
@@ -49,7 +53,7 @@ const fetchServiceAreas = async (
     return [];
   }
 
-  const url = `${getMdsPublicUrl()}/service_area?municipalities=${encodeURIComponent(gebied)}&operators=${encodeURIComponent(operatorsString)}`;
+  const url = `${getMdsPublicUrl()}/service_area?municipalities=${encodeURIComponent(gebied)}&${operatorsString}`;
 
   try {
     return await fetchJson<ServiceArea[]>(url);
@@ -70,7 +74,7 @@ const fetchServiceAreasHistory = async (
 
   const startDate = '2024-10-01';
   const endDate = moment().format('YYYY-MM-DD');
-  const url = `${getMdsPublicUrl()}/service_area/history?municipalities=${encodeURIComponent(gebied)}&operators=${encodeURIComponent(operatorsString)}&start_date=${startDate}&end_date=${endDate}`;
+  const url = `${getMdsPublicUrl()}/service_area/history?municipalities=${encodeURIComponent(gebied)}&${operatorsString}&start_date=${startDate}&end_date=${endDate}`;
 
   try {
     return await fetchJson<ServiceAreaHistoryEvent[]>(url);
