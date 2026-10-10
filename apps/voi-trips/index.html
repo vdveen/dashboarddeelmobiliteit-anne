@@ -46,7 +46,7 @@ h2 { font-size: 16px; margin: 0 0 4px; font-weight: 600; }
 .seg button { border: 0; background: none; padding: 6px 12px; font: inherit; color: var(--text-secondary); cursor: pointer; }
 .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
 .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 20px; }
-.mapwrap { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 16px; }
+.mapwrap { display: grid; grid-template-columns: minmax(0, 1fr) 480px; gap: 16px; }
 #map { height: 720px; border-radius: 8px; border: 1px solid var(--border); }
 .list { height: 720px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
 table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
@@ -85,18 +85,19 @@ table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nu
   <p class="sub">Trips that start or end in Amersfoort, Soest, Baarn, Eemnes, Laren, Blaricum, Huizen, Gooise Meren, Hilversum or Wijdemeren, <span id="period"></span>.</p>
   <div class="bar">
     <div class="seg" role="group" aria-label="Group trip ends by" id="modes"></div>
+    <div class="seg" role="group" aria-label="Rank relations by" id="ranks"></div>
     <div class="seg" role="group" aria-label="Zoom to" id="areas"></div>
   </div>
 
   <div class="card">
-    <h2>Top 200 relations between <span id="unit"></span></h2>
+    <h2>Top 200 relations between <span id="unit"></span>, <span id="rankby"></span></h2>
     <p class="sub" id="mapsub"></p>
     <div class="mapwrap">
       <div id="map"></div>
-      <div class="list"><table><thead><tr><th>#</th><th>Relation (both directions)</th><th class="num">Trips</th><th class="num">km</th><th class="num">min</th></tr></thead><tbody id="rows"></tbody></table></div>
+      <div class="list"><table><thead><tr><th>#</th><th>Relation (both directions)</th><th class="num">Trips</th><th class="num">Total km</th><th class="num">Median km</th><th class="num">Median min</th></tr></thead><tbody id="rows"></tbody></table></div>
     </div>
     <div class="legend">
-      <span>Trips per relation <span class="ramp"></span></span>
+      <span><span id="ramplegend"></span> <span class="ramp"></span></span>
       <span><span class="dot" style="background:#fff;border:2px solid #52514e"></span><span id="nodelegend"></span></span>
       <span id="arealegend"><span class="dot" style="border-radius:2px;background:transparent;border:1.5px solid #7a7974"></span>CBS buurt</span>
       <span><span class="dot" style="background:#7a7974;width:6px;height:6px"></span>Hub</span>
@@ -140,8 +141,22 @@ const MODES = {
     intro: 'Every trip end counts for the CBS buurt (2024) it lies in, hub or not.'
   }
 };
-let mode = location.hash === '#buurten' ? 'buurten' : 'places';
+// What the top 200 is ranked by. Distances are the API's straight line from
+// start to end.
+const RANKS = {
+  trips: { button: 'Trips', by: 'by number of trips', legend: 'Trips per relation', value: r => r.n },
+  km: { button: 'Total km', by: 'by total km (straight line)', legend: 'Total km per relation', value: r => r.kmTotal }
+};
+// The URL hash keeps the view: #buurten, #km or #buurten+km
+const hash = location.hash.slice(1).split('+');
+let mode = hash.includes('buurten') ? 'buurten' : 'places';
+let rank = hash.includes('km') ? 'km' : 'trips';
+const saveHash = () => {
+  const h = [mode === 'buurten' && 'buurten', rank === 'km' && 'km'].filter(Boolean).join('+');
+  history.replaceState(null, '', h ? '#' + h : location.pathname);
+};
 const M = () => D.modes[mode];
+const TOP = () => M().top[rank];
 const nodes = {};
 Object.entries(D.modes).forEach(([k, m]) => { nodes[k] = Object.fromEntries(m.nodes.map(n => [n.id, n])); });
 const node = id => nodes[mode][id];
@@ -162,8 +177,15 @@ const modeSeg = document.getElementById('modes');
 Object.entries(MODES).forEach(([k, m]) => {
   const btn = document.createElement('button');
   btn.textContent = m.button; btn.dataset.k = k;
-  btn.onclick = () => { mode = k; history.replaceState(null, '', k === 'places' ? location.pathname : '#' + k); render(); };
+  btn.onclick = () => { mode = k; saveHash(); render(); };
   modeSeg.appendChild(btn);
+});
+const rankSeg = document.getElementById('ranks');
+Object.entries(RANKS).forEach(([k, m]) => {
+  const btn = document.createElement('button');
+  btn.textContent = m.button; btn.dataset.k = k;
+  btn.onclick = () => { rank = k; saveHash(); render(); };
+  rankSeg.appendChild(btn);
 });
 
 const AREAS = {
@@ -201,7 +223,7 @@ function relationHtml(r) {
     return `<span${cls}>${BAND_LABELS[k]}</span><span${cls}>${pct(v / r.n, 0)}</span>`;
   }).join('');
   return `<b>${plain(A)} ↔ ${plain(B)}</b><br>${nf.format(r.n)} trips: ${nf.format(r.ab)} from ${A.name}, ${nf.format(r.ba)} from ${B.name}<br>` +
-    `Median ${r.km} km, ${r.min} min<div class="bands">${bands}</div>`;
+    `${nf.format(r.kmTotal)} km in total; median ${r.km} km, ${r.min} min<div class="bands">${bands}</div>`;
 }
 
 function nodeHtml(id) {
@@ -246,7 +268,7 @@ map.on('load', () => {
     const { clientX: x, clientY: y } = e.originalEvent;
     if (f.layer.id === 'od') {
       highlight(f.properties.rank);
-      showTip(relationHtml(M().top[f.properties.rank]), x, y);
+      showTip(relationHtml(TOP()[f.properties.rank]), x, y);
     } else {
       highlight(-1);
       const id = f.properties.id;
@@ -260,7 +282,7 @@ map.on('load', () => {
 function highlight(rank) {
   if (!map.getLayer('od-hl')) return;
   map.setFilter('od-hl', ['==', ['get', 'rank'], rank]);
-  const r = M().top[rank];
+  const r = TOP()[rank];
   map.setFilter('areas-hl', ['in', ['get', 'id'], ['literal', mode === 'buurten' && r ? [r.a, r.b] : []]]);
   document.querySelectorAll('#rows tr').forEach(tr => tr.classList.toggle('active', +tr.dataset.rank === rank));
 }
@@ -271,12 +293,13 @@ function renderMap() {
   const vis = (id, on) => map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
   ['areas-fill', 'areas-hl', 'areas-line'].forEach(id => vis(id, mode === 'buurten'));
   vis('spokes', mode === 'places');
-  const max = m.top[0].n, min = m.top[m.top.length - 1].n;
-  const t = n => (n - min) / Math.max(1, max - min);
-  // Draw the busiest relations last so they sit on top
-  map.getSource('od').setData(fc(m.top.map((r, i) => ln([[node(r.a).lon, node(r.a).lat], [node(r.b).lon, node(r.b).lat]], {
-    rank: i, w: 2 + 9 * t(r.n), color: RAMP[Math.round(2 + 10 * t(r.n))] })).reverse()));
-  const inTop = new Set(m.top.slice(0, 60).flatMap(r => [r.a, r.b]));
+  const top = TOP(), value = RANKS[rank].value;
+  const max = value(top[0]), min = value(top[top.length - 1]);
+  const t = r => (value(r) - min) / Math.max(1, max - min);
+  // Draw the top relations last so they sit on top
+  map.getSource('od').setData(fc(top.map((r, i) => ln([[node(r.a).lon, node(r.a).lat], [node(r.b).lon, node(r.b).lat]], {
+    rank: i, w: 2 + 9 * t(r), color: RAMP[Math.round(2 + 10 * t(r))] })).reverse()));
+  const inTop = new Set(top.slice(0, 60).flatMap(r => [r.a, r.b]));
   const amax = Math.max(...Object.values(m.stats).map(s => (s.starts || 0) + (s.ends || 0)));
   map.getSource('nodes').setData(fc(m.nodes.filter(p => m.stats[p.id]).map(p => {
     const s = m.stats[p.id];
@@ -286,13 +309,13 @@ function renderMap() {
 }
 
 function renderList() {
-  const m = M();
+  const top = TOP();
   const rows = document.getElementById('rows');
-  rows.innerHTML = m.top.map((r, i) => `<tr data-rank="${i}"><td class="muted">${i + 1}</td>` +
+  rows.innerHTML = top.map((r, i) => `<tr data-rank="${i}"><td class="muted">${i + 1}</td>` +
     `<td class="rel">${label(node(r.a))}<br>↔ ${label(node(r.b))}</td><td class="num">${nf.format(r.n)}</td>` +
-    `<td class="num">${r.km}</td><td class="num">${r.min}</td></tr>`).join('');
+    `<td class="num">${nf.format(r.kmTotal)}</td><td class="num">${r.km}</td><td class="num">${r.min}</td></tr>`).join('');
   rows.querySelectorAll('tr').forEach(tr => {
-    const r = m.top[+tr.dataset.rank];
+    const r = top[+tr.dataset.rank];
     tr.onmouseenter = e => { highlight(+tr.dataset.rank); showTip(relationHtml(r), e.clientX, e.clientY); };
     tr.onmousemove = e => showTip(relationHtml(r), e.clientX, e.clientY);
     tr.onmouseleave = () => { highlight(-1); hideTip(); };
@@ -334,19 +357,27 @@ function renderHeat() {
 }
 
 function render() {
-  const m = M(), cfg = MODES[mode];
-  const topTrips = m.top.reduce((s, r) => s + r.n, 0);
+  const m = M(), cfg = MODES[mode], top = TOP();
   modeSeg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === mode));
+  rankSeg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === rank));
   document.getElementById('unit').textContent = cfg.unit;
+  document.getElementById('rankby').textContent = RANKS[rank].by;
+  document.getElementById('ramplegend').textContent = RANKS[rank].legend;
+  const carried = rank === 'km'
+    ? `${nf.format(m.betweenKm)} km are ridden between ${nf.format(m.pairs)} pairs of ${cfg.unit}; the top 200 carry ` +
+      `${nf.format(top.reduce((s, r) => s + r.kmTotal, 0))} km (${pct(top.reduce((s, r) => s + r.kmTotal, 0) / m.betweenKm, 0)}). ` +
+      'Distances are the straight line from start to end, as the API reports them, so the km actually ridden is higher.'
+    : `${nf.format(m.between)} trips run between ${nf.format(m.pairs)} pairs of ${cfg.unit}; the top 200 carry ` +
+      `${nf.format(top.reduce((s, r) => s + r.n, 0))} (${pct(top.reduce((s, r) => s + r.n, 0) / m.between, 0)}).`;
   document.getElementById('nodelegend').textContent = cfg.node;
   document.getElementById('arealegend').style.display = mode === 'buurten' ? '' : 'none';
   document.getElementById('mapsub').textContent = `${cfg.intro} ${pct(m.assigned / D.trips, 0)} of trips have both ends assigned. ` +
-    `${nf.format(m.between)} trips run between ${nf.format(m.pairs)} pairs of ${cfg.unit}; the top 200 carry ${nf.format(topTrips)} ` +
-    `(${pct(topTrips / m.between, 0)}). Trips within one ${cfg.one} are left out.`;
+    `${carried} Trips within one ${cfg.one} are left out.`;
   hideTip();
   renderMap(); renderList();
 }
-document.getElementById('period').textContent = `${D.label}, ${nf.format(D.trips)} trips`;
+document.getElementById('period').textContent = `${D.label}, ${nf.format(D.trips)} trips. ` +
+  `${nf.format(D.moves)} trips of over ${D.maxTripKm} km (straight line) between the region and Groningen are left out: those are moves by Voi, not rides`;
 renderHeat();
 render();
 </script>

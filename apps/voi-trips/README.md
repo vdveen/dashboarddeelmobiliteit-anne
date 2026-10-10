@@ -5,8 +5,14 @@ relations for trips in Amersfoort, Soest, Baarn, Eemnes, Laren, Blaricum,
 Huizen, Gooise Meren, Hilversum and Wijdemeren, and the share of trip starts
 per hour and weekday. The interface is in English.
 
-A toggle groups trip ends either by hub place or by CBS buurt; `#buurten` in
-the URL opens the buurt view. The heatmap is the same in both.
+A toggle groups trip ends either by hub place or by CBS buurt, and a second
+ranks the relations by number of trips or by total km. The URL hash keeps the
+view (`#buurten`, `#km`, `#buurten+km`). The heatmap is the same in all views.
+
+Distances are the API's `distance_in_meters`, which is the straight line from
+start to end, so total km undercounts the distance actually ridden. Trips of
+over 100 km are left out everywhere: they are moves by Voi between the region
+and Groningen (125 km or more; the longest trip below them is 30 km).
 
 - `index.html` is the page. `scripts/build-voi-trips.mjs` copies it with
   `data.js` and the vendored MapLibre into `build/voi-trips/` during
