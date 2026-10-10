@@ -104,6 +104,16 @@ button { font: inherit; color: inherit; }
 .bottom-row { display: flex; justify-content: flex-end; pointer-events: none; }
 .bottom-row > * { pointer-events: auto; }
 
+/* On wide screens the left column holds the panels; the location button
+   moves to the map's top-right corner, as in desktop map apps */
+@media (min-width: 720px) {
+  .bottom-row {
+    position: fixed;
+    top: calc(var(--safe-top) + var(--gap));
+    right: var(--gap);
+  }
+}
+
 .legend-card { border-radius: 16px; padding: 10px 14px 12px; }
 .status {
   margin: 0 0 6px;
