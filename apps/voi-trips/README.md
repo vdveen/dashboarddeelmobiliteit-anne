@@ -1,9 +1,12 @@
 # Voi trips in Amersfoort and the Gooi
 
 A static analysis page served at `/voi-trips/`. It shows the 200 busiest
-relations between Voi parking places in Amersfoort, Soest, Baarn, Eemnes,
-Laren, Blaricum, Huizen, Gooise Meren, Hilversum and Wijdemeren, and the share
-of trip starts per hour and weekday. The interface is in English.
+relations for trips in Amersfoort, Soest, Baarn, Eemnes, Laren, Blaricum,
+Huizen, Gooise Meren, Hilversum and Wijdemeren, and the share of trip starts
+per hour and weekday. The interface is in English.
+
+A toggle groups trip ends either by hub place or by CBS buurt; `#buurten` in
+the URL opens the buurt view. The heatmap is the same in both.
 
 - `index.html` is the page. `scripts/build-voi-trips.mjs` copies it with
   `data.js` and the vendored MapLibre into `build/voi-trips/` during
@@ -27,7 +30,10 @@ trips. See the README there.
    the place of its nearest hub within 500 m. A place is named after the buurt of
    its busiest hub, or `NS <station>` when the hub nearest a ProRail station
    (PDOK spoorwegen) is in it and within 500 m.
-4. `viz_data.py` writes `data.js` here. The period is 1 June to 4 October 2026,
+4. `viz_data.py` writes `data.js` here, with the top relations for both
+   groupings. Every trip end lies in a CBS buurt (`enrich.ts`); a buurt's line
+   end is the mean location of its trip starts and ends. The buurt outlines in
+   `data.js` are simplified to about 5 m. The period is 1 June to 4 October 2026,
    whole weeks only, so every weekday occurs equally often.
 
 The page is public: anyone with the URL can open it. `robots` is set to
