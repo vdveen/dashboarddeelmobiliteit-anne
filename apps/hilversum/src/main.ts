@@ -108,6 +108,22 @@ const operatorName = (operator: string): string => getProvider(operator)?.name |
 
 // --- Map -------------------------------------------------------------------
 
+// Phones keep the legend at the bottom; wider screens put it between the
+// toggle and the detail card
+const wideScreen = window.matchMedia('(min-width: 720px)');
+// The attribution sits above the legend when the legend is at the bottom
+const updateLegendOffset = () => {
+  const height = $('bottom').contains($('legend')) ? $('legend').getBoundingClientRect().height : 0;
+  document.documentElement.style.setProperty('--legend-height', `${height}px`);
+};
+const placeLegend = () => {
+  if (wideScreen.matches) $('segmented').after($('legend'));
+  else $('bottom').append($('legend'));
+  updateLegendOffset();
+};
+placeLegend();
+wideScreen.addEventListener('change', placeLegend);
+
 const framePadding = () => {
   const top = $('top').getBoundingClientRect();
   const bottom = $('bottom').getBoundingClientRect();
@@ -481,7 +497,7 @@ const renderLegend = () => {
     if (!visibleIn(mode, category)) return;
     items.push(legendItem(
       legendSymbol('parking-sign legend-parking', undefined, 'P'),
-      `Parkeerplek, alleen voor ${operatorName(operator)}-${SHORT_NOUNS[category][1]}`
+      `Parkeerplek voor ${operatorName(operator)}-${SHORT_NOUNS[category][1]}`
     ));
   });
 
@@ -675,7 +691,7 @@ map.on('click', (event) => {
       title: `Parkeerplek voor ${operatorName(operator)}-${SHORT_NOUNS[category][1]}`,
       lines: [
         distance ? `${municipality} · ${distance}` : municipality,
-        `Alleen voor ${NOUNS[category][1]} van ${operatorName(operator)}. Zet je ${SHORT_NOUNS[category][0]} hier neer als je je rit beëindigt.`
+        `Zet je ${operatorName(operator)}-${SHORT_NOUNS[category][0]} hier neer als je je rit beëindigt.`
       ],
       coordinates,
       operator
@@ -742,9 +758,7 @@ const renderLegendOperators = () => {
 $('locate-button').innerHTML = glyphSvg('locate', 22);
 $('locate-button').addEventListener('click', () => geolocate.trigger());
 
-new ResizeObserver(([entry]) => {
-  document.documentElement.style.setProperty('--legend-height', `${entry.target.getBoundingClientRect().height}px`);
-}).observe($('legend'));
+new ResizeObserver(updateLegendOffset).observe($('legend'));
 
 renderSegmented();
 setupInfoSheet();
