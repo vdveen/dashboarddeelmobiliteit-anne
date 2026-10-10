@@ -82,14 +82,14 @@ table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nu
 <body>
 <div class="viz-root">
   <h1>Voi trips in Amersfoort and the Gooi</h1>
-  <p class="sub">Hubs grouped into walkable places: every two hubs in a place are at most 500 m apart (straight line). Each trip end counts for the place of its nearest hub within 500 m.</p>
+  <p class="sub">Trips that start or end in Amersfoort, Soest, Baarn, Eemnes, Laren, Blaricum, Huizen, Gooise Meren, Hilversum or Wijdemeren, <span id="period"></span>.</p>
   <div class="bar">
-    <span class="muted" id="summary"></span>
+    <div class="seg" role="group" aria-label="Group trip ends by" id="modes"></div>
     <div class="seg" role="group" aria-label="Zoom to" id="areas"></div>
   </div>
 
   <div class="card">
-    <h2>Top 200 relations between places</h2>
+    <h2>Top 200 relations between <span id="unit"></span></h2>
     <p class="sub" id="mapsub"></p>
     <div class="mapwrap">
       <div id="map"></div>
@@ -97,9 +97,10 @@ table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nu
     </div>
     <div class="legend">
       <span>Trips per relation <span class="ramp"></span></span>
-      <span><span class="dot" style="background:#fff;border:2px solid #52514e"></span>Place, size = trip starts + ends</span>
+      <span><span class="dot" style="background:#fff;border:2px solid #52514e"></span><span id="nodelegend"></span></span>
+      <span id="arealegend"><span class="dot" style="border-radius:2px;background:transparent;border:1.5px solid #7a7974"></span>CBS buurt</span>
       <span><span class="dot" style="background:#7a7974;width:6px;height:6px"></span>Hub</span>
-      <span>Hover a line, place or row for details; click a row to zoom.</span>
+      <span>Hover a line, circle or row for details; click a row to zoom.</span>
     </div>
   </div>
 
@@ -109,7 +110,7 @@ table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nu
     <table class="heat" id="heat"></table>
     <ul class="notes">
       <li>Every cell is a share of all trip starts in the period; the whole table adds up to 100%. Row and column totals are on the edges.</li>
-      <li>Trips that start or end in the ten municipalities, by start time (Amsterdam time). Whole weeks only, so each weekday occurs equally often.</li>
+      <li>By start time (Amsterdam time). Whole weeks only, so each weekday occurs equally often.</li>
     </ul>
   </div>
   <div class="tip" id="tip"></div>
@@ -122,12 +123,32 @@ const RAMP = ['#cde2fb','#b7d3f6','#9ec5f4','#86b6ef','#6da7ec','#5598e7','#3987
 const BAND_LABELS = { am_peak: 'Weekday 07–09', day: 'Weekday 09–16', pm_peak: 'Weekday 16–19', evening: 'Weekday 19–24', night: 'Weekday 00–07', weekend: 'Weekend' };
 const HIGHLIGHT_SHARE = 0.3;
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const places = Object.fromEntries(D.places.map(p => [p.id, p]));
 const nf = new Intl.NumberFormat('en-GB');
 const pct = (v, d = 1) => (100 * v).toFixed(d) + '%';
+
+// The two ways of grouping trip ends; each has its own nodes and top relations
+const MODES = {
+  places: {
+    button: 'Hub places', unit: 'places', one: 'place',
+    node: 'Place, size = trip starts + ends',
+    intro: 'Hubs grouped into walkable places: every two hubs in a place are at most 500 m apart (straight line). ' +
+      'Each trip end counts for the place of its nearest hub within 500 m.'
+  },
+  buurten: {
+    button: 'CBS buurten', unit: 'CBS buurten', one: 'buurt',
+    node: 'Buurt, at the average location of its trip starts and ends; size = starts + ends',
+    intro: 'Every trip end counts for the CBS buurt (2024) it lies in, hub or not.'
+  }
+};
+let mode = location.hash === '#buurten' ? 'buurten' : 'places';
+const M = () => D.modes[mode];
+const nodes = {};
+Object.entries(D.modes).forEach(([k, m]) => { nodes[k] = Object.fromEntries(m.nodes.map(n => [n.id, n])); });
+const node = id => nodes[mode][id];
+
 const label = p => `${p.name} <span class="m">${p.municipality}</span>`;
 // Station places also name the buurt they are in
-const plain = p => `${p.name} (${p.name.startsWith('NS ') ? p.buurt + ', ' : ''}${p.municipality})`;
+const plain = p => `${p.name} (${p.buurt && p.name.startsWith('NS ') ? p.buurt + ', ' : ''}${p.municipality})`;
 const tip = document.getElementById('tip');
 const showTip = (html, x, y) => {
   tip.innerHTML = html; tip.style.display = 'block';
@@ -136,7 +157,14 @@ const showTip = (html, x, y) => {
   tip.style.top = Math.min(y + 14, innerHeight - h - 8) + 'px';
 };
 const hideTip = () => { tip.style.display = 'none'; };
-const P = D.periods.all;
+
+const modeSeg = document.getElementById('modes');
+Object.entries(MODES).forEach(([k, m]) => {
+  const btn = document.createElement('button');
+  btn.textContent = m.button; btn.dataset.k = k;
+  btn.onclick = () => { mode = k; history.replaceState(null, '', k === 'places' ? location.pathname : '#' + k); render(); };
+  modeSeg.appendChild(btn);
+});
 
 const AREAS = {
   'Whole region': [[5.05, 52.12], [5.45, 52.33]],
@@ -166,7 +194,7 @@ const pt = (lon, lat, props) => ({ type: 'Feature', geometry: { type: 'Point', c
 const ln = (coords, props) => ({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: props });
 
 function relationHtml(r) {
-  const A = places[r.a], B = places[r.b];
+  const A = node(r.a), B = node(r.b);
   // Shares above HIGHLIGHT_SHARE stand out in the breakdown
   const bands = Object.entries(r.bands).map(([k, v]) => {
     const cls = v / r.n > HIGHLIGHT_SHARE ? ' class="hi"' : '';
@@ -176,15 +204,28 @@ function relationHtml(r) {
     `Median ${r.km} km, ${r.min} min<div class="bands">${bands}</div>`;
 }
 
+function nodeHtml(id) {
+  const p = node(id), s = M().stats[id] || {};
+  const hubs = p.hubs ? `<br>${p.hubs} hub${p.hubs > 1 ? 's' : ''}` : '';
+  return `<b>${plain(p)}</b>${hubs}<br>${nf.format(s.starts || 0)} starts, ${nf.format(s.ends || 0)} ends<br>` +
+    `${nf.format(s.internal || 0)} trips within the ${MODES[mode].one}`;
+}
+
+const placeById = nodes.places;
 map.on('load', () => {
-  map.addSource('spokes', { type: 'geojson', data: fc(D.hubs.map(h => ln([[h.lon, h.lat], [places[h.place].lon, places[h.place].lat]], {}))) });
+  map.addSource('areas', { type: 'geojson', data: D.modes.buurten.areas });
+  map.addSource('spokes', { type: 'geojson', data: fc(D.hubs.map(h => ln([[h.lon, h.lat], [placeById[h.place].lon, placeById[h.place].lat]], {}))) });
   map.addSource('hubs', { type: 'geojson', data: fc(D.hubs.map(h => pt(h.lon, h.lat, { current: h.current }))) });
   map.addSource('od', { type: 'geojson', data: fc([]) });
-  map.addSource('places', { type: 'geojson', data: fc([]) });
+  map.addSource('nodes', { type: 'geojson', data: fc([]) });
+  map.addLayer({ id: 'areas-fill', type: 'fill', source: 'areas', paint: { 'fill-color': '#7a7974', 'fill-opacity': 0.04 } });
+  map.addLayer({ id: 'areas-hl', type: 'fill', source: 'areas', filter: ['in', ['get', 'id'], ['literal', []]],
+    paint: { 'fill-color': '#eb6834', 'fill-opacity': 0.18 } });
+  map.addLayer({ id: 'areas-line', type: 'line', source: 'areas', paint: { 'line-color': '#7a7974', 'line-width': 1, 'line-opacity': 0.6 } });
   map.addLayer({ id: 'spokes', type: 'line', source: 'spokes', paint: { 'line-color': '#7a7974', 'line-width': 1, 'line-opacity': 0.5 } });
   map.addLayer({ id: 'hubs', type: 'circle', source: 'hubs', paint: { 'circle-radius': 2.5, 'circle-color': '#7a7974',
     'circle-opacity': ['case', ['get', 'current'], 1, 0.4] } });
-  map.addLayer({ id: 'places', type: 'circle', source: 'places', paint: {
+  map.addLayer({ id: 'nodes', type: 'circle', source: 'nodes', paint: {
     'circle-radius': ['get', 'r'], 'circle-color': '#ffffff', 'circle-stroke-color': '#52514e', 'circle-stroke-width': 1 } });
   map.addLayer({ id: 'od-casing', type: 'line', source: 'od', layout: { 'line-cap': 'round' },
     paint: { 'line-color': '#fcfcfb', 'line-width': ['+', ['get', 'w'], 2] } });
@@ -192,76 +233,84 @@ map.on('load', () => {
     paint: { 'line-color': ['get', 'color'], 'line-width': ['get', 'w'] } });
   map.addLayer({ id: 'od-hl', type: 'line', source: 'od', filter: ['==', ['get', 'rank'], -1], layout: { 'line-cap': 'round' },
     paint: { 'line-color': '#eb6834', 'line-width': ['+', ['get', 'w'], 2] } });
-  map.addLayer({ id: 'place-labels', type: 'symbol', source: 'places', filter: ['get', 'labelled'],
+  map.addLayer({ id: 'node-labels', type: 'symbol', source: 'nodes', filter: ['get', 'labelled'],
     layout: { 'text-field': ['get', 'name'], 'text-size': 11, 'symbol-sort-key': ['-', 0, ['get', 'r']], 'text-offset': [0, 1.1], 'text-anchor': 'top', 'text-font': ['Noto Sans Regular'],
       'text-optional': true },
     paint: { 'text-color': '#0b0b0b', 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 } });
 
-  map.on('mousemove', 'od', e => {
-    const r = P.top[e.features[0].properties.rank];
-    highlight(e.features[0].properties.rank, false);
-    showTip(relationHtml(r), e.originalEvent.clientX, e.originalEvent.clientY);
+  // One hover handler, so a line wins over the circle or buurt under it
+  map.on('mousemove', e => {
+    const [f] = map.queryRenderedFeatures(e.point, { layers: ['od', 'nodes'].concat(mode === 'buurten' ? ['areas-fill'] : []) });
+    map.getCanvas().style.cursor = f && f.layer.id !== 'areas-fill' ? 'pointer' : '';
+    if (!f) { highlight(-1); hideTip(); return; }
+    const { clientX: x, clientY: y } = e.originalEvent;
+    if (f.layer.id === 'od') {
+      highlight(f.properties.rank);
+      showTip(relationHtml(M().top[f.properties.rank]), x, y);
+    } else {
+      highlight(-1);
+      const id = f.properties.id;
+      if (node(id)) showTip(nodeHtml(id), x, y); else hideTip();
+    }
   });
-  map.on('mouseleave', 'od', () => { highlight(-1, false); hideTip(); });
-  map.on('mousemove', 'places', e => {
-    const p = places[e.features[0].properties.id], s = P.place[p.id] || {};
-    showTip(`<b>${plain(p)}</b><br>${p.hubs} hub${p.hubs > 1 ? 's' : ''}<br>${nf.format(s.starts || 0)} starts, ${nf.format(s.ends || 0)} ends<br>` +
-      `${nf.format(s.internal || 0)} trips within the place`, e.originalEvent.clientX, e.originalEvent.clientY);
-  });
-  map.on('mouseleave', 'places', hideTip);
-  ['od', 'places'].forEach(l => {
-    map.on('mouseenter', l, () => { map.getCanvas().style.cursor = 'pointer'; });
-    map.on('mouseleave', l, () => { map.getCanvas().style.cursor = ''; });
-  });
+  map.getCanvas().addEventListener('mouseleave', () => { highlight(-1); hideTip(); });
   render();
 });
 
-function highlight(rank, scroll) {
-  if (map.getLayer('od-hl')) map.setFilter('od-hl', ['==', ['get', 'rank'], rank]);
+function highlight(rank) {
+  if (!map.getLayer('od-hl')) return;
+  map.setFilter('od-hl', ['==', ['get', 'rank'], rank]);
+  const r = M().top[rank];
+  map.setFilter('areas-hl', ['in', ['get', 'id'], ['literal', mode === 'buurten' && r ? [r.a, r.b] : []]]);
   document.querySelectorAll('#rows tr').forEach(tr => tr.classList.toggle('active', +tr.dataset.rank === rank));
-  if (scroll && rank >= 0) document.querySelector(`#rows tr[data-rank="${rank}"]`)?.scrollIntoView({ block: 'nearest' });
 }
 
-function renderMap(P) {
+function renderMap() {
   if (!map.getSource('od')) return;
-  const max = P.top[0].n, min = P.top[P.top.length - 1].n;
+  const m = M();
+  const vis = (id, on) => map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
+  ['areas-fill', 'areas-hl', 'areas-line'].forEach(id => vis(id, mode === 'buurten'));
+  vis('spokes', mode === 'places');
+  const max = m.top[0].n, min = m.top[m.top.length - 1].n;
   const t = n => (n - min) / Math.max(1, max - min);
   // Draw the busiest relations last so they sit on top
-  map.getSource('od').setData(fc(P.top.map((r, i) => ln([[places[r.a].lon, places[r.a].lat], [places[r.b].lon, places[r.b].lat]], {
+  map.getSource('od').setData(fc(m.top.map((r, i) => ln([[node(r.a).lon, node(r.a).lat], [node(r.b).lon, node(r.b).lat]], {
     rank: i, w: 2 + 9 * t(r.n), color: RAMP[Math.round(2 + 10 * t(r.n))] })).reverse()));
-  const inTop = new Set(P.top.slice(0, 60).flatMap(r => [r.a, r.b]));
-  const act = Object.values(P.place).map(s => (s.starts || 0) + (s.ends || 0));
-  const amax = Math.max(...act);
-  map.getSource('places').setData(fc(D.places.map(p => {
-    const s = P.place[p.id] || {};
+  const inTop = new Set(m.top.slice(0, 60).flatMap(r => [r.a, r.b]));
+  const amax = Math.max(...Object.values(m.stats).map(s => (s.starts || 0) + (s.ends || 0)));
+  map.getSource('nodes').setData(fc(m.nodes.filter(p => m.stats[p.id]).map(p => {
+    const s = m.stats[p.id];
     const a = (s.starts || 0) + (s.ends || 0);
     return pt(p.lon, p.lat, { id: p.id, name: p.name, r: 2.5 + 6 * Math.sqrt(a / amax), labelled: inTop.has(p.id) || p.name.startsWith('NS ') });
   }).sort((x, y) => x.properties.r - y.properties.r)));
 }
 
-function renderList(P) {
+function renderList() {
+  const m = M();
   const rows = document.getElementById('rows');
-  rows.innerHTML = P.top.map((r, i) => `<tr data-rank="${i}"><td class="muted">${i + 1}</td>` +
-    `<td class="rel">${label(places[r.a])}<br>↔ ${label(places[r.b])}</td><td class="num">${nf.format(r.n)}</td>` +
+  rows.innerHTML = m.top.map((r, i) => `<tr data-rank="${i}"><td class="muted">${i + 1}</td>` +
+    `<td class="rel">${label(node(r.a))}<br>↔ ${label(node(r.b))}</td><td class="num">${nf.format(r.n)}</td>` +
     `<td class="num">${r.km}</td><td class="num">${r.min}</td></tr>`).join('');
   rows.querySelectorAll('tr').forEach(tr => {
-    const r = P.top[+tr.dataset.rank];
-    tr.onmouseenter = e => { highlight(+tr.dataset.rank, false); showTip(relationHtml(r), e.clientX, e.clientY); };
+    const r = m.top[+tr.dataset.rank];
+    tr.onmouseenter = e => { highlight(+tr.dataset.rank); showTip(relationHtml(r), e.clientX, e.clientY); };
     tr.onmousemove = e => showTip(relationHtml(r), e.clientX, e.clientY);
-    tr.onmouseleave = () => { highlight(-1, false); hideTip(); };
+    tr.onmouseleave = () => { highlight(-1); hideTip(); };
     tr.onclick = () => {
-      const A = places[r.a], B = places[r.b];
+      const A = node(r.a), B = node(r.b);
       map.fitBounds([[Math.min(A.lon, B.lon), Math.min(A.lat, B.lat)], [Math.max(A.lon, B.lon), Math.max(A.lat, B.lat)]], { padding: 80, maxZoom: 15 });
     };
   });
+  rows.parentElement.parentElement.scrollTop = 0;
 }
 
 // ---- Heatmap ---------------------------------------------------------------
-function renderHeat(P) {
-  const total = P.heat.flat().reduce((a, b) => a + b, 0);
-  const max = Math.max(...P.heat.flat());
-  const dayTot = P.heat.map(r => r.reduce((a, b) => a + b, 0));
-  const hourTot = [...Array(24)].map((_, h) => P.heat.reduce((s, r) => s + r[h], 0));
+function renderHeat() {
+  const H = D.heat;
+  const total = H.flat().reduce((a, b) => a + b, 0);
+  const max = Math.max(...H.flat());
+  const dayTot = H.map(r => r.reduce((a, b) => a + b, 0));
+  const hourTot = [...Array(24)].map((_, h) => H.reduce((s, r) => s + r[h], 0));
   const cell = (v, d, h) => {
     const step = Math.round(12 * v / max);
     const bg = v === 0 ? 'var(--empty)' : RAMP[step];
@@ -272,7 +321,7 @@ function renderHeat(P) {
   let html = `<thead><tr><th></th>${DAYS.map(d => `<th>${d}</th>`).join('')}<th>Hour total</th></tr></thead><tbody>`;
   for (let h = 0; h < 24; h++) {
     html += `<tr><th class="h">${String(h).padStart(2, '0')}:00–${String(h + 1).padStart(2, '0')}:00</th>` +
-      P.heat.map((r, d) => cell(r[h], d, h)).join('') + `<td class="t">${pct(hourTot[h] / total)}</td></tr>`;
+      H.map((r, d) => cell(r[h], d, h)).join('') + `<td class="t">${pct(hourTot[h] / total)}</td></tr>`;
   }
   html += `<tr class="tot"><th class="h">Day total</th>${dayTot.map(v => `<td>${pct(v / total)}</td>`).join('')}<td class="t">100%</td></tr></tbody>`;
   const heat = document.getElementById('heat');
@@ -281,17 +330,24 @@ function renderHeat(P) {
     td.onmousemove = e => showTip(td.dataset.tip, e.clientX, e.clientY);
     td.onmouseleave = hideTip;
   });
-  document.getElementById('heatsub').textContent = `${P.label}: ${nf.format(total)} trip starts. Darker = larger share.`;
+  document.getElementById('heatsub').textContent = `${D.label}: ${nf.format(total)} trip starts. Darker = larger share.`;
 }
 
 function render() {
-  document.getElementById('summary').textContent =
-    `${nf.format(P.trips)} trips; ${pct(P.assigned / P.trips, 0)} start and end in a place`;
-  document.getElementById('mapsub').textContent =
-    `${nf.format(P.between)} trips between ${nf.format(P.pairs)} pairs of places; the top 200 carry ${nf.format(P.top.reduce((s, r) => s + r.n, 0))} ` +
-    `(${pct(P.top.reduce((s, r) => s + r.n, 0) / P.between, 0)}). Trips within one place are left out.`;
-  renderMap(P); renderList(P); renderHeat(P);
+  const m = M(), cfg = MODES[mode];
+  const topTrips = m.top.reduce((s, r) => s + r.n, 0);
+  modeSeg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === mode));
+  document.getElementById('unit').textContent = cfg.unit;
+  document.getElementById('nodelegend').textContent = cfg.node;
+  document.getElementById('arealegend').style.display = mode === 'buurten' ? '' : 'none';
+  document.getElementById('mapsub').textContent = `${cfg.intro} ${pct(m.assigned / D.trips, 0)} of trips have both ends assigned. ` +
+    `${nf.format(m.between)} trips run between ${nf.format(m.pairs)} pairs of ${cfg.unit}; the top 200 carry ${nf.format(topTrips)} ` +
+    `(${pct(topTrips / m.between, 0)}). Trips within one ${cfg.one} are left out.`;
+  hideTip();
+  renderMap(); renderList();
 }
+document.getElementById('period').textContent = `${D.label}, ${nf.format(D.trips)} trips`;
+renderHeat();
 render();
 </script>
 </body>
