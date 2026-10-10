@@ -13,6 +13,7 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --gap: 12px;
+  --stack-width: min(calc(100% - 2 * var(--gap)), 440px);
 }
 
 * { box-sizing: border-box; }
@@ -39,13 +40,20 @@ button { font: inherit; color: inherit; }
   box-shadow: var(--shadow);
 }
 
-/* Header */
-.topbar {
+/* Top stack: header, toggle, detail card */
+.top {
   position: absolute;
   top: calc(var(--safe-top) + var(--gap));
   left: var(--gap);
-  right: var(--gap);
-  max-width: 420px;
+  width: var(--stack-width);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.top > * { pointer-events: auto; }
+
+.topbar {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -68,12 +76,6 @@ button { font: inherit; color: inherit; }
 }
 .icon-button:active { background: var(--fill); }
 
-/* Map buttons */
-.map-buttons {
-  position: absolute;
-  right: var(--gap);
-  top: calc(var(--safe-top) + var(--gap) + 68px);
-}
 .round-button {
   width: 44px; height: 44px;
   display: grid; place-items: center;
@@ -87,38 +89,65 @@ button { font: inherit; color: inherit; }
    replaced by the round button above */
 .maplibregl-ctrl-top-right .maplibregl-ctrl-group { display: none; }
 
-/* Bottom area */
+/* Bottom stack: location button and legend */
 .bottom {
   position: absolute;
-  left: 50%;
+  left: var(--gap);
   bottom: calc(var(--safe-bottom) + var(--gap));
-  transform: translateX(-50%);
-  width: calc(100% - 2 * var(--gap));
-  max-width: 480px;
+  width: var(--stack-width);
   display: flex;
   flex-direction: column;
   gap: 8px;
   pointer-events: none;
 }
 .bottom > * { pointer-events: auto; }
+.bottom-row { display: flex; justify-content: flex-end; pointer-events: none; }
+.bottom-row > * { pointer-events: auto; }
 
+.legend-card { border-radius: 16px; padding: 10px 14px 12px; }
 .status {
-  align-self: center;
-  margin: 0;
-  padding: 5px 12px;
-  border-radius: 999px;
+  margin: 0 0 6px;
   font-size: 13px;
-  font-weight: 500;
-  color: var(--secondary-label);
-  background: var(--material);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  backdrop-filter: saturate(180%) blur(20px);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  font-weight: 600;
+  color: var(--label);
   font-variant-numeric: tabular-nums;
 }
+.legend-items {
+  list-style: none;
+  margin: 0; padding: 0;
+  display: flex; flex-wrap: wrap;
+  gap: 6px 14px;
+}
+.legend-items li {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; line-height: 1.3;
+  color: var(--secondary-label);
+}
+.legend-dot {
+  flex: none;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.2);
+}
+.legend-area-chip {
+  flex: none;
+  width: 16px; height: 12px;
+  border-radius: 3px;
+  border: 1.5px solid var(--check);
+  background: rgba(143, 58, 248, 0.14);
+}
+.legend-note {
+  margin: 8px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--separator);
+  font-size: 13px; line-height: 1.35;
+  color: var(--secondary-label);
+}
+.legend-note[hidden] { display: none; }
 
 .toast {
-  align-self: center;
+  align-self: flex-start;
   margin: 0;
   padding: 10px 14px;
   border-radius: 12px;
@@ -189,6 +218,7 @@ button { font: inherit; color: inherit; }
   cursor: pointer;
 }
 .detail-actions { display: flex; gap: 8px; margin-top: 12px; }
+.detail-actions .button-primary { flex: 1.6; }
 .detail-actions:empty { display: none; }
 .button {
   flex: 1;
@@ -217,6 +247,7 @@ button { font: inherit; color: inherit; }
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 .detail .parking-sign { width: 40px; height: 40px; border-radius: 10px; font-size: 26px; }
+.legend-items .legend-parking { width: 18px; height: 18px; border-width: 1.5px; border-radius: 5px; font-size: 12px; }
 
 /* Info sheet */
 .sheet {
@@ -278,8 +309,9 @@ button { font: inherit; color: inherit; }
   border-top: 2px solid rgba(0, 74, 124, 0.55);
 }
 
-/* Attribution sits just above the bottom controls; main.ts measures them */
-.maplibregl-ctrl-bottom-right { bottom: calc(var(--safe-bottom) + var(--gap) + var(--bottom-height, 100px)); }
+/* Attribution sits left of the location button, above the legend; main.ts
+   measures the legend */
+.maplibregl-ctrl-bottom-left { bottom: calc(var(--safe-bottom) + var(--gap) + var(--legend-height, 60px) + 8px); left: 2px; }
 .maplibregl-ctrl-attrib.maplibregl-compact { background: var(--material); }
 
 @media (prefers-reduced-motion: reduce) {

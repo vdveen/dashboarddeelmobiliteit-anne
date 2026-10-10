@@ -12,25 +12,30 @@
 <body>
   <div id="map" aria-label="Kaart met deelvoertuigen"></div>
 
-  <header id="topbar" class="topbar glass">
-    <img class="logo" src="./logo.svg" alt="Gemeente Hilversum" width="87" height="23">
-    <div class="titles">
-      <h1>Deelvervoer</h1>
-      <p>Hilversum en Wijdemeren</p>
-    </div>
-    <button id="info-button" class="icon-button" type="button" aria-label="Over deze kaart"></button>
-  </header>
-
-  <div class="map-buttons">
-    <button id="locate-button" class="round-button glass" type="button" aria-label="Toon mijn locatie"></button>
-  </div>
-
-  <section id="bottom" class="bottom">
+  <div id="top" class="top">
+    <header class="topbar glass">
+      <img class="logo" src="./logo.svg" alt="Gemeente Hilversum" width="87" height="23">
+      <div class="titles">
+        <h1>Deelvervoer</h1>
+        <p>Hilversum en Wijdemeren</p>
+      </div>
+      <button id="info-button" class="icon-button" type="button" aria-label="Over deze kaart"></button>
+    </header>
+    <div id="segmented" class="segmented glass" role="group" aria-label="Soort deelvervoer"></div>
     <div id="toast" class="toast" role="alert" hidden></div>
     <div id="detail" class="detail glass" hidden></div>
-    <p id="status" class="status" role="status">Voertuigen laden…</p>
-    <div id="segmented" class="segmented glass" role="group" aria-label="Soort deelvervoer"></div>
-  </section>
+  </div>
+
+  <div id="bottom" class="bottom">
+    <div class="bottom-row">
+      <button id="locate-button" class="round-button glass" type="button" aria-label="Toon mijn locatie"></button>
+    </div>
+    <section id="legend" class="legend-card glass" aria-label="Legenda">
+      <p id="status" class="status" role="status">Voertuigen laden…</p>
+      <ul id="legend-items" class="legend-items"></ul>
+      <p id="legend-note" class="legend-note" hidden></p>
+    </section>
+  </div>
 
   <dialog id="info-sheet" class="sheet" aria-labelledby="info-title">
     <div class="sheet-grabber" aria-hidden="true"></div>
@@ -42,7 +47,7 @@
 
     <h3>Legenda</h3>
     <ul class="legend">
-      <li><span class="parking-sign" aria-hidden="true">P</span>Parkeerplek. Hier zet je een deelvoertuig neer na je rit.</li>
+      <li><span class="parking-sign" aria-hidden="true">P</span>Parkeerplek, alleen voor Voi-fietsen. Hier zet je je Voi-fiets neer na je rit. Kies Fietsen om ook de parkeerplekken van Voi in andere gemeenten te zien.</li>
       <li><span class="legend-area" aria-hidden="true"></span>Gebied waarin je een rit met een deelscooter van Check mag beëindigen.</li>
       <li><span class="legend-border" aria-hidden="true"></span>Grens van de gemeenten Hilversum en Wijdemeren.</li>
     </ul>

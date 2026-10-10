@@ -16,7 +16,18 @@ dashboard. The interface is in Dutch.
 - Parking hubs (P signs) of the operators with vehicles on the map, drawn with
   the dashboard's own code (`renderParkingHubs` in
   `src/components/Map/MapUtils/map.service_areas.ts`, roles from
-  `src/helpers/service-areas/roles.ts`).
+  `src/helpers/service-areas/roles.ts`). Only Voi publishes hubs here, so the
+  legend says the P signs are for Voi bikes only.
+- With the bikes selected, Voi's hubs in the other municipalities where it
+  publishes them show too, so people can see where they can ride to. They load
+  the first time the bikes are shown (about 670 kB compressed). The list lives
+  in `VOI_HUB_MUNICIPALITIES` in `src/data.ts`; the API needs explicit
+  municipalities. To refresh it, request
+  `service_area?operators=voi&municipalities=…` for every code in
+  `dashboard-api/public/municipalities` (8 MB) and keep the municipalities
+  whose features include hubs.
+- The header, toggle and the card for a tapped vehicle, hub or area stack at
+  the top. The legend, with the vehicle count, sits at the bottom.
 - The municipal borders from `dashboard-api/public/zones`, with the surroundings
   dimmed.
 

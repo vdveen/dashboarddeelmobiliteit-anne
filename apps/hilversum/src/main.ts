@@ -12,13 +12,17 @@ import {
   getProviderColorForProvider,
   getProviderWebsiteUrl
 } from '../../../src/helpers/providers';
+import { ServiceArea } from '../../../src/types/ServiceArea';
 import {
   Category,
   REGION_BOUNDS,
+  VOI_HUB_MUNICIPALITIES,
+  VOI_HUB_OPERATOR,
   categoryOf,
   fetchMunicipalityBorders,
   fetchServiceAreas,
-  fetchVehicles
+  fetchVehicles,
+  municipalityName
 } from './data';
 import { GlyphName, drawVehicleMarker, glyphSvg } from './icons';
 
@@ -40,6 +44,13 @@ const NOUNS: Record<Mode, [singular: string, plural: string]> = {
   bike: ['deelfiets', 'deelfietsen'],
   moped: ['deelscooter', 'deelscooters'],
   car: ['deelauto', "deelauto's"]
+};
+
+// For compounds such as "Voi-fietsen"
+const SHORT_NOUNS: Record<Category, [singular: string, plural: string]> = {
+  bike: ['fiets', 'fietsen'],
+  moped: ['scooter', 'scooters'],
+  car: ['auto', "auto's"]
 };
 
 // Check publishes the area where a moped ride may end. Bike operators publish
@@ -65,11 +76,26 @@ const REGION_LAYER_IDS = ['region-mask', 'region-outline'];
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
+type HubScope = 'region' | 'elsewhere';
+
+interface HubData {
+  hubs: GeoJSON.Feature[];
+  hubPoints: GeoJSON.Feature[];
+}
+
 const state = {
   mode: 'all' as Mode,
   vehicles: [] as GeoJSON.Feature<GeoJSON.Point>[],
   operatorCategories: new Map<string, Category>(),
   serviceAreasLoaded: false,
+  // Operators drawn with a service area or with parking hubs in the region
+  areaOperators: new Map<string, Category>(),
+  hubOperators: new Map<string, Category>(),
+  regionHubs: { hubs: [], hubPoints: [] } as HubData,
+  // Voi's hubs in other municipalities, loaded when bikes are first shown
+  elsewhereHubs: { hubs: [], hubPoints: [] } as HubData,
+  elsewhereStatus: 'idle' as 'idle' | 'loading' | 'loaded' | 'failed',
+  elsewhereMunicipalities: [] as string[],
   updatedAt: null as Date | null,
   loadError: false,
   userPosition: null as [number, number] | null
@@ -83,10 +109,10 @@ const operatorName = (operator: string): string => getProvider(operator)?.name |
 // --- Map -------------------------------------------------------------------
 
 const framePadding = () => {
-  const header = $('topbar').getBoundingClientRect();
+  const top = $('top').getBoundingClientRect();
   const bottom = $('bottom').getBoundingClientRect();
   return {
-    top: header.bottom + 16,
+    top: top.bottom + 16,
     bottom: window.innerHeight - bottom.top + 16,
     left: 16,
     right: 16
@@ -105,7 +131,7 @@ const map: MaplibreMap = new maplibregl.Map({
 });
 map.touchZoomRotate.disableRotation();
 if (process.env.NODE_ENV === 'development') (window as unknown as { map: MaplibreMap }).map = map;
-map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
+map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
 // MapLibre unfolds the compact attribution once the sources report theirs;
 // fold it behind its (i) button so it does not cover the map on phones
 map.once('idle', () => {
@@ -135,10 +161,21 @@ map.on('styleimagemissing', (event: { id: string }) => {
 const categoryFilter = (mode: Mode) =>
   mode === 'all' ? null : ['==', ['get', 'category'], mode];
 
+// Hubs outside the region only show with the bikes
+const hubFilter = (mode: Mode) => {
+  const inRegion = ['==', ['get', 'scope'], 'region'];
+  if (mode === 'all') return inRegion;
+  if (mode === 'bike') return categoryFilter(mode);
+  return ['all', categoryFilter(mode), inRegion];
+};
+
 const applyModeToMap = () => {
   const filter = categoryFilter(state.mode);
-  [...VEHICLE_LAYER_IDS, ...PARKING_HUBS_MAP_LAYER_IDS, ...SERVICE_AREA_LAYER_IDS].forEach((id) => {
+  [...VEHICLE_LAYER_IDS, ...SERVICE_AREA_LAYER_IDS].forEach((id) => {
     if (map.getLayer(id)) map.setFilter(id, filter as never);
+  });
+  PARKING_HUBS_MAP_LAYER_IDS.forEach((id) => {
+    if (map.getLayer(id)) map.setFilter(id, hubFilter(state.mode) as never);
   });
 };
 
@@ -221,28 +258,92 @@ const toFeature = (operator: string, category: Category, coordinates: [number, n
 
 // --- Data ------------------------------------------------------------------
 
+const collection = (features: GeoJSON.Feature[]): GeoJSON.FeatureCollection => ({
+  type: 'FeatureCollection',
+  features
+});
+
+// Hubs per service area, so each knows its municipality
+const hubsOf = (
+  serviceAreas: ServiceArea[],
+  scope: HubScope,
+  categoryOfOperator: (operator: string) => Category | undefined
+): HubData => {
+  const result: HubData = { hubs: [], hubPoints: [] };
+  serviceAreas.forEach((serviceArea) => {
+    const category = categoryOfOperator(serviceArea.operator);
+    if (!category) return;
+    const { hubs, hubPoints } = splitServiceAreasForMap([serviceArea]);
+    const tag = (feature: GeoJSON.Feature) => ({
+      ...feature,
+      properties: {
+        ...feature.properties,
+        category,
+        scope,
+        municipality: municipalityName(serviceArea.municipality)
+      }
+    });
+    result.hubs.push(...hubs.features.map(tag));
+    result.hubPoints.push(...hubPoints.features.map(tag));
+  });
+  return result;
+};
+
+const drawHubs = () => {
+  renderParkingHubs(
+    map,
+    collection([...state.regionHubs.hubs, ...state.elsewhereHubs.hubs]),
+    collection([...state.regionHubs.hubPoints, ...state.elsewhereHubs.hubPoints])
+  );
+  raiseOwnLayers();
+  applyModeToMap();
+};
+
 const loadServiceAreas = async () => {
   const operators = [...state.operatorCategories.keys()];
   try {
     const serviceAreas = await fetchServiceAreas(operators);
-    const { areas, hubs, hubPoints } = splitServiceAreasForMap(serviceAreas);
-    const withCategory = (collection: GeoJSON.FeatureCollection, keep: (category: Category) => boolean) => ({
-      type: 'FeatureCollection' as const,
-      features: collection.features.flatMap((feature) => {
-        const category = state.operatorCategories.get(feature.properties?.operator);
-        return category && keep(category)
-          ? [{ ...feature, properties: { ...feature.properties, category } }]
-          : [];
-      })
+    const { areas } = splitServiceAreasForMap(serviceAreas);
+    const areaFeatures = areas.features.flatMap((feature) => {
+      const operator = feature.properties?.operator;
+      const category = state.operatorCategories.get(operator);
+      if (!category || !SERVICE_AREA_CATEGORIES.includes(category)) return [];
+      state.areaOperators.set(operator, category);
+      return [{ ...feature, properties: { ...feature.properties, category } }];
     });
-    renderServiceAreas(map, withCategory(areas, (c) => SERVICE_AREA_CATEGORIES.includes(c)));
-    renderParkingHubs(map, withCategory(hubs, () => true), withCategory(hubPoints, () => true));
-    raiseOwnLayers();
-    applyModeToMap();
+    state.regionHubs = hubsOf(serviceAreas, 'region', (operator) => state.operatorCategories.get(operator));
+    state.regionHubs.hubPoints.forEach((feature) => {
+      state.hubOperators.set(feature.properties?.operator, feature.properties?.category);
+    });
+    renderServiceAreas(map, collection(areaFeatures));
+    drawHubs();
     state.serviceAreasLoaded = true;
   } catch (error) {
     console.error('Unable to load service areas', error);
   }
+  renderLegend();
+};
+
+const loadElsewhereHubs = async () => {
+  if (state.elsewhereStatus === 'loading' || state.elsewhereStatus === 'loaded') return;
+  state.elsewhereStatus = 'loading';
+  renderLegend();
+  try {
+    const serviceAreas = await fetchServiceAreas(
+      [VOI_HUB_OPERATOR],
+      VOI_HUB_MUNICIPALITIES.map((m) => m.code)
+    );
+    state.elsewhereHubs = hubsOf(serviceAreas, 'elsewhere', () => 'bike');
+    state.elsewhereMunicipalities = [...new Set(
+      state.elsewhereHubs.hubPoints.map((feature) => feature.properties?.municipality as string)
+    )].sort((a, b) => a.localeCompare(b));
+    state.elsewhereStatus = 'loaded';
+    drawHubs();
+  } catch (error) {
+    console.error('Unable to load Voi parking spots elsewhere', error);
+    state.elsewhereStatus = 'failed';
+  }
+  renderLegend();
 };
 
 const refreshVehicles = async () => {
@@ -264,6 +365,7 @@ const refreshVehicles = async () => {
     });
     if (!state.serviceAreasLoaded) void loadServiceAreas();
     renderLegendOperators();
+    renderLegend();
   } catch (error) {
     console.error('Unable to load vehicles', error);
     state.loadError = true;
@@ -321,7 +423,9 @@ const setMode = (mode: Mode) => {
   window.history.replaceState(null, '', slug === 'alles' ? window.location.pathname : `#${slug}`);
   hideDetail();
   applyModeToMap();
+  if (mode === 'bike') void loadElsewhereHubs();
   renderStatus();
+  renderLegend();
 };
 
 const renderStatus = () => {
@@ -334,6 +438,75 @@ const renderStatus = () => {
   const [singular, plural] = NOUNS[state.mode];
   const time = state.updatedAt.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
   status.textContent = `${count} ${count === 1 ? singular : plural} · ${state.loadError ? 'verversen mislukt, ' : ''}bijgewerkt ${time}`;
+};
+
+const joinNames = (names: string[]): string =>
+  names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} en ${names[names.length - 1]}`;
+
+const legendItem = (symbol: HTMLElement, label: string) => {
+  const item = document.createElement('li');
+  const text = document.createElement('span');
+  text.textContent = label;
+  item.append(symbol, text);
+  return item;
+};
+
+const legendSymbol = (className: string, color?: string, text?: string) => {
+  const symbol = document.createElement('span');
+  symbol.className = className;
+  symbol.setAttribute('aria-hidden', 'true');
+  if (color) symbol.style.background = color;
+  if (text) symbol.textContent = text;
+  return symbol;
+};
+
+const visibleIn = (mode: Mode, category: Category) => mode === 'all' || mode === category;
+
+const renderLegend = () => {
+  const list = $('legend-items');
+  const items: HTMLElement[] = [];
+  const mode = state.mode;
+
+  [...state.operatorCategories.entries()]
+    .filter(([, category]) => visibleIn(mode, category))
+    .sort(([a], [b]) => operatorName(a).localeCompare(operatorName(b)))
+    .forEach(([operator, category]) => {
+      const label = mode === 'all'
+        ? `${operatorName(operator)} (${SHORT_NOUNS[category][0]})`
+        : operatorName(operator);
+      items.push(legendItem(legendSymbol('legend-dot', getProviderColorForProvider(operator)), label));
+    });
+
+  state.hubOperators.forEach((category, operator) => {
+    if (!visibleIn(mode, category)) return;
+    items.push(legendItem(
+      legendSymbol('parking-sign legend-parking', undefined, 'P'),
+      `Parkeerplek, alleen voor ${operatorName(operator)}-${SHORT_NOUNS[category][1]}`
+    ));
+  });
+
+  state.areaOperators.forEach((category, operator) => {
+    if (!visibleIn(mode, category)) return;
+    items.push(legendItem(
+      legendSymbol('legend-area-chip'),
+      `Gebied waar je een ${operatorName(operator)}-${SHORT_NOUNS[category][0]} mag neerzetten`
+    ));
+  });
+
+  list.replaceChildren(...items);
+
+  const note = $('legend-note');
+  const voi = operatorName(VOI_HUB_OPERATOR);
+  const notes: Record<typeof state.elsewhereStatus, string> = {
+    idle: '',
+    loading: `${voi}-parkeerplekken in andere gemeenten laden…`,
+    loaded: state.elsewhereMunicipalities.length > 0
+      ? `Zoom uit voor ${voi}-parkeerplekken in ${joinNames(state.elsewhereMunicipalities)}.`
+      : '',
+    failed: `${voi}-parkeerplekken in andere gemeenten konden niet laden.`
+  };
+  note.textContent = mode === 'bike' ? notes[state.elsewhereStatus] : '';
+  note.hidden = note.textContent === '';
 };
 
 let toastTimer: number | undefined;
@@ -423,12 +596,22 @@ const showDetail = ({ badge, title, lines, coordinates, operator }: Detail) => {
 
   const actions = document.createElement('div');
   actions.className = 'detail-actions';
-  if (coordinates) actions.append(linkButton(walkingRouteUrl(coordinates), 'Route', 'route', true));
   const website = getProviderWebsiteUrl(operator);
-  if (website) actions.append(linkButton(website, operatorName(operator), 'external', !coordinates));
+  if (website) actions.append(linkButton(website, `Naar ${operatorName(operator)}`, 'external', true));
+  if (coordinates) actions.append(linkButton(walkingRouteUrl(coordinates), 'Route', 'route', !website));
 
   card.append(head, actions);
   card.hidden = false;
+  if (coordinates) keepInView(coordinates);
+};
+
+// The card sits under the toggle; move the map when it covers what was tapped
+const keepInView = (coordinates: number[]) => {
+  const point = map.project(coordinates as [number, number]);
+  const clearTop = $('top').getBoundingClientRect().bottom + 40;
+  const clearBottom = $('bottom').getBoundingClientRect().top - 40;
+  if (point.y < clearTop) map.panBy([0, point.y - clearTop]);
+  else if (point.y > clearBottom) map.panBy([0, point.y - clearBottom]);
 };
 
 const hideDetail = () => {
@@ -480,16 +663,19 @@ map.on('click', (event) => {
   }
   if (hubs.length > 0) {
     const hub = hubs[0].geometry.type === 'Point' ? nearest(hubs, event.point) : hubs[0];
-    const { operator, category } = hub.properties as { operator: string; category: Category };
+    const { operator, category, municipality } = hub.properties as {
+      operator: string; category: Category; municipality: string;
+    };
     const coordinates = hub.geometry.type === 'Point'
       ? (hub.geometry as GeoJSON.Point).coordinates
       : [event.lngLat.lng, event.lngLat.lat];
+    const distance = distanceText(coordinates);
     showDetail({
       badge: parkingBadge(),
-      title: 'Parkeerplek',
+      title: `Parkeerplek voor ${operatorName(operator)}-${SHORT_NOUNS[category][1]}`,
       lines: [
-        `Voor ${NOUNS[category][1]} van ${operatorName(operator)}.`,
-        distanceText(coordinates) || 'Zet je voertuig hier neer als je je rit beëindigt.'
+        distance ? `${municipality} · ${distance}` : municipality,
+        `Alleen voor ${NOUNS[category][1]} van ${operatorName(operator)}. Zet je ${SHORT_NOUNS[category][0]} hier neer als je je rit beëindigt.`
       ],
       coordinates,
       operator
@@ -557,8 +743,8 @@ $('locate-button').innerHTML = glyphSvg('locate', 22);
 $('locate-button').addEventListener('click', () => geolocate.trigger());
 
 new ResizeObserver(([entry]) => {
-  document.documentElement.style.setProperty('--bottom-height', `${entry.target.getBoundingClientRect().height}px`);
-}).observe($('bottom'));
+  document.documentElement.style.setProperty('--legend-height', `${entry.target.getBoundingClientRect().height}px`);
+}).observe($('legend'));
 
 renderSegmented();
 setupInfoSheet();

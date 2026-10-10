@@ -13,6 +13,27 @@ export const MUNICIPALITIES = [
   { code: 'GM1696', zoneId: 34353, name: 'Wijdemeren' }
 ];
 
+// Other municipalities where Voi publishes parking spots. In bike mode their
+// P signs show too, so people can see where they can ride to. The service
+// area API needs a municipalities list, and asking Voi's areas for all 356
+// municipalities returns 8 MB, so the list is kept here. Found on 2026-10-10:
+// Voi's areas exist in 63 municipalities, hubs in these 9 plus the region.
+export const VOI_HUB_OPERATOR = 'voi';
+export const VOI_HUB_MUNICIPALITIES = [
+  { code: 'GM0307', name: 'Amersfoort' },
+  { code: 'GM0308', name: 'Baarn' },
+  { code: 'GM0376', name: 'Blaricum' },
+  { code: 'GM0317', name: 'Eemnes' },
+  { code: 'GM1942', name: 'Gooise Meren' },
+  { code: 'GM0014', name: 'Groningen' },
+  { code: 'GM0406', name: 'Huizen' },
+  { code: 'GM0417', name: 'Laren' },
+  { code: 'GM0342', name: 'Soest' }
+];
+
+export const municipalityName = (code: string): string =>
+  [...MUNICIPALITIES, ...VOI_HUB_MUNICIPALITIES].find((m) => m.code === code)?.name || code;
+
 // Bounding box of both municipalities, so the first frame is already framed
 export const REGION_BOUNDS: [number, number, number, number] = [5.0213, 52.1659, 5.219, 52.2855];
 
@@ -73,10 +94,13 @@ export const fetchMunicipalityBorders = async (): Promise<GeoJSON.FeatureCollect
 };
 
 // The API reads a comma-joined value as one name, so repeat each parameter
-export const fetchServiceAreas = async (operators: string[]): Promise<ServiceArea[]> => {
-  if (operators.length === 0) return [];
+export const fetchServiceAreas = async (
+  operators: string[],
+  municipalityCodes: string[] = MUNICIPALITIES.map((m) => m.code)
+): Promise<ServiceArea[]> => {
+  if (operators.length === 0 || municipalityCodes.length === 0) return [];
   const params = [
-    ...MUNICIPALITIES.map((m) => `municipalities=${m.code}`),
+    ...municipalityCodes.map((code) => `municipalities=${code}`),
     ...operators.map((operator) => `operators=${encodeURIComponent(operator)}`)
   ].join('&');
   return getJson<ServiceArea[]>(`${getMdsPublicUrl()}/service_area?${params}`);
