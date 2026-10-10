@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Voi trips Amersfoort–Gooi: places and hours</title>
+<link rel="stylesheet" href="vendor/maplibre-gl.css?v=%MAPLIBRE_VERSION%">
+<style>
+.viz-root {
+  color-scheme: light;
+  --surface-0: #f4f4f2;
+  --surface-1: #fcfcfb;
+  --border: #e2e1dc;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #7a7974;
+  --accent: #2a78d6;
+  --hl: #eb6834;
+  --empty: #f0efec;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) .viz-root {
+    color-scheme: dark;
+    --surface-0: #111110;
+    --surface-1: #1a1a19;
+    --border: #383835;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #94938b;
+    --accent: #3987e5;
+    --hl: #d95926;
+    --empty: #262624;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+.viz-root { font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--surface-0);
+  color: var(--text-primary); min-height: 100vh; padding: 20px 24px 40px; }
+h1 { font-size: 20px; margin: 0 0 4px; font-weight: 600; }
+h2 { font-size: 16px; margin: 0 0 4px; font-weight: 600; }
+.sub { color: var(--text-secondary); margin: 0 0 12px; }
+.muted { color: var(--text-muted); font-size: 12px; }
+.bar { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin: 12px 0 16px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface-1); }
+.seg button { border: 0; background: none; padding: 6px 12px; font: inherit; color: var(--text-secondary); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+.mapwrap { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 16px; }
+#map { height: 720px; border-radius: 8px; border: 1px solid var(--border); }
+.list { height: 720px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.list th, .list td { padding: 5px 8px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+.list th { position: sticky; top: 0; background: var(--surface-1); font-weight: 600; color: var(--text-secondary); font-size: 12px; }
+.list td.num, .list th.num { text-align: right; }
+.list tr { cursor: pointer; }
+.list tr.active td { background: color-mix(in srgb, var(--hl) 14%, transparent); }
+.rel { font-size: 13px; }
+.rel .m { color: var(--text-muted); font-size: 11px; }
+.legend { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; margin-top: 8px; color: var(--text-secondary); font-size: 12px; }
+.legend .ramp { display: inline-block; width: 120px; height: 8px; border-radius: 4px; vertical-align: middle;
+  background: linear-gradient(90deg, #9ec5f4, #3987e5, #1c5cab, #0d366b); margin: 0 6px; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: middle; margin-right: 4px; }
+.heat { width: auto; }
+.heat th, .heat td { padding: 0; text-align: center; font-size: 12px; }
+.heat th { color: var(--text-secondary); font-weight: 600; padding: 4px 6px; }
+.heat th.h { text-align: right; padding-right: 10px; font-weight: 400; white-space: nowrap; }
+.heat td.c { width: 72px; height: 24px; border: 2px solid var(--surface-1); border-radius: 4px; }
+.heat td.t { color: var(--text-secondary); padding: 0 10px; text-align: right; }
+.heat tr.tot td, .heat tr.tot th { padding-top: 6px; color: var(--text-secondary); }
+.tip { position: fixed; font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; pointer-events: none; z-index: 10; background: var(--surface-1); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.15);
+  display: none; max-width: 320px; }
+.tip b { font-weight: 600; }
+.bands { display: grid; grid-template-columns: auto auto; gap: 1px 10px; margin-top: 4px; color: var(--text-secondary); }
+.bands .hi { color: var(--text-primary); font-weight: 600; background: color-mix(in srgb, var(--hl) 22%, transparent);
+  border-radius: 3px; padding: 0 4px; margin: 0 -4px; }
+.notes { color: var(--text-secondary); font-size: 12px; margin: 8px 0 0; padding-left: 18px; }
+@media (max-width: 1100px) { .mapwrap { grid-template-columns: 1fr; } .list { height: 420px; } }
+</style>
+</head>
+<body>
+<div class="viz-root">
+  <h1>Voi trips in Amersfoort and the Gooi</h1>
+  <p class="sub">Hubs grouped into walkable places: every two hubs in a place are at most 500 m apart (straight line). Each trip end counts for the place of its nearest hub within 500 m.</p>
+  <div class="bar">
+    <span class="muted" id="summary"></span>
+    <div class="seg" role="group" aria-label="Zoom to" id="areas"></div>
+  </div>
+
+  <div class="card">
+    <h2>Top 200 relations between places</h2>
+    <p class="sub" id="mapsub"></p>
+    <div class="mapwrap">
+      <div id="map"></div>
+      <div class="list"><table><thead><tr><th>#</th><th>Relation (both directions)</th><th class="num">Trips</th><th class="num">km</th><th class="num">min</th></tr></thead><tbody id="rows"></tbody></table></div>
+    </div>
+    <div class="legend">
+      <span>Trips per relation <span class="ramp"></span></span>
+      <span><span class="dot" style="background:#fff;border:2px solid #52514e"></span>Place, size = trip starts + ends</span>
+      <span><span class="dot" style="background:#7a7974;width:6px;height:6px"></span>Hub</span>
+      <span>Hover a line, place or row for details; click a row to zoom.</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>When trips start: share of all trip starts per hour and weekday</h2>
+    <p class="sub" id="heatsub"></p>
+    <table class="heat" id="heat"></table>
+    <ul class="notes">
+      <li>Every cell is a share of all trip starts in the period; the whole table adds up to 100%. Row and column totals are on the edges.</li>
+      <li>Trips that start or end in the ten municipalities, by start time (Amsterdam time). Whole weeks only, so each weekday occurs equally often.</li>
+    </ul>
+  </div>
+  <div class="tip" id="tip"></div>
+</div>
+<script src="vendor/maplibre-gl.js?v=%MAPLIBRE_VERSION%"></script>
+<script src="data.js?v=%DATA_HASH%"></script>
+<script>
+const D = window.VOI;
+const RAMP = ['#cde2fb','#b7d3f6','#9ec5f4','#86b6ef','#6da7ec','#5598e7','#3987e5','#2a78d6','#256abf','#1c5cab','#184f95','#104281','#0d366b'];
+const BAND_LABELS = { am_peak: 'Weekday 07–09', day: 'Weekday 09–16', pm_peak: 'Weekday 16–19', evening: 'Weekday 19–24', night: 'Weekday 00–07', weekend: 'Weekend' };
+const HIGHLIGHT_SHARE = 0.3;
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const places = Object.fromEntries(D.places.map(p => [p.id, p]));
+const nf = new Intl.NumberFormat('en-GB');
+const pct = (v, d = 1) => (100 * v).toFixed(d) + '%';
+const label = p => `${p.name} <span class="m">${p.municipality}</span>`;
+// Station places also name the buurt they are in
+const plain = p => `${p.name} (${p.name.startsWith('NS ') ? p.buurt + ', ' : ''}${p.municipality})`;
+const tip = document.getElementById('tip');
+const showTip = (html, x, y) => {
+  tip.innerHTML = html; tip.style.display = 'block';
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  tip.style.left = Math.min(x + 14, innerWidth - w - 8) + 'px';
+  tip.style.top = Math.min(y + 14, innerHeight - h - 8) + 'px';
+};
+const hideTip = () => { tip.style.display = 'none'; };
+const P = D.periods.all;
+
+const AREAS = {
+  'Whole region': [[5.05, 52.12], [5.45, 52.33]],
+  'Amersfoort': [[5.32, 52.13], [5.44, 52.20]],
+  'Soest & Baarn': [[5.24, 52.15], [5.33, 52.23]],
+  'Hilversum & Wijdemeren': [[5.08, 52.19], [5.22, 52.26]],
+  'Huizen, Blaricum, Laren, Eemnes': [[5.19, 52.24], [5.31, 52.31]],
+  'Gooise Meren': [[5.11, 52.25], [5.20, 52.31]],
+};
+const areaSeg = document.getElementById('areas');
+Object.entries(AREAS).forEach(([name, b]) => {
+  const btn = document.createElement('button');
+  btn.textContent = name;
+  btn.onclick = () => map.fitBounds(b, { padding: 20 });
+  areaSeg.appendChild(btn);
+});
+
+// ---- Map -------------------------------------------------------------------
+const map = new maplibregl.Map({
+  container: 'map', style: 'https://tiles.openfreemap.org/styles/positron',
+  bounds: [[5.05, 52.12], [5.45, 52.33]], fitBoundsOptions: { padding: 20 }, attributionControl: { compact: true },
+  preserveDrawingBuffer: true
+});
+map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+const fc = features => ({ type: 'FeatureCollection', features });
+const pt = (lon, lat, props) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] }, properties: props });
+const ln = (coords, props) => ({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: props });
+
+function relationHtml(r) {
+  const A = places[r.a], B = places[r.b];
+  // Shares above HIGHLIGHT_SHARE stand out in the breakdown
+  const bands = Object.entries(r.bands).map(([k, v]) => {
+    const cls = v / r.n > HIGHLIGHT_SHARE ? ' class="hi"' : '';
+    return `<span${cls}>${BAND_LABELS[k]}</span><span${cls}>${pct(v / r.n, 0)}</span>`;
+  }).join('');
+  return `<b>${plain(A)} ↔ ${plain(B)}</b><br>${nf.format(r.n)} trips: ${nf.format(r.ab)} from ${A.name}, ${nf.format(r.ba)} from ${B.name}<br>` +
+    `Median ${r.km} km, ${r.min} min<div class="bands">${bands}</div>`;
+}
+
+map.on('load', () => {
+  map.addSource('spokes', { type: 'geojson', data: fc(D.hubs.map(h => ln([[h.lon, h.lat], [places[h.place].lon, places[h.place].lat]], {}))) });
+  map.addSource('hubs', { type: 'geojson', data: fc(D.hubs.map(h => pt(h.lon, h.lat, { current: h.current }))) });
+  map.addSource('od', { type: 'geojson', data: fc([]) });
+  map.addSource('places', { type: 'geojson', data: fc([]) });
+  map.addLayer({ id: 'spokes', type: 'line', source: 'spokes', paint: { 'line-color': '#7a7974', 'line-width': 1, 'line-opacity': 0.5 } });
+  map.addLayer({ id: 'hubs', type: 'circle', source: 'hubs', paint: { 'circle-radius': 2.5, 'circle-color': '#7a7974',
+    'circle-opacity': ['case', ['get', 'current'], 1, 0.4] } });
+  map.addLayer({ id: 'places', type: 'circle', source: 'places', paint: {
+    'circle-radius': ['get', 'r'], 'circle-color': '#ffffff', 'circle-stroke-color': '#52514e', 'circle-stroke-width': 1 } });
+  map.addLayer({ id: 'od-casing', type: 'line', source: 'od', layout: { 'line-cap': 'round' },
+    paint: { 'line-color': '#fcfcfb', 'line-width': ['+', ['get', 'w'], 2] } });
+  map.addLayer({ id: 'od', type: 'line', source: 'od', layout: { 'line-cap': 'round' },
+    paint: { 'line-color': ['get', 'color'], 'line-width': ['get', 'w'] } });
+  map.addLayer({ id: 'od-hl', type: 'line', source: 'od', filter: ['==', ['get', 'rank'], -1], layout: { 'line-cap': 'round' },
+    paint: { 'line-color': '#eb6834', 'line-width': ['+', ['get', 'w'], 2] } });
+  map.addLayer({ id: 'place-labels', type: 'symbol', source: 'places', filter: ['get', 'labelled'],
+    layout: { 'text-field': ['get', 'name'], 'text-size': 11, 'symbol-sort-key': ['-', 0, ['get', 'r']], 'text-offset': [0, 1.1], 'text-anchor': 'top', 'text-font': ['Noto Sans Regular'],
+      'text-optional': true },
+    paint: { 'text-color': '#0b0b0b', 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 } });
+
+  map.on('mousemove', 'od', e => {
+    const r = P.top[e.features[0].properties.rank];
+    highlight(e.features[0].properties.rank, false);
+    showTip(relationHtml(r), e.originalEvent.clientX, e.originalEvent.clientY);
+  });
+  map.on('mouseleave', 'od', () => { highlight(-1, false); hideTip(); });
+  map.on('mousemove', 'places', e => {
+    const p = places[e.features[0].properties.id], s = P.place[p.id] || {};
+    showTip(`<b>${plain(p)}</b><br>${p.hubs} hub${p.hubs > 1 ? 's' : ''}<br>${nf.format(s.starts || 0)} starts, ${nf.format(s.ends || 0)} ends<br>` +
+      `${nf.format(s.internal || 0)} trips within the place`, e.originalEvent.clientX, e.originalEvent.clientY);
+  });
+  map.on('mouseleave', 'places', hideTip);
+  ['od', 'places'].forEach(l => {
+    map.on('mouseenter', l, () => { map.getCanvas().style.cursor = 'pointer'; });
+    map.on('mouseleave', l, () => { map.getCanvas().style.cursor = ''; });
+  });
+  render();
+});
+
+function highlight(rank, scroll) {
+  if (map.getLayer('od-hl')) map.setFilter('od-hl', ['==', ['get', 'rank'], rank]);
+  document.querySelectorAll('#rows tr').forEach(tr => tr.classList.toggle('active', +tr.dataset.rank === rank));
+  if (scroll && rank >= 0) document.querySelector(`#rows tr[data-rank="${rank}"]`)?.scrollIntoView({ block: 'nearest' });
+}
+
+function renderMap(P) {
+  if (!map.getSource('od')) return;
+  const max = P.top[0].n, min = P.top[P.top.length - 1].n;
+  const t = n => (n - min) / Math.max(1, max - min);
+  // Draw the busiest relations last so they sit on top
+  map.getSource('od').setData(fc(P.top.map((r, i) => ln([[places[r.a].lon, places[r.a].lat], [places[r.b].lon, places[r.b].lat]], {
+    rank: i, w: 2 + 9 * t(r.n), color: RAMP[Math.round(2 + 10 * t(r.n))] })).reverse()));
+  const inTop = new Set(P.top.slice(0, 60).flatMap(r => [r.a, r.b]));
+  const act = Object.values(P.place).map(s => (s.starts || 0) + (s.ends || 0));
+  const amax = Math.max(...act);
+  map.getSource('places').setData(fc(D.places.map(p => {
+    const s = P.place[p.id] || {};
+    const a = (s.starts || 0) + (s.ends || 0);
+    return pt(p.lon, p.lat, { id: p.id, name: p.name, r: 2.5 + 6 * Math.sqrt(a / amax), labelled: inTop.has(p.id) || p.name.startsWith('NS ') });
+  }).sort((x, y) => x.properties.r - y.properties.r)));
+}
+
+function renderList(P) {
+  const rows = document.getElementById('rows');
+  rows.innerHTML = P.top.map((r, i) => `<tr data-rank="${i}"><td class="muted">${i + 1}</td>` +
+    `<td class="rel">${label(places[r.a])}<br>↔ ${label(places[r.b])}</td><td class="num">${nf.format(r.n)}</td>` +
+    `<td class="num">${r.km}</td><td class="num">${r.min}</td></tr>`).join('');
+  rows.querySelectorAll('tr').forEach(tr => {
+    const r = P.top[+tr.dataset.rank];
+    tr.onmouseenter = e => { highlight(+tr.dataset.rank, false); showTip(relationHtml(r), e.clientX, e.clientY); };
+    tr.onmousemove = e => showTip(relationHtml(r), e.clientX, e.clientY);
+    tr.onmouseleave = () => { highlight(-1, false); hideTip(); };
+    tr.onclick = () => {
+      const A = places[r.a], B = places[r.b];
+      map.fitBounds([[Math.min(A.lon, B.lon), Math.min(A.lat, B.lat)], [Math.max(A.lon, B.lon), Math.max(A.lat, B.lat)]], { padding: 80, maxZoom: 15 });
+    };
+  });
+}
+
+// ---- Heatmap ---------------------------------------------------------------
+function renderHeat(P) {
+  const total = P.heat.flat().reduce((a, b) => a + b, 0);
+  const max = Math.max(...P.heat.flat());
+  const dayTot = P.heat.map(r => r.reduce((a, b) => a + b, 0));
+  const hourTot = [...Array(24)].map((_, h) => P.heat.reduce((s, r) => s + r[h], 0));
+  const cell = (v, d, h) => {
+    const step = Math.round(12 * v / max);
+    const bg = v === 0 ? 'var(--empty)' : RAMP[step];
+    const fg = step >= 6 ? '#ffffff' : '#0b0b0b';
+    return `<td class="c" style="background:${bg};color:${fg}" data-tip="${DAYS[d]} ${String(h).padStart(2, '0')}:00–${String(h + 1).padStart(2, '0')}:00: ` +
+      `${pct(v / total, 2)} of all starts (${nf.format(v)} trips)">${pct(v / total)}</td>`;
+  };
+  let html = `<thead><tr><th></th>${DAYS.map(d => `<th>${d}</th>`).join('')}<th>Hour total</th></tr></thead><tbody>`;
+  for (let h = 0; h < 24; h++) {
+    html += `<tr><th class="h">${String(h).padStart(2, '0')}:00–${String(h + 1).padStart(2, '0')}:00</th>` +
+      P.heat.map((r, d) => cell(r[h], d, h)).join('') + `<td class="t">${pct(hourTot[h] / total)}</td></tr>`;
+  }
+  html += `<tr class="tot"><th class="h">Day total</th>${dayTot.map(v => `<td>${pct(v / total)}</td>`).join('')}<td class="t">100%</td></tr></tbody>`;
+  const heat = document.getElementById('heat');
+  heat.innerHTML = html;
+  heat.querySelectorAll('td.c').forEach(td => {
+    td.onmousemove = e => showTip(td.dataset.tip, e.clientX, e.clientY);
+    td.onmouseleave = hideTip;
+  });
+  document.getElementById('heatsub').textContent = `${P.label}: ${nf.format(total)} trip starts. Darker = larger share.`;
+}
+
+function render() {
+  document.getElementById('summary').textContent =
+    `${nf.format(P.trips)} trips; ${pct(P.assigned / P.trips, 0)} start and end in a place`;
+  document.getElementById('mapsub').textContent =
+    `${nf.format(P.between)} trips between ${nf.format(P.pairs)} pairs of places; the top 200 carry ${nf.format(P.top.reduce((s, r) => s + r.n, 0))} ` +
+    `(${pct(P.top.reduce((s, r) => s + r.n, 0) / P.between, 0)}). Trips within one place are left out.`;
+  renderMap(P); renderList(P); renderHeat(P);
+}
+render();
+</script>
+</body>
+</html>

@@ -78,7 +78,7 @@
   "scripts": {
     "build:style": "tailwind build -i src/styles/index.css -o src/styles/tailwind.css",
     "start": "NODE_OPTIONS=--no-deprecation craco start",
-    "build": "craco build && node scripts/build-hilversum.mjs",
+    "build": "craco build && node scripts/build-hilversum.mjs && node scripts/build-voi-trips.mjs",
     "start:hilversum": "node scripts/build-hilversum.mjs --serve",
     "test": "craco test",
     "eject": "react-scripts eject",
