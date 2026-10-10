@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f2f2f7">
+  <meta name="description" content="Waar staan deelfietsen, deelscooters en deelauto's in Hilversum en Wijdemeren, en waar mag je ze parkeren?">
+  <title>Deelvervoer in Hilversum en Wijdemeren</title>
+  <link rel="stylesheet" href="./vendor/maplibre-gl.css?v=%MAPLIBRE_VERSION%">
+  <link rel="stylesheet" href="./%APP_CSS%">
+</head>
+<body>
+  <div id="map" aria-label="Kaart met deelvoertuigen"></div>
+
+  <header id="topbar" class="topbar glass">
+    <img class="logo" src="./logo.svg" alt="Gemeente Hilversum" width="87" height="23">
+    <div class="titles">
+      <h1>Deelvervoer</h1>
+      <p>Hilversum en Wijdemeren</p>
+    </div>
+    <button id="info-button" class="icon-button" type="button" aria-label="Over deze kaart"></button>
+  </header>
+
+  <div class="map-buttons">
+    <button id="locate-button" class="round-button glass" type="button" aria-label="Toon mijn locatie"></button>
+  </div>
+
+  <section id="bottom" class="bottom">
+    <div id="toast" class="toast" role="alert" hidden></div>
+    <div id="detail" class="detail glass" hidden></div>
+    <p id="status" class="status" role="status">Voertuigen laden…</p>
+    <div id="segmented" class="segmented glass" role="group" aria-label="Soort deelvervoer"></div>
+  </section>
+
+  <dialog id="info-sheet" class="sheet" aria-labelledby="info-title">
+    <div class="sheet-grabber" aria-hidden="true"></div>
+    <div class="sheet-head">
+      <h2 id="info-title">Over deze kaart</h2>
+      <button id="info-close" class="close-button" type="button" aria-label="Sluiten"></button>
+    </div>
+    <p>De kaart toont waar nu deelfietsen, deelscooters en deelauto's beschikbaar zijn in Hilversum en Wijdemeren. Huren doe je in de app van de aanbieder.</p>
+
+    <h3>Legenda</h3>
+    <ul class="legend">
+      <li><span class="parking-sign" aria-hidden="true">P</span>Parkeerplek. Hier zet je een deelvoertuig neer na je rit.</li>
+      <li><span class="legend-area" aria-hidden="true"></span>Gebied waarin je een rit met een deelscooter van Check mag beëindigen.</li>
+      <li><span class="legend-border" aria-hidden="true"></span>Grens van de gemeenten Hilversum en Wijdemeren.</li>
+    </ul>
+
+    <h3>Aanbieders</h3>
+    <ul id="legend-operators" class="legend"></ul>
+    <p class="footnote">Van de deelauto's staan alleen de auto's van Greenwheels en MyWheels op de kaart. Zij doen mee aan een proef waarin ze hun gegevens delen.</p>
+
+    <h3>Gegevens</h3>
+    <p>De gegevens komen van het <a href="https://dashboarddeelmobiliteit.nl" target="_blank" rel="noopener">Dashboard Deelmobiliteit</a> en worden elke minuut ververst. Een voertuig kan net verhuurd zijn. Dit is een proefversie.</p>
+  </dialog>
+
+  <script src="./vendor/maplibre-gl.js?v=%MAPLIBRE_VERSION%"></script>
+  <script src="./%APP_JS%"></script>
+</body>
+</html>

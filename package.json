@@ -78,10 +78,11 @@
   "scripts": {
     "build:style": "tailwind build -i src/styles/index.css -o src/styles/tailwind.css",
     "start": "NODE_OPTIONS=--no-deprecation craco start",
-    "build": "craco build",
+    "build": "craco build && node scripts/build-hilversum.mjs",
+    "start:hilversum": "node scripts/build-hilversum.mjs --serve",
     "test": "craco test",
     "eject": "react-scripts eject",
-    "typecheck": "tsc -p tsconfig.checked.json"
+    "typecheck": "tsc -p tsconfig.checked.json && tsc -p apps/hilversum/tsconfig.json"
   },
   "eslintConfig": {
     "extends": [
@@ -118,15 +119,16 @@
   },
   "devDependencies": {
     "@craco/craco": "^7.1.0",
+    "@types/node": "18.19.130",
+    "@types/react": "18.2.79",
+    "@types/react-dom": "18.2.25",
     "autoprefixer": "^10.4.14",
+    "esbuild": "^0.25.12",
     "postcss": "^8.4.21",
     "postcss-flexbugs-fixes": "^5.0.2",
     "postcss-preset-env": "^8.0.1",
     "react-error-overlay": "6.1.0",
-    "tailwindcss": "^3.4.3",
-    "@types/node": "18.19.130",
-    "@types/react": "18.2.79",
-    "@types/react-dom": "18.2.25"
+    "tailwindcss": "^3.4.3"
   },
   "overrides": {
     "react-error-overlay": "6.1.0"

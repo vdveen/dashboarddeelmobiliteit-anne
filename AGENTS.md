@@ -24,6 +24,11 @@
 - The 5 GB volume fills around June 2027 at the current rate; revisit retention (upgrade the plan, prune, or downsample) once `/health` reports `database_bytes` above 4 GB.
 - Every snapshot now stores `is_non_operational`. `is_reserved` and `is_available` stay nullable because the source still omits them. Do not treat unknown status as available.
 
+## Hilversum viewer
+
+- `apps/hilversum/` is a separate public map app for Hilversum and Wijdemeren, served at `/hilversum/`. `npm run build` builds it into `build/hilversum/` after the dashboard. See `apps/hilversum/README.md`.
+- It uses public endpoints only and reuses the dashboard's service area and parking hub code. Keep `src/helpers/service-areas/mapData.ts`, `roles.ts`, and `map.service_areas.ts` free of imports that pull in React, Redux, or moment.
+
 ## Commit and push changes
 
 - After completing and validating a small or medium change or fix, commit and push it when there are no significant risks or unresolved design choices. Do not ask for separate confirmation. The user prefers to revert a change they do not want.
