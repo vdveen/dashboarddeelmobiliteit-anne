@@ -31,8 +31,9 @@ The page is for Dashboard Deelmobiliteit users. It holds no data itself:
 - The repository is public, so the data is committed encrypted as
   `scripts/voi_trips_data.enc` (gzipped JSON, Fernet). The key is the
   `VOI_TRIPS_KEY` variable of `voi-snapshot-api` in Railway and `VOI_TRIPS_KEY`
-  in `~/.env` on the analysis VM. Never commit or print it. Commits before the
-  login was added (up to `d9a28617`) contain an unencrypted `data.js`.
+  in `~/.env` on the analysis VM. Never commit or print it, and never commit
+  the decrypted data. An unencrypted `data.js` was removed from the history
+  on 11 October 2026 by rewriting `main`.
 - `scripts/build-voi-trips.mjs` copies the page and the vendored MapLibre into
   `build/voi-trips/` during `npm run build` and fills in the API URL
   (`REACT_APP_VOI_API_URL`, default `https://voi-snapshot-api-production.up.railway.app`).
