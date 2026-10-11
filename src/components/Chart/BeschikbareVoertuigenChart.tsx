@@ -76,8 +76,11 @@ import {
   addOperationalCountsToChartData,
   darkenHexColor,
   getDailyTimestamps,
-  getNotDefectSeriesKey
+  getDaysMissingProviderCount,
+  getNotDefectSeriesKey,
+  mergeProviderCounts
 } from './availableVehiclesChartUtils';
+import {VOI_SYSTEM_ID, getArchivedVoiOperationalCounts} from '../../api/voiOperationalFallback';
 import { getAclOrganisationType } from '../../helpers/authentication';
 
 /** Fetches the same data for the previous period of equal length */
@@ -151,6 +154,30 @@ function BeschikbareVoertuigenChart({
   const retryControllerRef = useRef<AbortController | null>(null);
   useEffect(() => () => retryControllerRef.current?.abort(), []);
 
+  // The dashboard API sometimes has no park events for a past moment while the
+  // aggregated stats do have vehicles. For Voi, our own snapshot archive can
+  // fill those days.
+  const loadArchivedVoiCounts = async (
+    counts: OperationalVehicleCountsByDay,
+    dailyTimestamps: DailyTimestamp[],
+    signal: AbortSignal
+  ): Promise<Record<string, number>> => {
+    const missingDays = getDaysMissingProviderCount(
+      getAggregatedChartData(vehiclesData, filter, zones, aanbieders), counts, VOI_SYSTEM_ID
+    );
+    if (missingDays.length === 0) return {};
+    try {
+      return await getArchivedVoiOperationalCounts(
+        token, filter, metadata, organisationType,
+        dailyTimestamps.filter(({day}) => missingDays.includes(day)), signal
+      );
+    } catch (error: any) {
+      if (error?.name === 'AbortError' || signal.aborted) throw error;
+      console.error('Unable to load archived Voi counts', error);
+      return {};
+    }
+  };
+
   // The hook drops stale responses, so a new `vehiclesData` always belongs to
   // the current filter. Only day-level data gets the non-defect series.
   useEffect(() => {
@@ -174,6 +201,9 @@ function BeschikbareVoertuigenChart({
         setFailedOperationalDays(
           dailyTimestamps.filter(({day}) => failedDays.includes(day))
         );
+        const archived = await loadArchivedVoiCounts(counts, dailyTimestamps, controller.signal);
+        if (cancelled) return;
+        setOperationalVehiclesByDay(current => mergeProviderCounts(current, VOI_SYSTEM_ID, archived));
       } catch (error: any) {
         if (error?.name !== 'AbortError') {
           console.error('Unable to load non-defect vehicle counts', error);
@@ -199,6 +229,8 @@ function BeschikbareVoertuigenChart({
       );
       setOperationalVehiclesByDay(current => ({...current, ...counts}));
       setFailedOperationalDays(current => current.filter(({day}) => failedDays.includes(day)));
+      const archived = await loadArchivedVoiCounts(counts, failedOperationalDays, controller.signal);
+      setOperationalVehiclesByDay(current => mergeProviderCounts(current, VOI_SYSTEM_ID, archived));
     } catch (error: any) {
       if (error?.name !== 'AbortError') {
         console.error('Unable to reload non-defect vehicle counts', error);

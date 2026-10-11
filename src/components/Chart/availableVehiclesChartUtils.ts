@@ -64,3 +64,34 @@ export const addOperationalCountsToChartData = (
     return { ...row, ...operationalValues };
   });
 };
+
+/**
+ * Days that loaded without a count for `provider` while the chart shows
+ * vehicles of that provider, so the park events for that moment are missing.
+ */
+export const getDaysMissingProviderCount = (
+  chartData: any[],
+  countsByDay: OperationalVehicleCountsByDay,
+  provider: string
+) => {
+  const days = new Set(
+    (chartData || [])
+      .filter((row) => Number(row[provider]) > 0)
+      .map((row) => moment.tz(row.time || row.name, REPORTING_TIMEZONE).format('YYYY-MM-DD'))
+  );
+  return Object.keys(countsByDay).filter((day) =>
+    days.has(day) && countsByDay[day][provider] === undefined
+  );
+};
+
+export const mergeProviderCounts = (
+  countsByDay: OperationalVehicleCountsByDay,
+  provider: string,
+  providerCounts: Record<string, number>
+): OperationalVehicleCountsByDay => {
+  const merged = { ...countsByDay };
+  Object.entries(providerCounts).forEach(([day, count]) => {
+    merged[day] = { ...merged[day], [provider]: count };
+  });
+  return merged;
+};

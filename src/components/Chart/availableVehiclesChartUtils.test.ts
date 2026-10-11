@@ -2,7 +2,9 @@ import {
   addOperationalCountsToChartData,
   darkenHexColor,
   getDailyTimestamps,
-  getNotDefectSeriesKey
+  getDaysMissingProviderCount,
+  getNotDefectSeriesKey,
+  mergeProviderCounts
 } from './availableVehiclesChartUtils';
 
 describe('availableVehiclesChartUtils', () => {
@@ -40,5 +42,26 @@ describe('availableVehiclesChartUtils', () => {
     expect(timestamps.map(({ day }) => day)).toEqual(['2026-09-01', '2026-09-02']);
     // 08:30 Amsterdam (CEST) is 06:30 UTC, whatever the browser timezone is.
     expect(timestamps[0].timestamp).toBe('2026-09-01T06:30:00.000Z');
+  });
+
+  it('finds loaded days that lack a count for a provider shown in the chart', () => {
+    const chartData = [
+      { name: '2026-10-07', voi: 250 },
+      { name: '2026-10-08', voi: 260 },
+      { name: '2026-10-09', voi: 0 },
+      { name: '2026-10-10', voi: 270 },
+    ];
+    const counts = {
+      '2026-10-07': { voi: 240 },
+      '2026-10-08': {},
+      '2026-10-09': {},
+    };
+    // 10-10 did not load at all, so it is a failed day, not a missing one
+    expect(getDaysMissingProviderCount(chartData, counts, 'voi')).toEqual(['2026-10-08']);
+  });
+
+  it('merges counts of one provider into the daily counts', () => {
+    expect(mergeProviderCounts({ '2026-10-08': { lime: 3 } }, 'voi', { '2026-10-08': 7, '2026-10-09': 0 }))
+      .toEqual({ '2026-10-08': { lime: 3, voi: 7 }, '2026-10-09': { voi: 0 } });
   });
 });
