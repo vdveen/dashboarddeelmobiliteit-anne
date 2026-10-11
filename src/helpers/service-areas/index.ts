@@ -3,6 +3,7 @@ import { ServiceArea } from '../../types/ServiceArea';
 import { ServiceAreaDelta } from '../../types/ServiceAreaDelta';
 import moment from 'moment';
 import { fetchJson } from '../../api/fetchJson';
+import { municipalitiesQueryParam } from '../../api/service-areas';
 import { getMdsPublicUrl } from '../mdsUrl';
 export { splitServiceAreasForMap } from './mapData';
 export type { ServiceAreaMapData } from './mapData';
@@ -48,12 +49,13 @@ const fetchServiceAreas = async (
   gebied: string,
   visible_operators: string[]
 ): Promise<ServiceArea[]> => {
+  const municipalitiesString = municipalitiesQueryParam(gebied);
   const operatorsString = operatorsQueryParam(visible_operators);
-  if (!gebied || !operatorsString) {
+  if (!municipalitiesString || !operatorsString) {
     return [];
   }
 
-  const url = `${getMdsPublicUrl()}/service_area?municipalities=${encodeURIComponent(gebied)}&${operatorsString}`;
+  const url = `${getMdsPublicUrl()}/service_area?${municipalitiesString}&${operatorsString}`;
 
   try {
     return await fetchJson<ServiceArea[]>(url);
@@ -67,14 +69,15 @@ const fetchServiceAreasHistory = async (
   gebied: string,
   visible_operators: string[]
 ): Promise<ServiceAreaHistoryEvent[]> => {
+  const municipalitiesString = municipalitiesQueryParam(gebied);
   const operatorsString = operatorsQueryParam(visible_operators);
-  if (!gebied || !operatorsString) {
+  if (!municipalitiesString || !operatorsString) {
     return [];
   }
 
   const startDate = '2024-10-01';
   const endDate = moment().format('YYYY-MM-DD');
-  const url = `${getMdsPublicUrl()}/service_area/history?municipalities=${encodeURIComponent(gebied)}&${operatorsString}&start_date=${startDate}&end_date=${endDate}`;
+  const url = `${getMdsPublicUrl()}/service_area/history?${municipalitiesString}&${operatorsString}&start_date=${startDate}&end_date=${endDate}`;
 
   try {
     return await fetchJson<ServiceAreaHistoryEvent[]>(url);

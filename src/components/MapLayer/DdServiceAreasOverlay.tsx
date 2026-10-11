@@ -12,6 +12,7 @@ import { loadServiceAreas, splitServiceAreasForMap } from '../../helpers/service
 import { getAvailableOperators } from '../../api/service-areas';
 import { selectDataLayerOrder } from '../../helpers/layerSelectors';
 import { DISPLAYMODE_SERVICE_AREAS } from '../../reducers/layers.js';
+import { getMunicipalityCodes } from '../../helpers/regions';
 
 import { StateType } from '../../types/StateType';
 import { ServiceArea } from '../../types/ServiceArea';
@@ -88,7 +89,9 @@ const DdServiceAreasOverlay = ({
     loadServiceAreas(gebied, operatorsKey.split(','))
       .then((service_areas) => {
         if (isStale) return;
-        setServiceAreas(service_areas.filter((x) => x.municipality === gebied));
+        // A region selection holds several comma-joined municipality codes
+        const codes = getMunicipalityCodes(gebied);
+        setServiceAreas(service_areas.filter((x) => codes.includes(x.municipality)));
       })
       .catch((error) => {
         console.error('Error loading service areas:', error);
