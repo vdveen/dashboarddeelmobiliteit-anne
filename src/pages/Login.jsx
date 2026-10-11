@@ -8,6 +8,15 @@ import { IconButtonClose } from '../components/IconButtons.jsx';
 import LogoDashboardDeelmobiliteit from '../components/Logo/LogoDashboardDeelmobiliteit';
 import { sendForgotPasswordEmail } from '../api/auth';
 
+// After logging in, return to a same-site path passed as ?redirect=, such
+// as /voi-trips/; anything else goes to the map.
+const afterLoginPath = () => {
+  const target = new URLSearchParams(window.location.search).get('redirect');
+  return target && target.startsWith('/') && !target.startsWith('//') && !target.startsWith('/\\')
+    ? target
+    : '/map/park';
+};
+
 const Login = () => {
   const navigate = useNavigate();
 
@@ -57,7 +66,7 @@ const Login = () => {
         dispatch( { type: 'RESET_FILTER', payload: null } );
         dispatch( setUser(response) );
         setLoggedIn(true);
-        document.location = '/map/park';
+        document.location = afterLoginPath();
       }).catch(error => {
         console.error("Login failed! (%s)", error.message);
         setErrorMessage('Login mislukt. Heb je het juiste e-mailadres en wachtwoord ingevuld?');

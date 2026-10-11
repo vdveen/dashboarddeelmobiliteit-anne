@@ -45,7 +45,12 @@ export default defineRailway(() => {
       healthcheckPath: "/health",
       multiRegionConfig: { "europe-west4-drams3a": { numReplicas: 1 } },
     },
-    env: { DATABASE_URL: storage.env.DATABASE_URL, PORT: "8080" },
+    env: {
+      DATABASE_URL: storage.env.DATABASE_URL,
+      PORT: "8080",
+      // Decrypts scripts/voi_trips_data.enc. Set in the Railway UI; never commit it.
+      VOI_TRIPS_KEY: preserve(),
+    },
   });
   const monitor = service("voi-vehicle-monitor", {
     source: github("vdveen/dashboarddeelmobiliteit-anne", {

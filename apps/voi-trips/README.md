@@ -14,11 +14,28 @@ start to end, so total km undercounts the distance actually ridden. Trips of
 over 100 km are left out everywhere: they are moves by Voi between the region
 and Groningen (125 km or more; the longest trip below them is 30 km).
 
-- `index.html` is the page. `scripts/build-voi-trips.mjs` copies it with
-  `data.js` and the vendored MapLibre into `build/voi-trips/` during
-  `npm run build`.
-- `data.js` holds the aggregated counts only (no individual trips). It is
-  generated, not edited by hand.
+## Login
+
+The page is for Dashboard Deelmobiliteit users. It holds no data itself:
+
+- `index.html` reads the dashboard login token from `localStorage`
+  (`CROWDD_reduxState`, as the dashboard stores it on the same domain) and
+  loads the data from `voi-snapshot-api` at `GET /voi-trips/data` with that
+  token. Without a login, or with an expired one, it shows a button to the
+  dashboard's `/login?redirect=/voi-trips/`, which returns here afterwards.
+- The API (`scripts/voi_api.py`, `scripts/voi_trips_access.py`) asks the
+  dashboard API for the account's `menu/acl` with the same token. A token the
+  dashboard API rejects gets 401. An account gets the data only when it is an
+  admin, or has Voi among its operators and at least one of the ten
+  municipalities; others get 403.
+- The repository is public, so the data is committed encrypted as
+  `scripts/voi_trips_data.enc` (gzipped JSON, Fernet). The key is the
+  `VOI_TRIPS_KEY` variable of `voi-snapshot-api` in Railway and `VOI_TRIPS_KEY`
+  in `~/.env` on the analysis VM. Never commit or print it. Commits before the
+  login was added (up to `d9a28617`) contain an unencrypted `data.js`.
+- `scripts/build-voi-trips.mjs` copies the page and the vendored MapLibre into
+  `build/voi-trips/` during `npm run build` and fills in the API URL
+  (`REACT_APP_VOI_API_URL`, default `https://voi-snapshot-api-production.up.railway.app`).
 
 ## How the data is made
 
@@ -36,11 +53,12 @@ trips. See the README there.
    the place of its nearest hub within 500 m. A place is named after the buurt of
    its busiest hub, or `NS <station>` when the hub nearest a ProRail station
    (PDOK spoorwegen) is in it and within 500 m.
-4. `viz_data.py` writes `data.js` here, with the top relations for both
+4. `viz_data.py` writes the encrypted `scripts/voi_trips_data.enc`, with the top relations for both
    groupings. Every trip end lies in a CBS buurt (`enrich.ts`); a buurt's line
    end is the mean location of its trip starts and ends. The buurt outlines in
    `data.js` are simplified to about 5 m. The period is 1 June to 4 October 2026,
    whole weeks only, so every weekday occurs equally often.
 
-The page is public: anyone with the URL can open it. `robots` is set to
-`noindex`.
+After regenerating, commit and push `scripts/voi_trips_data.enc`; that
+redeploys `voi-snapshot-api`, which reads the file once per process.
+`robots` is set to `noindex`.

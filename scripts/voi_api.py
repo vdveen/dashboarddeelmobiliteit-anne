@@ -1,10 +1,13 @@
 """Public read-only GeoJSON API for the snapshot viewer."""
 
+import gzip
 import json
+import os
 import re
+import urllib.error
 from datetime import datetime, timezone
 
-from flask import Flask, abort, jsonify, request
+from flask import Flask, Response, abort, jsonify, request
 import psycopg
 
 from scripts.collect_voi_vehicles import filename_timestamp, iso_timestamp
@@ -12,6 +15,7 @@ from scripts.voi_availability import (
     ValidationError, parse_window, validate_polygon,
 )
 from scripts.voi_database import connect
+from scripts import voi_trips_access
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
@@ -22,7 +26,7 @@ def headers(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
     if "Cache-Control" not in response.headers:
         response.headers["Cache-Control"] = "public, max-age=30" if response.status_code == 200 else "no-store"
     return response
@@ -42,6 +46,40 @@ def request_too_large(_error):
 def database_error(error):
     app.logger.error("Snapshot database request failed (%s)", type(error).__name__)
     return jsonify(error="Snapshot storage is temporarily unavailable"), 503
+
+
+_voi_trips_data = None
+
+
+@app.route("/voi-trips/data", methods=["GET", "OPTIONS"])
+def voi_trips_data():
+    """Data for the /voi-trips/ page, for a dashboard login that may see Voi trips."""
+    if request.method == "OPTIONS":
+        return "", 204
+    private = {"Cache-Control": "private, no-store"}
+    auth = request.headers.get("Authorization", "")
+    token = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
+    try:
+        acl = voi_trips_access.fetch_acl(token)
+    except voi_trips_access.LoginRequired as error:
+        return jsonify(error=str(error)), 401, private
+    except (urllib.error.URLError, OSError, ValueError) as error:
+        app.logger.error("Dashboard ACL request failed (%s)", type(error).__name__)
+        return jsonify(error="The dashboard API is not available"), 502, private
+    if not voi_trips_access.may_see(acl):
+        return jsonify(error="This account has no access to Voi data in the region"), 403, private
+
+    global _voi_trips_data
+    if _voi_trips_data is None:
+        key = os.environ.get("VOI_TRIPS_KEY")
+        if not key:
+            app.logger.error("VOI_TRIPS_KEY is not set")
+            return jsonify(error="The page data is not configured"), 503, private
+        _voi_trips_data = voi_trips_access.decrypt(voi_trips_access.VOI_TRIPS_DATA.read_bytes(), key)
+    if "gzip" in request.headers.get("Accept-Encoding", ""):
+        return Response(_voi_trips_data, mimetype="application/json",
+                        headers={**private, "Content-Encoding": "gzip", "Vary": "Accept-Encoding"})
+    return Response(gzip.decompress(_voi_trips_data), mimetype="application/json", headers=private)
 
 
 @app.get("/health")
