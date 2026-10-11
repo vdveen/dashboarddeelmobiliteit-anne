@@ -4,9 +4,11 @@ import json
 import os
 import unittest
 from datetime import datetime, timedelta, timezone
+from unittest import mock
 
+from scripts import voi_database
 from scripts.collect_voi_vehicles import to_geojson
-from scripts.voi_database import connect, initialize, store_snapshot
+from scripts.voi_database import backfill, connect, initialize, missing_boundaries, store_snapshot
 from scripts.voi_api import app
 
 
@@ -17,19 +19,21 @@ class DatabaseTest(unittest.TestCase):
             initialize(connection)
             connection.execute("TRUNCATE voi_positions, voi_snapshots RESTART IDENTITY")
         self.captured = datetime(2026, 9, 7, 12, tzinfo=timezone.utc)
-        self.geojson = to_geojson({"park_events": [
+        self.payload = {"park_events": [
             {"system_id": "voi", "form_factor": "bicycle", "bike_id": "voi:jp4v",
              "location": {"latitude": 52.1, "longitude": 5.1},
              "is_non_operational": False, **status}
             for status in ({}, {"is_available": True}, {"is_non_operational": True})
-        ]}, self.captured)
+        ]}
+        self.geojson = to_geojson(self.payload, self.captured)
         self.client = app.test_client()
 
     def test_atomic_idempotent_snapshot_and_geojson_filters(self):
         with connect() as connection:
             self.assertTrue(store_snapshot(connection, self.geojson, "test"))
             self.assertFalse(store_snapshot(connection, self.geojson, "test"))
-        index = self.client.get("/index.json").get_json()
+        # An explicit window: the default last seven days moves past the fixture date.
+        index = self.client.get("/index.json?from=2026-09-07T00:00:00Z&to=2026-09-07T23:00:00Z").get_json()
         self.assertEqual(len(index), 1)
         url = "/" + index[0]["path"]
         response = self.client.get(url)
@@ -116,6 +120,35 @@ class DatabaseTest(unittest.TestCase):
         self.assertEqual(preflight.headers["Access-Control-Allow-Origin"], "*")
         self.assertIn("POST", preflight.headers["Access-Control-Allow-Methods"])
         self.assertEqual(preflight.headers["Access-Control-Allow-Headers"], "Content-Type")
+
+    def test_backfill_fills_missed_boundaries_but_not_empty_answers(self):
+        def at(minutes):
+            # After TEN_MINUTE_START, where the backfill begins looking.
+            return datetime(2026, 10, 11, tzinfo=timezone.utc) + timedelta(minutes=minutes)
+
+        with connect() as connection:
+            for minutes in (0, 50):
+                store_snapshot(connection, to_geojson(self.payload, at(minutes)), "test")
+            self.assertEqual(missing_boundaries(connection, at(50)),
+                             [at(40), at(30), at(20), at(10)])
+
+        def fetch(url, captured_at, timeout):
+            if captured_at == at(30):
+                raise RuntimeError("HTTP Error 502: Bad Gateway")
+            return self.payload
+
+        with mock.patch.object(voi_database, "fetch_payload", side_effect=fetch) as fetched:
+            backfill("test", at(50))
+            # 40 is filled and the failure at 30 stops the run.
+            self.assertEqual(fetched.call_count, 2)
+            fetched.reset_mock()
+            fetched.side_effect = lambda url, captured_at, timeout: (
+                {"park_events": []} if captured_at == at(20) else self.payload)
+            backfill("test", at(50))
+            # 30 is filled; the empty answer at 20 is not stored and ends the run.
+            self.assertEqual(fetched.call_count, 2)
+        with connect() as connection:
+            self.assertEqual(missing_boundaries(connection, at(50)), [at(20), at(10)])
 
     def test_readonly_connection_rejects_writes(self):
         import psycopg

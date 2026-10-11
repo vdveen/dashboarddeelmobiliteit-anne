@@ -22,6 +22,7 @@
 - Keep `DATABASE_URL` and database credentials in Railway. Never print or commit their values.
 - `voi-vehicle-monitor` reads the authenticated `park_events` endpoint and needs the `DASHBOARDDEELMOB_KEY` service variable set in the Railway UI. Never commit, log, or print the key. The collector sends it as an `apikey` header, so it never reaches a stored URL. The key for local validation lives in `/home/exedev/.env`, outside the repository; keep it there.
 - The 5 GB volume fills around June 2027 at the current rate; revisit retention (upgrade the plan, prune, or downsample) once `/health` reports `database_bytes` above 4 GB.
+- After storing its own boundary, each collector run backfills missed ten-minute boundaries, newest first, from `TEN_MINUTE_START` in `scripts/voi_database.py` (older snapshots are hourly). In October 2026 the source answered past timestamps for about 36 hours and returned an empty list further back. The backfill stores no empty answers and stops at the first one or at the first fetch error. A crashed run after an upstream outage (HTTP 502/503) therefore heals on its own once the source recovers, as long as it recovers within that reach.
 - Every snapshot now stores `is_non_operational`. `is_reserved` and `is_available` stay nullable because the source still omits them. Do not treat unknown status as available.
 
 ## Hilversum viewer
