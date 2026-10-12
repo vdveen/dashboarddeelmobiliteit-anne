@@ -27,7 +27,11 @@ The page is for Dashboard Deelmobiliteit users. It holds no data itself:
   dashboard API for the account's `menu/acl` with the same token. A token the
   dashboard API rejects gets 401. An account gets the data only when it is an
   admin, or has Voi among its operators and at least one of the ten
-  municipalities; others get 403.
+  municipalities; others get 403. An account with both an operator grant and
+  a municipality grant gets default lists from `menu/acl` that hide Voi. For
+  those, the API asks `v2/park_events/stats` per region zone and accepts the
+  account when the zone answers for `operators=voi` but refuses a request
+  without an operator filter.
 - The repository is public, so the data is committed encrypted as
   `scripts/voi_trips_data.enc` (gzipped JSON, Fernet). The key is the
   `VOI_TRIPS_KEY` variable of `voi-snapshot-api` in Railway and `VOI_TRIPS_KEY`

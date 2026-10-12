@@ -23,6 +23,7 @@
 - `voi-vehicle-monitor` reads the authenticated `park_events` endpoint and needs the `DASHBOARDDEELMOB_KEY` service variable set in the Railway UI. Never commit, log, or print the key. The collector sends it as an `apikey` header, so it never reaches a stored URL. The key for local validation lives in `/home/exedev/.env`, outside the repository; keep it there.
 - The 5 GB volume fills around June 2027 at the current rate; revisit retention (upgrade the plan, prune, or downsample) once `/health` reports `database_bytes` above 4 GB.
 - After storing its own boundary, each collector run backfills missed ten-minute boundaries, newest first, from `TEN_MINUTE_START` in `scripts/voi_database.py` (older snapshots are hourly). In October 2026 the source answered past timestamps for about 36 hours and returned an empty list further back. The backfill stores no empty answers and stops at the first one or at the first fetch error. A crashed run after an upstream outage (HTTP 502/503) therefore heals on its own once the source recovers, as long as it recovers within that reach.
+- The dashboard API combines data grants as one set of allowed operators and one set of allowed municipalities, and a request must pass both. A Voi grant plus a municipality grant (Hilversum, 12 October 2026) therefore leaves only Voi inside that municipality, and `menu/acl` then returns its default operator and municipality lists instead of the real grants. The collector's NL-wide `operators=voi` request gets 403 in that state. Fixing it needs a backend change or an account (and key) with only the Voi grant.
 - Every snapshot now stores `is_non_operational`. `is_reserved` and `is_available` stay nullable because the source still omits them. Do not treat unknown status as available.
 
 ## Hilversum viewer
@@ -33,7 +34,7 @@
 ## Voi trips page
 
 - `apps/voi-trips/` is a static analysis page served at `/voi-trips/`; `scripts/build-voi-trips.mjs` copies it into `build/voi-trips/` during `npm run build`. See `apps/voi-trips/README.md`.
-- The page is behind the dashboard login. It loads its data from `voi-snapshot-api` (`GET /voi-trips/data`), which checks the visitor's dashboard token against the dashboard API's `menu/acl` and only answers for admins or accounts with Voi and a region municipality.
+- The page is behind the dashboard login. It loads its data from `voi-snapshot-api` (`GET /voi-trips/data`), which checks the visitor's dashboard token against the dashboard API's `menu/acl` and only answers for admins or accounts with Voi and a region municipality. When `menu/acl` hides a Voi grant, it checks with `v2/park_events/stats` instead (see `apps/voi-trips/README.md`).
 - The data is `scripts/voi_trips_data.enc`, encrypted because the repository is public. The pipeline in `~/data/voi-trips` (outside the repo; it needs the API key and the raw trips) generates it. The key is `VOI_TRIPS_KEY` in Railway (`voi-snapshot-api`) and in `/home/exedev/.env`. Never commit, log, or print it, and never commit the decrypted data.
 
 ## Commit and push changes

@@ -180,6 +180,15 @@ def availability_properties(vehicle: dict[str, Any], index: int = 0) -> dict[str
     }
 
 
+def api_reason(error: HTTPError) -> str:
+    try:
+        body = json.loads(error.read(2000))
+    except (AttributeError, OSError, ValueError):
+        return ""
+    reason = body.get("error") if isinstance(body, dict) else None
+    return f": {reason}" if isinstance(reason, str) else ""
+
+
 def fetch_payload(
     api_url: str,
     captured_at: datetime,
@@ -214,8 +223,10 @@ def fetch_payload(
                 return json.loads(raw)
         except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as error:
             if isinstance(error, HTTPError) and error.code in (401, 403):
+                # A valid key also gets 403 when the account's data access changes,
+                # so pass on the API's reason (it never contains the key)
                 raise RuntimeError(
-                    f"API rejected the {API_KEY_ENV} credentials (HTTP {error.code})"
+                    f"API refused the {API_KEY_ENV} account (HTTP {error.code}){api_reason(error)}"
                 ) from error
             if isinstance(error, HTTPError) and error.code not in (408, 429) and error.code < 500:
                 raise RuntimeError(f"Vehicle API rejected the request (HTTP {error.code})") from error

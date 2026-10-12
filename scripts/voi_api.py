@@ -61,12 +61,14 @@ def voi_trips_data():
     token = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
     try:
         acl = voi_trips_access.fetch_acl(token)
+        may_see = (voi_trips_access.may_see(acl)
+                   or voi_trips_access.has_voi_grant_in_region(token, acl))
     except voi_trips_access.LoginRequired as error:
         return jsonify(error=str(error)), 401, private
     except (urllib.error.URLError, OSError, ValueError) as error:
         app.logger.error("Dashboard ACL request failed (%s)", type(error).__name__)
         return jsonify(error="The dashboard API is not available"), 502, private
-    if not voi_trips_access.may_see(acl):
+    if not may_see:
         return jsonify(error="This account has no access to Voi data in the region"), 403, private
 
     global _voi_trips_data

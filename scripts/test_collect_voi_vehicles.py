@@ -168,6 +168,16 @@ class FetchPayloadTest(unittest.TestCase):
 
         self.assertEqual(len(calls), 1)
 
+    def test_an_auth_error_names_the_api_reason(self):
+        reason = b'{"error": "No zone filter was specified, but user doesn\'t have access to all zones."}'
+
+        def fake_urlopen(request, timeout=None):
+            raise HTTPError(request.full_url, 403, "Forbidden", {}, io.BytesIO(reason))
+
+        with mock.patch("scripts.collect_voi_vehicles.urlopen", fake_urlopen):
+            with self.assertRaisesRegex(RuntimeError, "403.*No zone filter was specified"):
+                fetch_payload("https://example.test/park_events", CAPTURED_AT, 5, "secret")
+
 
 if __name__ == "__main__":
     unittest.main()

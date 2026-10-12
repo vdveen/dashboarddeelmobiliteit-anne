@@ -14,7 +14,9 @@ import json
 import os
 import pathlib
 import urllib.error
+import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
 
 DASHBOARD_API_URL = os.environ.get("DASHBOARD_API_URL", "https://api.dashboarddeelmobiliteit.nl").rstrip("/")
 VOI_TRIPS_DATA = pathlib.Path(__file__).with_name("voi_trips_data.enc")
@@ -43,6 +45,46 @@ def may_see(acl):
     operators = {o.get("system_id") for o in acl.get("operators") or [] if isinstance(o, dict)}
     municipalities = {m.get("gm_code") for m in acl.get("municipalities") or [] if isinstance(m, dict)}
     return "voi" in operators and bool(REGION_GM_CODES & municipalities)
+
+
+def is_allowed(token, query, timeout=15):
+    """True when the dashboard API answers a park events stats query for this login."""
+    url = f"{DASHBOARD_API_URL}/dashboard-api/v2/park_events/stats?{urllib.parse.urlencode(query)}"
+    request = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout):
+            return True
+    except urllib.error.HTTPError as error:
+        if error.code in (401, 403):
+            return False
+        raise
+
+
+def has_voi_grant_in_region(token, acl, allowed=is_allowed):
+    """True when the dashboard API itself serves this login Voi data in the region.
+
+    An account that has both an operator grant (Voi) and a municipality grant
+    gets the default operator and municipality lists from menu/acl, so may_see
+    cannot find Voi there. The API still lets it see Voi in the granted
+    municipalities. A zone counts when the API answers for operators=voi but
+    refuses the same zone without an operator filter: the account is limited to
+    granted operators and Voi is one of them, as may_see requires. A
+    municipality account without a Voi grant sees every operator in its zones
+    and stays out, as before.
+    """
+    if not isinstance(acl, dict):
+        return False
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    for municipality in acl.get("municipalities") or []:
+        if not isinstance(municipality, dict) or municipality.get("gm_code") not in REGION_GM_CODES:
+            continue
+        zone_id = municipality.get("zone_id")
+        if not isinstance(zone_id, int):
+            continue
+        query = {"timestamp": timestamp, "zone_ids": zone_id}
+        if allowed(token, {**query, "operators": "voi"}) and not allowed(token, query):
+            return True
+    return False
 
 
 def fetch_acl(token, timeout=15):
