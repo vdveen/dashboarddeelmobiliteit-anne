@@ -53,7 +53,9 @@ const copyAssets = async () => {
   await Promise.all([
     copyFile(path.join(maplibre, 'maplibre-gl.js'), path.join(outDir, 'vendor/maplibre-gl.js')),
     copyFile(path.join(maplibre, 'maplibre-gl.css'), path.join(outDir, 'vendor/maplibre-gl.css')),
-    copyFile(path.join(appDir, 'public/logo.svg'), path.join(outDir, 'logo.svg'))
+    copyFile(path.join(appDir, 'public/logo.svg'), path.join(outDir, 'logo.svg')),
+    // The dashboard's own hub pin
+    copyFile(path.join(root, 'public/components/MapComponent/hub-icon-mijksenaar.png'), path.join(outDir, 'hub-icon.png'))
   ]);
 };
 

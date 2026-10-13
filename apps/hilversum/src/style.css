@@ -258,6 +258,11 @@ button { font: inherit; color: inherit; }
 }
 .detail .parking-sign { width: 40px; height: 40px; border-radius: 10px; font-size: 26px; }
 .legend-items .legend-parking { width: 18px; height: 18px; border-width: 1.5px; border-radius: 5px; font-size: 12px; }
+/* The dashboard's hub pin, 341 by 393 px */
+.legend-hub, .detail-hub { flex: none; width: auto; }
+.legend-items .legend-hub { height: 20px; }
+.legend .legend-hub { width: 32px; height: 32px; object-fit: contain; }
+.detail-hub { height: 40px; }
 
 /* Info sheet */
 .sheet {

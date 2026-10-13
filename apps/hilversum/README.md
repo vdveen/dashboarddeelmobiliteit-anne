@@ -18,6 +18,15 @@ dashboard. The interface is in Dutch.
   `src/components/Map/MapUtils/map.service_areas.ts`, roles from
   `src/helpers/service-areas/roles.ts`). Only Voi publishes hubs here, so the
   legend labels them "Parkeerplek voor Voi-fietsen".
+- The municipality's own hubs from the MDS `public/zones` endpoint
+  (`geography_types=stop&phases=active`, one request per municipality because
+  the endpoint reads only the last `municipality` parameter). They show as the
+  dashboard's green hub pin (`public/components/MapComponent/hub-icon-mijksenaar.png`,
+  copied to `hub-icon.png` at build time) and, from zoom 15, as their area.
+  The vehicle toggle filters them by the capacity they have for bikes, mopeds
+  or cars. Moved hubs keep their older versions in the feed as
+  `retirement_concept`, which is why only active hubs are asked for. A tap
+  on the pin itself opens the hub, even with a vehicle at its tip.
 - With the bikes selected, Voi's hubs in the other municipalities where it
   publishes them show too, so people can see where they can ride to. They load
   the first time the bikes are shown (about 670 kB compressed). The list lives

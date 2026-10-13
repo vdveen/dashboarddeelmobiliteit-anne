@@ -1,6 +1,6 @@
 import './style.css';
 import type maplibreglModule from 'maplibre-gl';
-import type { Map as MaplibreMap, GeoJSONSource, MapGeoJSONFeature, PointLike } from 'maplibre-gl';
+import type { Map as MaplibreMap, GeoJSONSource, MapGeoJSONFeature, MapMouseEvent, PointLike } from 'maplibre-gl';
 import { splitServiceAreasForMap } from '../../../src/helpers/service-areas/mapData';
 import {
   renderServiceAreas,
@@ -19,7 +19,9 @@ import {
   VOI_HUB_MUNICIPALITIES,
   VOI_HUB_OPERATOR,
   categoryOf,
+  PolicyHubData,
   fetchMunicipalityBorders,
+  fetchPolicyHubs,
   fetchServiceAreas,
   fetchVehicles,
   municipalityName
@@ -73,6 +75,12 @@ const TAP_TOLERANCE_PX = 14;
 const SERVICE_AREA_LAYER_IDS = ['service_areas-layer-fill', 'service_areas-layer-border'];
 const VEHICLE_LAYER_IDS = ['vehicles-dot', 'vehicles-icon'];
 const REGION_LAYER_IDS = ['region-mask', 'region-outline'];
+const POLICY_HUB_SHAPE_LAYER_IDS = ['policy-hubs-fill', 'policy-hubs-line'];
+const POLICY_HUB_ICON_LAYER_ID = 'policy-hubs-icon';
+const POLICY_HUB_LAYER_IDS = [...POLICY_HUB_SHAPE_LAYER_IDS, POLICY_HUB_ICON_LAYER_ID];
+// The green of the dashboard's hub pin
+const POLICY_HUB_COLOR = '#23b36b';
+const POLICY_HUB_SHAPE_MIN_ZOOM = 15;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -96,6 +104,7 @@ const state = {
   elsewhereHubs: { hubs: [], hubPoints: [] } as HubData,
   elsewhereStatus: 'idle' as 'idle' | 'loading' | 'loaded' | 'failed',
   elsewhereMunicipalities: [] as string[],
+  policyHubs: { shapes: [], points: [] } as PolicyHubData,
   updatedAt: null as Date | null,
   loadError: false,
   userPosition: null as [number, number] | null
@@ -193,12 +202,17 @@ const applyModeToMap = () => {
   PARKING_HUBS_MAP_LAYER_IDS.forEach((id) => {
     if (map.getLayer(id)) map.setFilter(id, hubFilter(state.mode) as never);
   });
+  // A hub can take several kinds of vehicle
+  const policyHubFilter = state.mode === 'all' ? null : ['==', ['get', state.mode], true];
+  POLICY_HUB_LAYER_IDS.forEach((id) => {
+    if (map.getLayer(id)) map.setFilter(id, policyHubFilter as never);
+  });
 };
 
 // Order from bottom to top: service areas, the dimmed surroundings, the
-// municipal border, parking hubs, vehicles
+// municipal border, operator parking hubs, municipal hubs, vehicles
 const raiseOwnLayers = () => {
-  [...REGION_LAYER_IDS, ...PARKING_HUBS_MAP_LAYER_IDS, ...VEHICLE_LAYER_IDS].forEach((id) => {
+  [...REGION_LAYER_IDS, ...PARKING_HUBS_MAP_LAYER_IDS, ...POLICY_HUB_LAYER_IDS, ...VEHICLE_LAYER_IDS].forEach((id) => {
     if (map.getLayer(id)) map.moveLayer(id);
   });
 };
@@ -258,6 +272,51 @@ const addVehicleLayers = () => {
       'icon-ignore-placement': true
     }
   });
+  applyModeToMap();
+};
+
+// The municipality's hubs: the dashboard's green pin, and the area itself once
+// zoomed in far enough to see it
+const addPolicyHubLayers = () => {
+  map.addSource('policy-hubs', { type: 'geojson', data: collection([]) });
+  map.addSource('policy-hub-points', { type: 'geojson', data: collection([]) });
+  map.addLayer({
+    id: 'policy-hubs-fill',
+    type: 'fill',
+    source: 'policy-hubs',
+    minzoom: POLICY_HUB_SHAPE_MIN_ZOOM,
+    paint: { 'fill-color': POLICY_HUB_COLOR, 'fill-opacity': 0.2 }
+  });
+  map.addLayer({
+    id: 'policy-hubs-line',
+    type: 'line',
+    source: 'policy-hubs',
+    minzoom: POLICY_HUB_SHAPE_MIN_ZOOM,
+    paint: { 'line-color': POLICY_HUB_COLOR, 'line-width': 2 }
+  });
+  map.loadImage('./hub-icon.png', (error, image) => {
+    if (error || !image) {
+      console.error('Unable to load the hub icon', error);
+      return;
+    }
+    map.addImage('policy-hub', image);
+    map.addLayer({
+      id: POLICY_HUB_ICON_LAYER_ID,
+      type: 'symbol',
+      source: 'policy-hub-points',
+      layout: {
+        'icon-image': 'policy-hub',
+        'icon-anchor': 'bottom',
+        // The image is 393 px tall: about 24 px at zoom 12, 40 px from 16
+        'icon-size': ['interpolate', ['linear'], ['zoom'], 12, 0.06, 16, 0.1],
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true
+      }
+    });
+    raiseOwnLayers();
+    applyModeToMap();
+  });
+  raiseOwnLayers();
   applyModeToMap();
 };
 
@@ -340,6 +399,17 @@ const loadServiceAreas = async () => {
   renderLegend();
 };
 
+const loadPolicyHubs = async () => {
+  try {
+    state.policyHubs = await fetchPolicyHubs();
+    (map.getSource('policy-hubs') as GeoJSONSource | undefined)?.setData(collection(state.policyHubs.shapes));
+    (map.getSource('policy-hub-points') as GeoJSONSource | undefined)?.setData(collection(state.policyHubs.points));
+  } catch (error) {
+    console.error('Unable to load hubs', error);
+  }
+  renderLegend();
+};
+
 const loadElsewhereHubs = async () => {
   if (state.elsewhereStatus === 'loading' || state.elsewhereStatus === 'loaded') return;
   state.elsewhereStatus = 'loading';
@@ -393,8 +463,10 @@ map.on('load', () => {
   BASEMAP_PAINT.forEach(([layer, property, value]) => {
     if (map.getLayer(layer)) map.setPaintProperty(layer, property, value);
   });
+  addPolicyHubLayers();
   addVehicleLayers();
   void refreshVehicles();
+  void loadPolicyHubs();
   fetchMunicipalityBorders()
     .then(addRegionLayers)
     .catch((error) => console.error('Unable to load municipal borders', error));
@@ -493,6 +565,11 @@ const renderLegend = () => {
       items.push(legendItem(legendSymbol('legend-dot', getProviderColorForProvider(operator)), label));
     });
 
+  const hubShown = (feature: GeoJSON.Feature) => mode === 'all' || feature.properties?.[mode];
+  if (state.policyHubs.points.some(hubShown)) {
+    items.push(legendItem(hubIcon('legend-hub'), 'Hub: parkeerplek voor deelvervoer'));
+  }
+
   state.hubOperators.forEach((category, operator) => {
     if (!visibleIn(mode, category)) return;
     items.push(legendItem(
@@ -555,8 +632,16 @@ interface Detail {
   title: string;
   lines: string[];
   coordinates?: number[];
-  operator: string;
+  operator?: string;
 }
+
+const hubIcon = (className: string) => {
+  const icon = document.createElement('img');
+  icon.className = className;
+  icon.src = './hub-icon.png';
+  icon.alt = '';
+  return icon;
+};
 
 const glyphBadge = (glyph: GlyphName, color: string) => {
   const badge = document.createElement('span');
@@ -612,8 +697,8 @@ const showDetail = ({ badge, title, lines, coordinates, operator }: Detail) => {
 
   const actions = document.createElement('div');
   actions.className = 'detail-actions';
-  const website = getProviderWebsiteUrl(operator);
-  if (website) actions.append(linkButton(website, `Naar ${operatorName(operator)}`, 'external', true));
+  const website = operator && getProviderWebsiteUrl(operator);
+  if (operator && website) actions.append(linkButton(website, `Naar ${operatorName(operator)}`, 'external', true));
   if (coordinates) actions.append(linkButton(walkingRouteUrl(coordinates), 'Route', 'route', !website));
 
   card.append(head, actions);
@@ -653,8 +738,44 @@ const tapBox = (point: { x: number; y: number }): [PointLike, PointLike] => [
 const HUB_POINT_LAYER_IDS = PARKING_HUBS_MAP_LAYER_IDS.filter((id) => id.includes('points'));
 const HUB_SHAPE_LAYER_IDS = PARKING_HUBS_MAP_LAYER_IDS.filter((id) => !id.includes('points'));
 
+// An exact tap checks only the pin under the finger; otherwise the pins near
+// the tap, then the hub's area
+const showPolicyHub = (event: MapMouseEvent, exact: boolean): boolean => {
+  let policyHubs = map.queryRenderedFeatures(exact ? event.point : tapBox(event.point), {
+    layers: existing([POLICY_HUB_ICON_LAYER_ID])
+  });
+  if (policyHubs.length === 0 && !exact) {
+    policyHubs = map.queryRenderedFeatures(event.point, { layers: existing(POLICY_HUB_SHAPE_LAYER_IDS) });
+  }
+  if (policyHubs.length === 0) return false;
+
+  const hub = policyHubs[0].geometry.type === 'Point' ? nearest(policyHubs, event.point) : policyHubs[0];
+  const { id, name, municipality } = hub.properties as { id: number; name: string; municipality: string };
+  // Tapping the area: route to its pin
+  const pin = state.policyHubs.points.find((point) => point.properties?.id === id);
+  const coordinates = (pin?.geometry as GeoJSON.Point | undefined)?.coordinates || [event.lngLat.lng, event.lngLat.lat];
+  const capacity = JSON.parse(hub.properties?.capacity || '{}') as Partial<Record<Category, number>>;
+  const places = (Object.entries(capacity) as [Category, number][])
+    .map(([category, count]) => `${count} ${NOUNS[category][count === 1 ? 0 : 1]}`);
+  const distance = distanceText(coordinates);
+  showDetail({
+    badge: hubIcon('detail-hub'),
+    title: name,
+    lines: [
+      distance ? `Hub in ${municipality} · ${distance}` : `Hub in ${municipality}`,
+      places.length > 0 ? `Parkeerplek voor ${joinNames(places)}.` : 'Parkeerplek voor deelvervoer.'
+    ],
+    coordinates
+  });
+  return true;
+};
+
 map.on('click', (event) => {
   const box = tapBox(event.point);
+
+  // A hub pin is large and often has vehicles at its tip: a tap on the pin
+  // itself opens the hub
+  if (showPolicyHub(event, true)) return;
 
   const vehicles = map.queryRenderedFeatures(box, { layers: existing(VEHICLE_LAYER_IDS) });
   if (vehicles.length > 0) {
@@ -671,6 +792,8 @@ map.on('click', (event) => {
     });
     return;
   }
+
+  if (showPolicyHub(event, false)) return;
 
   let hubs = map.queryRenderedFeatures(box, { layers: existing(HUB_POINT_LAYER_IDS) });
   if (hubs.length === 0) {
@@ -715,7 +838,7 @@ map.on('click', (event) => {
 });
 
 map.on('mousemove', (event) => {
-  const layers = existing([...VEHICLE_LAYER_IDS, ...PARKING_HUBS_MAP_LAYER_IDS]);
+  const layers = existing([...VEHICLE_LAYER_IDS, ...PARKING_HUBS_MAP_LAYER_IDS, ...POLICY_HUB_LAYER_IDS]);
   const hit = map.queryRenderedFeatures(tapBox(event.point), { layers }).length > 0;
   map.getCanvas().style.cursor = hit ? 'pointer' : '';
 });

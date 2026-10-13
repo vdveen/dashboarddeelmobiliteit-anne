@@ -105,3 +105,59 @@ export const fetchServiceAreas = async (
   ].join('&');
   return getJson<ServiceArea[]>(`${getMdsPublicUrl()}/service_area?${params}`);
 };
+
+// Hubs that the municipality itself set out in the dashboard. The endpoint
+// reads only the last `municipality` parameter, so ask per municipality.
+// Older versions of a moved hub stay in the feed as `retirement_concept`;
+// `phases=active` leaves those out.
+interface PolicyZone {
+  zone_id: number;
+  name: string;
+  municipality: string;
+  area: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>;
+  stop?: {
+    location?: GeoJSON.Feature<GeoJSON.Point>;
+    capacity?: Record<string, number>;
+  };
+}
+
+export interface PolicyHubData {
+  shapes: GeoJSON.Feature[];
+  points: GeoJSON.Feature[];
+}
+
+const CAPACITY_CATEGORIES: Record<string, Category> = {
+  bicycle: 'bike',
+  cargo_bicycle: 'bike',
+  moped: 'moped',
+  car: 'car'
+};
+
+export const fetchPolicyHubs = async (): Promise<PolicyHubData> => {
+  const zones = (await Promise.all(MUNICIPALITIES.map(({ code }) =>
+    getJson<PolicyZone[]>(`${getMdsPublicUrl()}/zones?municipality=${code}&geography_types=stop&phases=active`)
+  ))).flat();
+  const result: PolicyHubData = { shapes: [], points: [] };
+  zones.forEach((zone) => {
+    const capacity: Partial<Record<Category, number>> = {};
+    Object.entries(zone.stop?.capacity || {}).forEach(([formFactor, places]) => {
+      const category = CAPACITY_CATEGORIES[formFactor];
+      if (category && places > 0) capacity[category] = (capacity[category] || 0) + places;
+    });
+    const properties = {
+      id: zone.zone_id,
+      name: zone.name,
+      municipality: municipalityName(zone.municipality),
+      capacity: JSON.stringify(capacity),
+      // One flag per category, for the map filters
+      bike: 'bike' in capacity,
+      moped: 'moped' in capacity,
+      car: 'car' in capacity
+    };
+    result.shapes.push({ type: 'Feature', geometry: zone.area.geometry, properties });
+    if (zone.stop?.location) {
+      result.points.push({ type: 'Feature', geometry: zone.stop.location.geometry, properties });
+    }
+  });
+  return result;
+};
