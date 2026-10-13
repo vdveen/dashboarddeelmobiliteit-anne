@@ -8,7 +8,9 @@ from unittest import mock
 
 from scripts import voi_database
 from scripts.collect_voi_vehicles import to_geojson
-from scripts.voi_database import backfill, connect, initialize, missing_boundaries, store_snapshot
+from scripts.voi_database import (
+    backfill, connect, initialize, missing_boundaries, outage_ongoing, store_snapshot,
+)
 from scripts.voi_api import app
 
 
@@ -119,7 +121,7 @@ class DatabaseTest(unittest.TestCase):
         self.assertEqual(preflight.status_code, 204)
         self.assertEqual(preflight.headers["Access-Control-Allow-Origin"], "*")
         self.assertIn("POST", preflight.headers["Access-Control-Allow-Methods"])
-        self.assertEqual(preflight.headers["Access-Control-Allow-Headers"], "Content-Type")
+        self.assertEqual(preflight.headers["Access-Control-Allow-Headers"], "Authorization, Content-Type")
 
     def test_backfill_fills_missed_boundaries_but_not_empty_answers(self):
         def at(minutes):
@@ -149,6 +151,25 @@ class DatabaseTest(unittest.TestCase):
             self.assertEqual(fetched.call_count, 2)
         with connect() as connection:
             self.assertEqual(missing_boundaries(connection, at(50)), [at(20), at(10)])
+
+    def test_only_the_first_failed_run_of_an_outage_crashes(self):
+        at = datetime(2026, 10, 11, tzinfo=timezone.utc)
+        with connect() as connection:
+            self.assertFalse(outage_ongoing(connection, at))
+            store_snapshot(connection, to_geojson(self.payload, at), "test")
+            self.assertFalse(outage_ongoing(connection, at + timedelta(minutes=10)))
+            self.assertTrue(outage_ongoing(connection, at + timedelta(minutes=20)))
+
+        def run(minutes):
+            now = at + timedelta(minutes=minutes, seconds=7)
+            with mock.patch.object(voi_database, "utc_now", return_value=now), \
+                 mock.patch.object(voi_database, "fetch_payload",
+                                   side_effect=RuntimeError("HTTP Error 403")):
+                voi_database.main()
+
+        with self.assertRaises(RuntimeError):
+            run(10)
+        run(20)
 
     def test_readonly_connection_rejects_writes(self):
         import psycopg

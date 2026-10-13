@@ -18,7 +18,7 @@ Keep database credentials in Railway service variables. `voi-vehicle-monitor` al
 
 ## Inspect collection
 
-Run `railway service logs --service voi-vehicle-monitor --latest --lines 50`. A successful run reports the position count and snapshot timestamp, and names the number of unusable records skipped when there are any. The database commits the snapshot and all positions together. Repeating the same boundary does not duplicate the snapshot. A missed run is not automatically backfilled.
+Run `railway service logs --service voi-vehicle-monitor --latest --lines 50`. A successful run reports the position count and snapshot timestamp, and names the number of unusable records skipped when there are any. The database commits the snapshot and all positions together. Repeating the same boundary does not duplicate the snapshot. Each successful run backfills missed boundaries as far back as the source still answers (about 36 hours in October 2026). When the source fails, only the first failed run of an outage crashes, so Railway sends one alert. Later runs log `Still failing at ...` and exit 0 until a run succeeds again. `/health` reports `stale: true` while no snapshot is newer than 30 minutes.
 
 Railway schedules the job every ten minutes. Container startup can delay the HTTP request by a few seconds, so the collector rounds the timestamp down to the nearest ten-minute boundary (`floor_to_interval` in `collect_voi_vehicles.py`). Every snapshot therefore lands on :00, :10, :20, :30, :40, or :50, and the `voi_snapshots` primary key still rejects a second run for the same boundary. `collected_at` records when the database stored it.
 

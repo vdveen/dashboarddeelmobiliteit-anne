@@ -2,7 +2,7 @@
 
 import os
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import psycopg
@@ -115,12 +115,29 @@ def backfill(source_url, until):
         print(f"Backfilled {stored} of {len(missing)} missing snapshots")
 
 
+def outage_ongoing(connection, captured_at):
+    """Whether the previous run also failed, so its failure was already reported."""
+    previous = captured_at - timedelta(minutes=SNAPSHOT_INTERVAL_MINUTES)
+    latest = connection.execute("SELECT max(captured_at) FROM voi_snapshots").fetchone()[0]
+    return latest is not None and latest < previous
+
+
 def main():
     # Query the exact 10-minute boundary even if Railway starts the container
     # a little late. The snapshot primary key then stays one row per boundary.
     captured_at = floor_to_interval(utc_now())
     source_url = os.environ.get("VOI_API_URL", DEFAULT_API_URL)
-    geojson = to_geojson(fetch_payload(source_url, captured_at, timeout=30), captured_at)
+    try:
+        geojson = to_geojson(fetch_payload(source_url, captured_at, timeout=30), captured_at)
+    except (RuntimeError, ValueError) as error:
+        # Crash on the first failed run, so Railway sends one alert per outage.
+        # Later runs exit cleanly, and the first run after recovery backfills
+        # the gap as far as the source still answers.
+        with connect(readonly=True) as connection:
+            if not outage_ongoing(connection, captured_at):
+                raise
+        print(f"Still failing at {captured_at.isoformat()}: {error}")
+        return
     inserted = persist_with_retry(geojson, source_url)
     skipped = geojson.get("skipped_count") or 0
     print(f"{'Stored' if inserted else 'Already stored'} {geojson['feature_count']} Voi positions at {geojson['captured_at']}"
