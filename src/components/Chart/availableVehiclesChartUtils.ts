@@ -65,6 +65,13 @@ export const addOperationalCountsToChartData = (
   });
 };
 
+/** The providers with vehicles in the chart, per day */
+export const getProvidersByDay = (chartData: any[]): Record<string, string[]> =>
+  Object.fromEntries((chartData || []).map((row) => [
+    moment.tz(row.time || row.name, REPORTING_TIMEZONE).format('YYYY-MM-DD'),
+    Object.keys(row).filter((key) => key !== 'time' && key !== 'name' && Number(row[key]) > 0)
+  ]));
+
 /**
  * Days that loaded without a count for `provider` while the chart shows
  * vehicles of that provider, so the park events for that moment are missing.

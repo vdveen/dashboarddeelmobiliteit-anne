@@ -50,6 +50,8 @@ export default defineRailway(() => {
       PORT: "8080",
       // Decrypts scripts/voi_trips_data.enc. Set in the Railway UI; never commit it.
       VOI_TRIPS_KEY: preserve(),
+      // A reference to voi-vehicle-monitor's key, for the non-defect count cache
+      DASHBOARDDEELMOB_KEY: preserve(),
     },
   });
   const monitor = service("voi-vehicle-monitor", {

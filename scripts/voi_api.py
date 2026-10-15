@@ -5,17 +5,20 @@ import json
 import os
 import re
 import urllib.error
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 from flask import Flask, Response, abort, jsonify, request
 import psycopg
 
-from scripts.collect_voi_vehicles import filename_timestamp, iso_timestamp
+from scripts.collect_voi_vehicles import (
+    DEFAULT_API_URL, fetch_payload, filename_timestamp, iso_timestamp, read_api_key,
+)
 from scripts.voi_availability import (
     ValidationError, parse_window, validate_polygon,
 )
 from scripts.voi_database import connect
-from scripts import voi_trips_access
+from scripts import voi_operational_counts, voi_trips_access
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
@@ -153,6 +156,76 @@ def snapshot(name):
                            "is_non_operational": row[3], "is_reserved": row[4], "is_available": row[5],
                        }} for row in rows
                    ])
+
+
+# As many dashboard API requests at once as the dashboard itself makes for the chart
+UPSTREAM_CONCURRENCY = 4
+
+
+def _fetch_operational_counts(zone_ids, moment, api_key):
+    """Counts from the dashboard API for one moment, or None when it has none."""
+    try:
+        payload = fetch_payload(os.environ.get("VOI_API_URL", DEFAULT_API_URL), moment,
+                                timeout=20, api_key=api_key, zone_ids=zone_ids)
+        counts = voi_operational_counts.count_park_events(payload)
+    except (RuntimeError, ValueError) as error:
+        app.logger.warning("No park events for %s at %s: %s", zone_ids, iso_timestamp(moment), error)
+        return None
+    # An empty answer is not stored: the source sometimes has no park events
+    # for a past moment, and zero would hide the gap from the archive fallback.
+    return counts or None
+
+
+@app.route("/operational-counts", methods=["POST", "OPTIONS"])
+def operational_counts():
+    """Non-defect Voi counts per form factor in a cached area, per moment.
+
+    Moments the cache lacks are asked from the dashboard API and stored once
+    their day has passed. Moments the API has no vehicles for are left out.
+    """
+    if request.method == "OPTIONS":
+        return "", 204
+    zone_ids, moments = voi_operational_counts.parse_request(request.get_json(silent=True))
+    counts = {}
+    with connect(readonly=True) as connection:
+        rows = connection.execute(
+            """SELECT measured_at, form_factor, operational, total FROM voi_operational_counts
+               WHERE zone_ids = %s AND measured_at = ANY(%s)""",
+            (zone_ids, moments),
+        ).fetchall()
+    for measured_at, form_factor, operational, total in rows:
+        counts.setdefault(measured_at, {})[form_factor] = {"operational": operational, "total": total}
+
+    missing = [moment for moment in moments if moment not in counts]
+    if missing:
+        try:
+            api_key = read_api_key()
+        except RuntimeError as error:
+            app.logger.error("%s", error)
+            return jsonify(error="The dashboard API key is not configured"), 503
+        with ThreadPoolExecutor(UPSTREAM_CONCURRENCY) as pool:
+            fetched = dict(zip(missing, pool.map(
+                lambda moment: _fetch_operational_counts(zone_ids, moment, api_key), missing)))
+        now = datetime.now(timezone.utc)
+        settled = [(zone_ids, moment, form_factor, entry["operational"], entry["total"])
+                   for moment, by_form_factor in fetched.items()
+                   if by_form_factor and voi_operational_counts.is_settled(moment, now)
+                   for form_factor, entry in by_form_factor.items()]
+        if settled:
+            with connect() as connection, connection.cursor() as cursor:
+                cursor.executemany(
+                    """INSERT INTO voi_operational_counts
+                       (zone_ids, measured_at, form_factor, operational, total)
+                       VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING""",
+                    settled,
+                )
+        counts.update({moment: value for moment, value in fetched.items() if value})
+
+    response = jsonify(zone_ids=zone_ids, counts={
+        iso_timestamp(moment): value for moment, value in sorted(counts.items())
+    })
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.route("/availability", methods=["GET", "POST", "OPTIONS"])

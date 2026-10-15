@@ -194,15 +194,14 @@ def fetch_payload(
     captured_at: datetime,
     timeout: float,
     api_key: str | None = None,
+    zone_ids: str | None = None,
 ) -> Any:
     if api_key is None:
         api_key = read_api_key()
-    query = urlencode(
-        {
-            "operators": OPERATOR,
-            "timestamp": iso_timestamp(captured_at),
-        }
-    )
+    params = {"operators": OPERATOR, "timestamp": iso_timestamp(captured_at)}
+    if zone_ids:
+        params["zone_ids"] = zone_ids
+    query = urlencode(params)
     separator = "&" if "?" in api_url else "?"
     request = Request(
         f"{api_url}{separator}{query}",

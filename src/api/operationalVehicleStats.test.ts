@@ -46,6 +46,24 @@ describe('getOperationalVehicleCountsByDay', () => {
     expect(fetchMock.mock.calls[0][0]).toContain('timestamp=2026-09-01T00:00:00Z');
   });
 
+  it('asks only the given operators for a day that names them', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ park_events: [] })
+    } as Response);
+
+    await getOperationalVehicleCountsByDay(
+      'token',
+      { zones: '123', gebied: '', aanbiedersexclude: '', voertuigtypesexclude: '' },
+      { gebieden: [], zones: [], aanbieders: [{ system_id: 'voi' }, { system_id: 'check' }], vehicle_types: [] },
+      null,
+      [{ day: '2026-09-01', timestamp: '2026-09-01T00:00:00.000Z', operators: ['check'] }]
+    );
+
+    const params = new URLSearchParams((fetchMock.mock.calls[0][0] as string).split('?')[1]);
+    expect(params.getAll('operators')).toEqual(['check']);
+  });
+
   it('keeps the days that loaded and reports the day that failed', async () => {
     jest.spyOn(global, 'fetch').mockImplementation(async (url: any) =>
       String(url).includes('2026-09-02')

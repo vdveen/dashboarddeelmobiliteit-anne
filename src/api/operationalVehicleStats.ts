@@ -16,6 +16,8 @@ type ParkEvent = {
 export type DailyTimestamp = {
   day: string;
   timestamp: string;
+  /** Ask only these operators, when the others' counts come from elsewhere */
+  operators?: string[];
 };
 
 const MAX_CONCURRENT_REQUESTS = 4;
@@ -37,7 +39,10 @@ const fetchOperationalVehicleCounts = async (
     filterForDay,
     metadata,
     { is_logged_in: true, organisationType }
-  );
+  ).filter((param: string) => !dailyTimestamp.operators || !param.startsWith('operators='));
+  if (dailyTimestamp.operators) {
+    filterParams.push(`operators=${dailyTimestamp.operators.join(',')}`);
+  }
   const url = `${process.env.REACT_APP_MAIN_API_URL}/dashboard-api/park_events?${filterParams.join('&')}`;
   const response = await fetch(url, {
     headers: { authorization: `Bearer ${token}` },

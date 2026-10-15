@@ -78,9 +78,11 @@ import {
   getDailyTimestamps,
   getDaysMissingProviderCount,
   getNotDefectSeriesKey,
+  getProvidersByDay,
   mergeProviderCounts
 } from './availableVehiclesChartUtils';
 import {VOI_SYSTEM_ID, getArchivedVoiOperationalCounts} from '../../api/voiOperationalFallback';
+import {getCachedVoiOperationalCounts} from '../../api/voiOperationalCache';
 import { getAclOrganisationType } from '../../helpers/authentication';
 
 /** Fetches the same data for the previous period of equal length */
@@ -187,19 +189,33 @@ function BeschikbareVoertuigenChart({
 
     let cancelled = false;
     const controller = new AbortController();
-    const dailyTimestamps = getDailyTimestamps(
-      getAggregatedChartData(vehiclesData, filter, zones, aanbieders),
-      filter.ontwikkelingaggregatie_tijd
-    );
+    const chartData = getAggregatedChartData(vehiclesData, filter, zones, aanbieders);
+    const dailyTimestamps = getDailyTimestamps(chartData, filter.ontwikkelingaggregatie_tijd);
+    const providersByDay = getProvidersByDay(chartData);
     (async () => {
       try {
-        const {counts, failedDays} = await getOperationalVehicleCountsByDay(
-          token, filter, metadata, organisationType, dailyTimestamps, controller.signal
+        // Past days of the region come from the Voi count cache. park_events
+        // is then only asked for the other operators that day, if any.
+        const cachedVoi = await getCachedVoiOperationalCounts(
+          filter, metadata, organisationType,
+          dailyTimestamps.filter(({day}) => providersByDay[day]?.includes(VOI_SYSTEM_ID)),
+          controller.signal
         );
         if (cancelled) return;
+        const parkEventDays = dailyTimestamps.flatMap((item) => {
+          if (cachedVoi[item.day] === undefined) return [item];
+          const operators = (providersByDay[item.day] || [])
+            .filter((provider) => provider !== VOI_SYSTEM_ID);
+          return operators.length ? [{...item, operators}] : [];
+        });
+        const {counts: parkEventCounts, failedDays} = await getOperationalVehicleCountsByDay(
+          token, filter, metadata, organisationType, parkEventDays, controller.signal
+        );
+        if (cancelled) return;
+        const counts = mergeProviderCounts(parkEventCounts, VOI_SYSTEM_ID, cachedVoi);
         setOperationalVehiclesByDay(counts);
         setFailedOperationalDays(
-          dailyTimestamps.filter(({day}) => failedDays.includes(day))
+          parkEventDays.filter(({day}) => failedDays.includes(day))
         );
         const archived = await loadArchivedVoiCounts(counts, dailyTimestamps, controller.signal);
         if (cancelled) return;

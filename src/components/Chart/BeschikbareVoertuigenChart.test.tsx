@@ -3,6 +3,7 @@ import BeschikbareVoertuigenChart from './BeschikbareVoertuigenChart';
 import { getAggregatedVehicleData } from '../../helpers/stats/index';
 import { getOperationalVehicleCountsByDay } from '../../api/operationalVehicleStats';
 import { getArchivedVoiOperationalCounts } from '../../api/voiOperationalFallback';
+import { getCachedVoiOperationalCounts } from '../../api/voiOperationalCache';
 
 const filter = {
   gebied: 'GM0363', zones: '', ontwikkelingvan: '2026-09-01', ontwikkelingtot: '2026-09-02',
@@ -31,6 +32,7 @@ jest.mock('../../api/voiOperationalFallback', () => ({
   VOI_SYSTEM_ID: 'voi',
   getArchivedVoiOperationalCounts: jest.fn(),
 }));
+jest.mock('../../api/voiOperationalCache', () => ({ getCachedVoiOperationalCounts: jest.fn() }));
 jest.mock('recharts', () => {
   const React = require('react');
   const passthrough = ({ children }: any) => React.createElement('div', null, children);
@@ -47,11 +49,13 @@ jest.mock('recharts', () => {
 const vehicleData = getAggregatedVehicleData as jest.Mock;
 const operationalCounts = getOperationalVehicleCountsByDay as jest.Mock;
 const archivedCounts = getArchivedVoiOperationalCounts as jest.Mock;
+const cachedCounts = getCachedVoiOperationalCounts as jest.Mock;
 
 beforeEach(() => {
   vehicleData.mockReset();
   operationalCounts.mockReset();
   archivedCounts.mockReset().mockResolvedValue({});
+  cachedCounts.mockReset().mockResolvedValue({});
 });
 
 test('adds the non-defect series and retries only the failed days', async () => {
@@ -94,4 +98,31 @@ test('fills days without Voi park events from the snapshot archive', async () =>
     expect(rows.map((row: any) => row.voi__not_defect)).toEqual([8, 11]);
   });
   expect(archivedCounts.mock.calls[0][4].map((d: any) => d.day)).toEqual(['2026-09-02']);
+});
+
+test('takes cached Voi days from the cache and asks park_events only for the rest', async () => {
+  vehicleData.mockResolvedValue({
+    availability_stats: { values: [] },
+    rows: [
+      { name: '2026-09-01', voi: 10 },
+      { name: '2026-09-02', voi: 12, lime: 6 },
+      { name: '2026-09-03', voi: 11 },
+    ],
+  });
+  cachedCounts.mockResolvedValue({ '2026-09-01': 8, '2026-09-02': 9 });
+  operationalCounts.mockResolvedValue({
+    counts: { '2026-09-02': { lime: 4 }, '2026-09-03': { voi: 7 } }, failedDays: [],
+  });
+
+  render(<BeschikbareVoertuigenChart filter={filter} config={{}} />);
+
+  await waitFor(() => {
+    const rows = JSON.parse(screen.getByTestId('rows').textContent || '[]');
+    expect(rows.map((row: any) => row.voi__not_defect)).toEqual([8, 9, 7]);
+    expect(rows[1].lime__not_defect).toBe(4);
+  });
+  expect(cachedCounts.mock.calls[0][3].map((d: any) => d.day))
+    .toEqual(['2026-09-01', '2026-09-02', '2026-09-03']);
+  expect(operationalCounts.mock.calls[0][4].map(({ day, operators }: any) => ({ day, operators })))
+    .toEqual([{ day: '2026-09-02', operators: ['lime'] }, { day: '2026-09-03', operators: undefined }]);
 });
