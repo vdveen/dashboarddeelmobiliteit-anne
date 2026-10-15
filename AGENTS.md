@@ -33,6 +33,12 @@
 - `apps/hilversum/` is a separate public map app for Hilversum and Wijdemeren, served at `/hilversum/`. `npm run build` builds it into `build/hilversum/` after the dashboard. See `apps/hilversum/README.md`.
 - It uses public endpoints only and reuses the dashboard's service area and parking hub code. Keep `src/helpers/service-areas/mapData.ts`, `roles.ts`, and `map.service_areas.ts` free of imports that pull in React, Redux, or moment.
 
+## Zones map
+
+- `apps/zones/` is a public national map of the MDS `public/zones` feed, served at `/zones/`. `npm run build` builds it into `build/zones/`. See `apps/zones/README.md`.
+- Its place list must stay the upstream dashboard's list (`dashboard-api/public/municipalities` in API order), without this fork's regional presets or ordering.
+- It and the Hilversum viewer are built by `scripts/build-map-app.mjs`.
+
 ## Voi trips page
 
 - `apps/voi-trips/` is a static analysis page served at `/voi-trips/`; `scripts/build-voi-trips.mjs` copies it into `build/voi-trips/` during `npm run build`. See `apps/voi-trips/README.md`.

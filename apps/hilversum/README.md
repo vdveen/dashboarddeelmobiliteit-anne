@@ -51,6 +51,7 @@ with lightly tinted water and greenery. The logo is a copy of
     node scripts/build-hilversum.mjs
 
 `npm run build` runs the dashboard build and then this one, which writes
-`build/hilversum/`. The viewer is a separate esbuild bundle and does not load
+`build/hilversum/`. `scripts/build-map-app.mjs` does the work, shared with the zones map
+(`apps/zones`). The viewer is a separate esbuild bundle and does not load
 the dashboard. MapLibre is copied from `node_modules` as its own script
 instead of being bundled, because bundling its prebuilt worker breaks it.

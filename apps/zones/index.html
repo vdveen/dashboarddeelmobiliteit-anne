@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f2f2f7">
+  <meta name="description" content="Hubs, parkeerzones en verbodsgebieden voor deelvervoer per gemeente, uit de MDS-feed van het Dashboard Deelmobiliteit.">
+  <title>Zones en hubs · Dashboard Deelmobiliteit</title>
+  <link rel="stylesheet" href="./vendor/maplibre-gl.css?v=%MAPLIBRE_VERSION%">
+  <link rel="stylesheet" href="./%APP_CSS%">
+</head>
+<body>
+  <div id="map" aria-label="Kaart met zones voor deelvervoer"></div>
+
+  <div class="panel glass">
+    <header class="panel-head">
+      <h1>Zones en hubs</h1>
+      <p>Uit de MDS-feed van het <a href="https://dashboarddeelmobiliteit.nl" target="_blank" rel="noopener">Dashboard Deelmobiliteit</a></p>
+    </header>
+
+    <div class="place">
+      <button id="place-button" class="place-button" type="button" aria-haspopup="listbox" aria-expanded="false">
+        <span id="place-name">Alle plaatsen</span>
+      </button>
+      <div id="place-picker" class="place-picker" hidden>
+        <input id="place-search" class="place-search" type="search" placeholder="Zoek een plaats" autocomplete="off" aria-label="Zoek een plaats">
+        <ul id="place-list" class="place-list" role="listbox" aria-label="Plaatsen"></ul>
+      </div>
+    </div>
+
+    <div id="modalities" class="chips" role="group" aria-label="Voertuigtypes"></div>
+
+    <p id="status" class="status" role="status">Zones laden…</p>
+    <ul class="legend">
+      <li><img class="legend-hub" src="./hub-icon.png" alt="" aria-hidden="true"><span>Hub <span id="count-hub" class="count"></span></span></li>
+      <li><span class="legend-parking" aria-hidden="true">P</span><span>Virtuele parkeerzone <span id="count-parking" class="count"></span></span></li>
+      <li><span class="legend-no-parking" aria-hidden="true"></span><span>Verbodsgebied <span id="count-no_parking" class="count"></span></span></li>
+    </ul>
+  </div>
+
+  <script src="./vendor/maplibre-gl.js?v=%MAPLIBRE_VERSION%"></script>
+  <script src="./%APP_JS%"></script>
+</body>
+</html>
