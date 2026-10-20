@@ -263,10 +263,13 @@ def availability():
                FROM voi_snapshots s
                LEFT JOIN voi_positions p
                  ON p.captured_at = s.captured_at
+                -- Postgres does not carry the window below over to p. Without
+                -- this line every query reads the polygon's full history.
+                AND p.captured_at BETWEEN %s AND %s
                 AND ST_Intersects(p.geom, ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326))
                WHERE s.captured_at BETWEEN %s AND %s
                GROUP BY s.captured_at ORDER BY s.captured_at""",
-            (geojson, start, end),
+            (start, end, geojson, start, end),
         ).fetchall()
     response = jsonify(**{
         "from": iso_timestamp(start), "to": iso_timestamp(end),
