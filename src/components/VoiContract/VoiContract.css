@@ -173,3 +173,18 @@
   font-size: 0.7rem;
   color: #5f6f75;
 }
+
+.VoiContract-coverage {
+  display: block;
+  color: #5f6f75;
+  font-size: 0.7rem;
+  font-weight: 400;
+}
+
+.VoiContract-method summary {
+  cursor: pointer;
+}
+
+.VoiContract-method p {
+  margin-top: 0.5rem;
+}

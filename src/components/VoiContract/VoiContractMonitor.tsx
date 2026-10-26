@@ -26,8 +26,10 @@ import {
   ShareResult,
   ZoneCountsResponse,
   chartRows,
+  formatShare,
   isoWeekNumber,
   knooppuntPolygon,
+  knooppuntMetOf,
   knooppuntResult,
   knooppuntWindows,
   mergeResponses,
@@ -37,6 +39,7 @@ import {
   requestWindow,
   shiftMonth,
   shiftWeek,
+  sumShares,
   terreinPolygon,
   terreinResult,
   weekOf,
@@ -65,21 +68,32 @@ const periodOf = (mode: PeriodMode, epochMs: number) =>
 // Week requests at once. voi-snapshot-api runs two workers, which also serve the Aanbod chart.
 const REQUEST_CONCURRENCY = 2;
 
-const sumShares = (results: ShareResult[]): ShareResult => {
-  const met = results.reduce((sum, result) => sum + result.met, 0);
-  const measured = results.reduce((sum, result) => sum + result.measured, 0);
-  return { met, measured, share: measured ? met / measured : null };
-};
-
 const formatAverage = (average: number | null) =>
   (average === null ? '-' : average.toLocaleString('nl-NL', { maximumFractionDigits: 1 }));
-
-const formatShare = (result: ShareResult) =>
-  result.share === null ? '-' : `${Math.round(result.share * 100)}%`;
 
 const statusColor = (met: boolean | null) => {
   if (met === null) return undefined;
   return met ? MET_COLOR : UNMET_COLOR;
+};
+
+const minuteCount = (minutes: number) => minutes.toLocaleString('nl-NL', { maximumFractionDigits: 1 });
+
+/** The same minute totals, coverage and verdict in day, week and month cells. */
+const MinuteShare: React.FC<{ result: ShareResult; strong?: boolean }> = ({ result, strong }) => {
+  const status = knooppuntMetOf(result);
+  const detail = result.totalMinutes === 0 ? 'Nog geen minuten in deze periode.' : [
+    `${minuteCount(result.metMinutes)} van ${minuteCount(result.totalMinutes)} minuten met minstens ${KNOOPPUNT_MINIMUM} niet-defecte fietsen.`,
+    `${minuteCount(result.measuredMinutes)} minuten gemeten; ${minuteCount(result.unknownMinutes)} minuten onbekend.`,
+    status === null ? 'Onvoldoende gegevens voor een oordeel.' : (status ? 'Norm gehaald.' : 'Norm niet gehaald.'),
+  ].join(' ');
+  return (
+    <td style={{ color: statusColor(status) }} title={detail}>
+      {strong ? <strong>{formatShare(result)}</strong> : formatShare(result)}
+      {result.unknownMinutes > 0 && (
+        <span className="VoiContract-coverage">{`${minuteCount(result.unknownMinutes)} min onbekend`}</span>
+      )}
+    </td>
+  );
 };
 
 const KNOOPPUNT_POLYGONS = Object.fromEntries(KNOOPPUNTEN.map((knooppunt) => [
@@ -223,9 +237,6 @@ const VoiContractMonitor: React.FC = () => {
     );
   };
 
-  const knooppuntMetOf = (share: ShareResult) =>
-    (share.share === null ? null : share.share >= KNOOPPUNT_TARGET_SHARE);
-
   const knooppuntName = (knooppunt: typeof KNOOPPUNTEN[number]) => (
     <td>
       {knooppunt.name}
@@ -265,7 +276,8 @@ const VoiContractMonitor: React.FC = () => {
   });
 
   const renderWeekView = (response: ZoneCountsResponse) => {
-    const knooppuntResults = Object.fromEntries(KNOOPPUNTEN.map((knooppunt) => [knooppunt.id, knooppuntResult(response, knooppunt.id)]));
+    const range = parts[0] ?? { start: period.start, end: period.start };
+    const knooppuntResults = Object.fromEntries(KNOOPPUNTEN.map((knooppunt) => [knooppunt.id, knooppuntResult(response, knooppunt.id, range)]));
     return (
       <>
         <section>
@@ -296,7 +308,7 @@ const VoiContractMonitor: React.FC = () => {
 
         <section>
           <h2>Knooppunten (Eis 36)</h2>
-          <p className="VoiContract-muted">{knooppuntUitleg}</p>
+          <KnooppuntExplanation />
           <div className="VoiContract-tableWrap">
             <table className="VoiContract-table">
               <thead>
@@ -320,11 +332,9 @@ const VoiContractMonitor: React.FC = () => {
                           >
                             {knooppuntName(knooppunt)}
                             {result.days.map((day, index) => (
-                              <td key={WEEKDAYS[index]} style={{ color: statusColor(knooppuntMetOf(day)) }}>{formatShare(day)}</td>
+                              <MinuteShare key={WEEKDAYS[index]} result={day} />
                             ))}
-                            <td style={{ color: statusColor(knooppuntMetOf(result.week)) }}>
-                              <strong>{formatShare(result.week)}</strong>
-                            </td>
+                            <MinuteShare result={result.week} strong />
                           </tr>
                           {renderChartRow(knooppunt.id, 9)}
                         </React.Fragment>
@@ -427,7 +437,7 @@ const VoiContractMonitor: React.FC = () => {
 
         <section>
           <h2>Knooppunten (Eis 36)</h2>
-          <p className="VoiContract-muted">{knooppuntUitleg}</p>
+          <KnooppuntExplanation />
           <div className="VoiContract-tableWrap">
             <table className="VoiContract-table">
               <thead>
@@ -442,7 +452,7 @@ const VoiContractMonitor: React.FC = () => {
                   <React.Fragment key={region}>
                     <tr className="VoiContract-regionRow"><td colSpan={columns + 1}>{REGION_NAMES[region]}</td></tr>
                     {KNOOPPUNTEN.filter((knooppunt) => knooppunt.region === region).map((knooppunt) => {
-                      const weeks = weekResponses.map((response) => knooppuntResult(response, knooppunt.id).week);
+                      const weeks = weekResponses.map((response, index) => knooppuntResult(response, knooppunt.id, parts[index]).week);
                       const month = sumShares(weeks);
                       return (
                         <React.Fragment key={knooppunt.id}>
@@ -452,11 +462,9 @@ const VoiContractMonitor: React.FC = () => {
                           >
                             {knooppuntName(knooppunt)}
                             {weeks.map((week, index) => (
-                              <td key={parts[index].start} style={{ color: statusColor(knooppuntMetOf(week)) }}>{formatShare(week)}</td>
+                              <MinuteShare key={parts[index].start} result={week} />
                             ))}
-                            <td style={{ color: statusColor(knooppuntMetOf(month)) }}>
-                              <strong>{formatShare(month)}</strong>
-                            </td>
+                            <MinuteShare result={month} strong />
                           </tr>
                           {renderChartRow(knooppunt.id, columns + 1)}
                         </React.Fragment>
@@ -533,7 +541,7 @@ const VoiContractMonitor: React.FC = () => {
         <div>
           <h1>Contractnaleving Voi</h1>
           <p className="VoiContract-muted">
-            Beschikbare (niet-defecte) Voi-fietsen per knooppunt en bedrijventerrein, uit het meetarchief van tien minuten.
+            Niet-defecte Voi-fietsen per knooppunt en bedrijventerrein, uit het meetarchief. Of een fiets gereserveerd of direct verhuurbaar is, is niet bekend.
           </p>
         </div>
         <div className="VoiContract-weekNav">
@@ -561,7 +569,7 @@ const VoiContractMonitor: React.FC = () => {
 
       {isCurrentPeriod && (
         <p className="VoiContract-muted">
-          {`${mode === 'week' ? 'Deze week' : 'Deze maand'} loopt nog: de cijfers gaan tot de laatste meting.`}
+          {`${mode === 'week' ? 'Deze week' : 'Deze maand'} loopt nog: alleen de verstreken tijd op het moment van laden telt mee.`}
         </p>
       )}
 
@@ -586,7 +594,28 @@ const VoiContractMonitor: React.FC = () => {
   );
 };
 
-const knooppuntUitleg = `Aandeel van de metingen tussen ${KNOOPPUNT_START_HOUR}:00 en ${KNOOPPUNT_END_HOUR}:00 met minstens ${KNOOPPUNT_MINIMUM} beschikbare fietsen binnen ${KNOOPPUNT_RADIUS_M} m. Norm: ${Math.round(KNOOPPUNT_TARGET_SHARE * 100)}%. Waar twee knooppunten binnen ${2 * KNOOPPUNT_RADIUS_M} m liggen, telt een fiets bij het dichtstbijzijnde. Klik op een rij voor de grafiek.`;
+const KnooppuntExplanation = () => (
+  <div className="VoiContract-muted">
+    <p>
+      {`Norm: minstens ${KNOOPPUNT_MINIMUM} niet-defecte fietsen binnen ${KNOOPPUNT_RADIUS_M} m gedurende ${Math.round(KNOOPPUNT_TARGET_SHARE * 100)}% van de beschikbare minuten in de periode ${String(KNOOPPUNT_START_HOUR).padStart(2, '0')}:00–${KNOOPPUNT_END_HOUR}:00 uur, Nederlandse tijd. Klik op een rij voor de grafiek.`}
+    </p>
+    <details className="VoiContract-method">
+      <summary>Berekening en ontbrekende metingen</summary>
+      <p>
+        Een volledige dag telt 1.080 minuten; de norm is 864 minuten. Het percentage is een schatting:
+        elke meting geldt tot de volgende meting, maximaal 10 minuten. Vóór 8 september 2026 om 12:50
+        gold maximaal 60 minuten. Week en maand tellen de minuten op.
+      </p>
+      <p>
+        Ontbrekende minuten blijven onbekend; een bereik toont het laagste en hoogste mogelijke percentage.
+        Groen betekent dat ook de ondergrens de norm haalt, rood dat zelfs de bovengrens te laag is.
+        Zonder kleur is er onvoldoende informatie voor een oordeel. Percentages zijn naar buiten afgerond
+        op één decimaal. Houd de aanwijzer boven een percentage voor de minuten.
+      </p>
+      <p>{`Waar twee knooppunten binnen ${2 * KNOOPPUNT_RADIUS_M} m liggen, telt een fiets bij het dichtstbijzijnde.`}</p>
+    </details>
+  </div>
+);
 
 const terreinUitleg = 'Beschikbare fietsen en bezette dropzones (Voi-hubs met een fiets binnen 20 m) op werkdagen om 12:00. Norm: het minimum uit tabel 4, verdeeld over minstens 3 dropzones. Dropzones zijn de huidige Voi-hubs in het terrein. Klik op een rij voor de grafiek.';
 

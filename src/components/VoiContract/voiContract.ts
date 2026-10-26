@@ -5,6 +5,7 @@ import {
   KNOOPPUNT_END_HOUR,
   KNOOPPUNT_MINIMUM,
   KNOOPPUNT_START_HOUR,
+  KNOOPPUNT_TARGET_SHARE,
   Knooppunt,
 } from '../../config/voiContractZones';
 import { amsterdamOffsetMs, SNAPSHOT_INTERVAL_MS } from '../VoiAvailability/voiAvailabilityChart';
@@ -128,7 +129,7 @@ export function isoWeekNumber(week: ContractWeek): number {
 
 /** The request window: the whole week, or up to now for the current week. */
 export function requestWindow(week: ContractWeek, now: number): { from: string; to: string } {
-  const to = Math.min(now, week.end - 1000);
+  const to = Math.min(now, week.end - 1);
   return { from: new Date(week.start).toISOString(), to: new Date(to).toISOString() };
 }
 
@@ -155,8 +156,9 @@ interface Moment {
 
 function momentsOf(response: ZoneCountsResponse): Moment[] {
   return response.captured_at
-    .map((value, index) => {
-      const time = Date.parse(value);
+    .map((value, index) => ({ time: Date.parse(value), index }))
+    .filter(({ time }) => Number.isFinite(time))
+    .map(({ time, index }) => {
       const wall = wallClock(time);
       return {
         index,
@@ -165,8 +167,7 @@ function momentsOf(response: ZoneCountsResponse): Moment[] {
         hour: wall.getUTCHours(),
         minute: wall.getUTCMinutes(),
       };
-    })
-    .filter((moment) => Number.isFinite(moment.time));
+    });
 }
 
 export function isKnooppuntHour(hour: number): boolean {
@@ -174,39 +175,103 @@ export function isKnooppuntHour(hour: number): boolean {
 }
 
 export interface ShareResult {
-  met: number;
-  measured: number;
-  /** met / measured, or null without measurements */
+  metMinutes: number;
+  measuredMinutes: number;
+  totalMinutes: number;
+  unknownMinutes: number;
+  /** Lower bound: metMinutes / totalMinutes. Null when no daytime has elapsed. */
   share: number | null;
+  /** Upper bound if every unknown minute met the requirement. */
+  upperShare: number | null;
 }
 
-const shareOf = (met: number, measured: number): ShareResult => ({
-  met,
-  measured,
-  share: measured ? met / measured : null,
-});
+const shareOf = (metMinutes: number, measuredMinutes: number, totalMinutes: number): ShareResult => {
+  const unknownMinutes = Math.max(0, totalMinutes - measuredMinutes);
+  return {
+    metMinutes, measuredMinutes, totalMinutes, unknownMinutes,
+    share: totalMinutes > 0 ? metMinutes / totalMinutes : null,
+    upperShare: totalMinutes > 0 ? (metMinutes + unknownMinutes) / totalMinutes : null,
+  };
+};
+
+/** Sum durations first, so a partial day or week never gets a full period's weight. */
+export function sumShares(results: ShareResult[]): ShareResult {
+  return shareOf(
+    results.reduce((sum, result) => sum + result.metMinutes, 0),
+    results.reduce((sum, result) => sum + result.measuredMinutes, 0),
+    results.reduce((sum, result) => sum + result.totalMinutes, 0)
+  );
+}
+
+/** Unknown time can prevent a verdict, but is neither a pass nor a failure. */
+export function knooppuntMetOf(result: ShareResult): boolean | null {
+  if (result.share === null || result.upperShare === null) return null;
+  if (result.share >= KNOOPPUNT_TARGET_SHARE) return true;
+  if (result.upperShare < KNOOPPUNT_TARGET_SHARE) return false;
+  return null;
+}
+
+const percent = (share: number, upper = false) => {
+  // Round bounds outwards; a value just below 80% must never display as 80%.
+  const tenths = upper ? Math.ceil(share * 1000) : Math.floor(share * 1000);
+  return (tenths / 10).toLocaleString('nl-NL', { maximumFractionDigits: 1 });
+};
+
+export function formatShare(result: ShareResult): string {
+  if (result.share === null || result.upperShare === null) return '-';
+  return result.unknownMinutes > 0
+    ? `${percent(result.share)}–${percent(result.upperShare, true)}%`
+    : `${percent(result.share)}%`;
+}
 
 export interface KnooppuntResult {
-  /** Per weekday (Monday first), the share of 06:00-24:00 snapshots with enough bikes */
+  /** Per weekday (Monday first), minutes within 06:00-24:00 Amsterdam time. */
   days: ShareResult[];
   week: ShareResult;
 }
 
-/** Eis 36: share of the 06:00-24:00 snapshots with at least two non-defect bikes. */
-export function knooppuntResult(response: ZoneCountsResponse, id: string): KnooppuntResult {
+// Keep in sync with TEN_MINUTE_START in scripts/voi_database.py. Never infer
+// the cadence from gaps: a missing snapshot must not extend the previous one.
+const TEN_MINUTE_START = Date.parse('2026-09-08T10:50:00Z');
+const MINUTE_MS = 60 * 1000;
+
+function snapshotEnd(time: number): number {
+  return time < TEN_MINUTE_START
+    ? Math.min(time + 60 * MINUTE_MS, TEN_MINUTE_START)
+    : time + SNAPSHOT_INTERVAL_MS;
+}
+
+/**
+ * Eis 36: minutes with at least two non-defect bikes / all minutes in the
+ * elapsed 06:00-24:00 windows. A snapshot estimates the following interval,
+ * capped at the next snapshot, its scheduled duration, and the period end.
+ * Missing intervals stay unknown. `range` is exclusive at the end and must
+ * be clipped to the request time for a week or month that is still running.
+ */
+export function knooppuntResult(response: ZoneCountsResponse, id: string, range: ContractWeek): KnooppuntResult {
   const counts = response.zones[id]?.operational || [];
-  const met = Array(7).fill(0);
-  const measured = Array(7).fill(0);
-  momentsOf(response).forEach((moment) => {
-    if (!isKnooppuntHour(moment.hour)) return;
-    measured[moment.weekday] += 1;
-    if ((counts[moment.index] ?? 0) >= KNOOPPUNT_MINIMUM) met[moment.weekday] += 1;
+  const moments = momentsOf(response).sort((a, b) => a.time - b.time)
+    .filter((moment, index, all) => index === 0 || moment.time !== all[index - 1].time);
+  const met = Array(7).fill(0) as number[];
+  const measured = Array(7).fill(0) as number[];
+  const total = Array(7).fill(0) as number[];
+  knooppuntWindows(range).forEach((window) => {
+    const start = Math.max(range.start, window.start);
+    const end = Math.min(range.end, window.end);
+    if (end <= start) return;
+    const day = (wallClock(start).getUTCDay() + 6) % 7;
+    total[day] += (end - start) / MINUTE_MS;
+    moments.forEach((moment, index) => {
+      const count = counts[moment.index];
+      if (typeof count !== 'number' || !Number.isFinite(count) || count < 0) return;
+      const intervalEnd = Math.min(end, snapshotEnd(moment.time), moments[index + 1]?.time ?? Infinity);
+      const minutes = Math.max(0, intervalEnd - Math.max(start, moment.time)) / MINUTE_MS;
+      measured[day] += minutes;
+      if (count >= KNOOPPUNT_MINIMUM) met[day] += minutes;
+    });
   });
-  const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
-  return {
-    days: met.map((value, day) => shareOf(value, measured[day])),
-    week: shareOf(sum(met), sum(measured)),
-  };
+  const days = met.map((value, day) => shareOf(value, measured[day], total[day]));
+  return { days, week: sumShares(days) };
 }
 
 export interface NoonResult {
@@ -333,7 +398,7 @@ export function weekParts(range: ContractWeek, now: number): ContractWeek[] {
   let week = weekOf(range.start);
   const last = Math.min(range.end, now);
   while (week.start < last) {
-    parts.push({ start: Math.max(week.start, range.start), end: Math.min(week.end, range.end) });
+    parts.push({ start: Math.max(week.start, range.start), end: Math.min(week.end, last) });
     week = shiftWeek(week, 1);
   }
   return parts;
