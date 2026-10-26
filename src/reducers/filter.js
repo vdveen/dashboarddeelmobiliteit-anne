@@ -10,6 +10,12 @@ export const OPERATIONAL_STATUSES = [
   OPERATIONAL_STATUS_OPERATIONAL
 ];
 
+// View of the Aanbod map: parking duration (with the defect filter) or
+// parking compliance (distance to the nearest parking hub)
+export const PARKEERWEERGAVE_DUUR = 'parkeerduur';
+export const PARKEERWEERGAVE_NALEVING = 'parkeernaleving';
+export const PARKEERWEERGAVES = [PARKEERWEERGAVE_DUUR, PARKEERWEERGAVE_NALEVING];
+
 // Logged in users start with an initial municipality
 // This prevents a slow website on initial load
 const randomInitialMunicipality = () => {
@@ -53,6 +59,9 @@ const initialState = {
   // Which vehicles to show on the Aanbod map, based on the operator's
   // non_operational status: 'all', 'non_operational' or 'operational'
   operational_status: OPERATIONAL_STATUS_ALL,
+  parkeerweergave: PARKEERWEERGAVE_DUUR,
+  // Parkeerafstand bands (see helpers/parkingCompliance.ts) hidden on the map
+  parkeerafstandexclude: "",
   voertuigtypesexclude: "",
   afstandexclude: "",
   herkomstbestemming: "herkomstbestemming",
@@ -146,6 +155,24 @@ export default function filter(state = initialState, action) {
           : OPERATIONAL_STATUS_ALL
       };
     }
+    case 'SET_FILTER_PARKEERWEERGAVE': {
+      return {
+        ...state,
+        parkeerweergave: PARKEERWEERGAVES.includes(action.payload)
+          ? action.payload
+          : PARKEERWEERGAVE_DUUR
+      };
+    }
+    case 'ADD_TO_FILTER_PARKEERAFSTAND_EXCLUDE':
+      return { ...state, parkeerafstandexclude: addToList(state.parkeerafstandexclude, String(action.payload)) };
+    case 'REMOVE_FROM_FILTER_PARKEERAFSTAND_EXCLUDE':
+      return {
+        ...state,
+        parkeerafstandexclude: splitList(state.parkeerafstandexclude)
+          .filter((item) => item !== String(action.payload)).join(',')
+      };
+    case 'CLEAR_FILTER_PARKEERAFSTAND_EXCLUDE':
+      return { ...state, parkeerafstandexclude: '' };
     case 'SET_FILTER_H3NIVEAU': {
       return {
           ...state,

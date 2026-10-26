@@ -1,3 +1,5 @@
+import { PARKEERAFSTAND_BANDS } from '../../helpers/parkingCompliance';
+
 const MARKER_SIZE = 50;
 const markerRasterCache = new Map();
 
@@ -20,6 +22,13 @@ async function getVehicleMarkers_rentals(operatorColor, simplified = false) {
     gradients.map((distanceIndicationColor) =>
       styleVehicleMarker(operatorColor, distanceIndicationColor, false, simplified)
     )
+  );
+}
+
+// Parkeernaleving: the ring color shows the distance to a parking hub
+async function getVehicleMarkers_parkeerafstand(operatorColor) {
+  return Promise.all(
+    PARKEERAFSTAND_BANDS.map((band) => styleVehicleMarker(operatorColor, band.color, false, false))
   );
 }
 
@@ -154,5 +163,6 @@ async function rasterizeSvgElement(svgElement) {
 
 export {
   getVehicleMarkers,
+  getVehicleMarkers_parkeerafstand,
   getVehicleMarkers_rentals
 };

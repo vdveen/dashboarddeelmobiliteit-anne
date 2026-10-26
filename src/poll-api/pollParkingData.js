@@ -10,8 +10,15 @@ import { DISPLAYMODE_PARK } from '../reducers/layers.js';
 import {
   OPERATIONAL_STATUS_ALL,
   OPERATIONAL_STATUS_NON_OPERATIONAL,
-  OPERATIONAL_STATUS_OPERATIONAL
+  OPERATIONAL_STATUS_OPERATIONAL,
+  PARKEERWEERGAVE_NALEVING
 } from '../reducers/filter.js';
+import {
+  PARKEERAFSTAND_BANDS,
+  distanceToNearestHub,
+  isMeasuredFormFactor,
+  parkeerafstandBandFor
+} from '../helpers/parkingCompliance';
 import {shouldFetchVehicles} from './pollTools.js';
 
 var store_parkingdata;
@@ -42,6 +49,24 @@ export const passesOperationalStatusFilter = (operationalStatus, vehicle) => {
     default: return true;
   }
 }
+
+// Distance to the nearest hub per vehicle, for the vehicles and hubs it was
+// computed for. Filter changes reprocess the same vehicles; this saves
+// measuring them again.
+let hubDistanceCache = { vehicles: null, index: null, distances: null };
+
+const hubDistancesFor = (vehicles, index) => {
+  if (hubDistanceCache.vehicles !== vehicles || hubDistanceCache.index !== index) {
+    hubDistanceCache = {
+      vehicles,
+      index,
+      distances: vehicles.map(v => isMeasuredFormFactor(v.form_factor)
+        ? distanceToNearestHub(index, v.system_id || v.value, v.location.longitude, v.location.latitude)
+        : null)
+    };
+  }
+  return hubDistanceCache.distances;
+};
 
 const processVehiclesResult = (state, vehicles) => {
   activeVehicles = vehicles;
@@ -82,7 +107,26 @@ const processVehiclesResult = (state, vehicles) => {
   const operationalStatus = state.filter.operational_status || OPERATIONAL_STATUS_ALL;
   const loggedIn = isLoggedIn(state);
 
-  vehicles.forEach(v => {
+  // Parkeernaleving: color by distance to the nearest parking hub of the
+  // vehicle's operator, instead of by parking duration. Only bikes of an
+  // operator with hubs are measured; the duration and defect filters don't
+  // apply in this view.
+  const isNaleving = loggedIn && state.filter.parkeerweergave === PARKEERWEERGAVE_NALEVING;
+  // Only hubs loaded for the selected place
+  const hubIndex = isNaleving && state.parking_hubs?.gebied === state.filter.gebied
+    ? state.parking_hubs.index
+    : null;
+  const hubDistances = hubIndex ? hubDistancesFor(vehicles, hubIndex) : null;
+  const parkeerafstandexclude = (state.filter.parkeerafstandexclude || '').split(',');
+  // Measured vehicles per band, and vehicles that could not be measured.
+  // Like parkeerduurstats, the band filter itself is not applied here.
+  let parkeerafstandstats = null;
+  if (hubDistances) {
+    parkeerafstandstats = { unmeasured: 0 };
+    PARKEERAFSTAND_BANDS.forEach(b => { parkeerafstandstats[b.id] = 0; });
+  }
+
+  vehicles.forEach((v, i) => {
     let in_public_space_since = loggedIn ? v.start_time : v.in_public_space_since;
 
     // Plain Date math instead of constructing a moment per vehicle (~10x
@@ -116,6 +160,24 @@ const processVehiclesResult = (state, vehicles) => {
     }
 
     operatorstats[v.system_id || v.value]+=1;
+
+    if (isNaleving) {
+      const passesAanbieders = aanbiedersexclude.includes(v.system_id || v.value) === false;
+      const distance = hubDistances ? hubDistances[i] : null;
+      if (distance === null) {
+        if (parkeerafstandstats && passesAanbieders) parkeerafstandstats.unmeasured += 1;
+        return;
+      }
+      const band = parkeerafstandBandFor(distance);
+      feature.properties.afstand_bin = band;
+      feature.properties.hub_distance_m = Math.round(distance);
+      if (! passesAanbieders) return;
+      parkeerafstandstats[band] += 1;
+      if (! parkeerafstandexclude.includes(band.toString())) {
+        geoJson.features.push(feature);
+      }
+      return;
+    }
 
     // Filter markers
     const passesAanbiedersFilter = aanbiedersexclude.includes(v.system_id || v.value) === false;
@@ -162,6 +224,12 @@ const processVehiclesResult = (state, vehicles) => {
   store_parkingdata.dispatch({
     type: 'SET_VEHICLES_OPERATIONALSTATS',
     payload: operationalstats
+  })
+
+  // Update parkeerafstand stats (= number of vehicles per distance band) in store
+  store_parkingdata.dispatch({
+    type: 'SET_VEHICLES_PARKEERAFSTANDSTATS',
+    payload: parkeerafstandstats
   })
 }
 

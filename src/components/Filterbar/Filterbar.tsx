@@ -14,6 +14,9 @@ import {
   FilteritemMarkersParkeerduur
 } from './FilteritemMarkers.jsx';
 import FilteritemNonOperationalVehicles from './FilteritemNonOperationalVehicles';
+import FilteritemParkeerweergave from './FilteritemParkeerweergave';
+import FilteritemParkeernaleving from './FilteritemParkeernaleving';
+import { PARKEERWEERGAVE_NALEVING } from '../../reducers/filter.js';
 import FilteritemHerkomstBestemming from './FilteritemHerkomstBestemming';
 import FilteritemVoertuigTypes from './FilteritemVoertuigTypes';
 import LogoDashboardDeelmobiliteit from '../Logo/LogoDashboardDeelmobiliteit';
@@ -97,6 +100,7 @@ function Filterbar({
   const showdatum = isrentals || ispark || !isLoggedIn;
   const showduur = isrentals;
   const showparkeerduur = ispark;
+  const isParkeernaleving = filter?.parkeerweergave === PARKEERWEERGAVE_NALEVING;
   const showafstand = isrentals;
   const showherkomstbestemming = isrentals;
   const showvantot = isontwikkeling;
@@ -258,14 +262,26 @@ function Filterbar({
           )}
 
           {isLoggedIn && showparkeerduur && (
+            <Fieldset title="Weergave">
+              <FilteritemParkeerweergave />
+            </Fieldset>
+          )}
+
+          {isLoggedIn && showparkeerduur && ! isParkeernaleving && (
             <Fieldset title="Parkeerduur">
               <FilteritemMarkersParkeerduur />
             </Fieldset>
           )}
 
-          {isLoggedIn && showparkeerduur && (
+          {isLoggedIn && showparkeerduur && ! isParkeernaleving && (
             <Fieldset title="Defecte voertuigen">
               <FilteritemNonOperationalVehicles />
+            </Fieldset>
+          )}
+
+          {isLoggedIn && showparkeerduur && isParkeernaleving && (
+            <Fieldset title="Parkeerafstand">
+              <FilteritemParkeernaleving />
             </Fieldset>
           )}
 

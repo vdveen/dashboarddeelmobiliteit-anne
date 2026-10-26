@@ -30,6 +30,11 @@
 - `POST /operational-counts` caches the non-defect Voi counts the Aanbod chart (Beschikbare voertuigen, per day) shows, for the ten region municipalities and the three regions. The allowed zone_ids live in `scripts/voi_operational_counts.py`. It answers from `voi_operational_counts` and asks `park_events` (with `DASHBOARDDEELMOB_KEY`, a reference to the collector's variable) only for moments it lacks. It stores a moment once it is a day old and never stores an empty answer. The chart then asks `park_events` only for days without a cached count, or for other operators on that day.
 - Every snapshot now stores `is_non_operational`. `is_reserved` and `is_available` stay nullable because the source still omits them. Do not treat unknown status as available.
 
+## Parkeernaleving
+
+- The Aanbod filterbar switches between Parkeerduur (with Defecte voertuigen) and Parkeernaleving (`filter.parkeerweergave`). Parkeernaleving copies the bands of Groningen's "Buiten hubs geparkeerd" tool (thijsoost.nl/deelmobiliteit/parkeren.html): within 20 m of a hub counts as in it, then 20-50, 50-200 and over 200 m.
+- Distances go to the hubs of the Parkeerhubs layer, which come from each operator's own service area, so a bike is compared only with its own operator's hubs. Only `bicycle` and `cargo_bicycle` are measured. The logic is in `src/helpers/parkingCompliance.ts`; the hubs load in `src/customHooks/useParkingHubsForCompliance.ts`.
+
 ## Hilversum viewer
 
 - `apps/hilversum/` is a separate public map app for Hilversum and Wijdemeren, served at `/hilversum/`. `npm run build` builds it into `build/hilversum/` after the dashboard. See `apps/hilversum/README.md`.

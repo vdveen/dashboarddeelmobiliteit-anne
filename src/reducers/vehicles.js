@@ -3,6 +3,7 @@ const initialState = {
   operatorstats: [],
   parkeerduurstats: null,
   operationalstats: null,
+  parkeerafstandstats: null,
 }
 
 export default function vehicles(state = initialState, action) {
@@ -12,7 +13,8 @@ export default function vehicles(state = initialState, action) {
         data: action.payload,
         operatorstats: [],
         parkeerduurstats: null,
-        operationalstats: null
+        operationalstats: null,
+        parkeerafstandstats: null
       }
     }
     case 'SET_VEHICLES_OPERATORSTATS': {
@@ -30,12 +32,18 @@ export default function vehicles(state = initialState, action) {
         operationalstats: action.payload
       })
     }
+    case 'SET_VEHICLES_PARKEERAFSTANDSTATS': {
+      return Object.assign({}, state, {
+        parkeerafstandstats: action.payload
+      })
+    }
     case 'CLEAR_VEHICLES': {
       return {
         data: [],
         operatorstats: [],
         parkeerduurstats: null,
-        operationalstats: null
+        operationalstats: null,
+        parkeerafstandstats: null
       }
     }
     case 'LOGIN':

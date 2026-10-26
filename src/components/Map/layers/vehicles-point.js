@@ -6,8 +6,15 @@ const layer = {
     'icon-image': [
       'concat',
       ['get', 'system_id'],
-      ['case', ['==', ['get', 'is_non_operational'], true], '-p-n:', '-p:'],
-      ['get', 'duration_bin']
+      // Parkeernaleving colors by distance to a parking hub (afstand_bin)
+      ['case',
+        ['has', 'afstand_bin'],
+        ['concat', '-p-a:', ['to-string', ['get', 'afstand_bin']]],
+        ['concat',
+          ['case', ['==', ['get', 'is_non_operational'], true], '-p-n:', '-p:'],
+          ['to-string', ['get', 'duration_bin']]
+        ]
+      ]
     ],
     // 'icon-size': 0.4,
     'icon-size': [

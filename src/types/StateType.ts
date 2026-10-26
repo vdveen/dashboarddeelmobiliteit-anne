@@ -11,4 +11,5 @@ export type StateType = {
   statsreducer?: any,
   search?: any;
   service_areas?: any;
+  parking_hubs?: any;
 }

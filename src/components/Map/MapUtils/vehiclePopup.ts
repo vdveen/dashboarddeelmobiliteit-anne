@@ -4,6 +4,7 @@ import { getPrettyVehicleTypeName } from '../../../helpers/vehicleTypes';
 import { getVehicleTypeIconSrc, getVehicleTypeIconAlt } from '../../../helpers/vehicleTypeIconCommon';
 import { popupColor, popupElement, popupHttpUrl } from '../../../helpers/popupDom';
 import { createProviderLabel } from '../../PrestatiesAanbieders/ProviderLabel';
+import { HUB_MARGIN_M, PARKEERAFSTAND_BANDS, parkeerafstandBandFor } from '../../../helpers/parkingCompliance';
 
 type Properties = Record<string, any>;
 export interface VehiclePopupOptions {
@@ -29,6 +30,18 @@ export function createVehiclePopup(properties: Properties, providers: any[], opt
       parked.append(popupElement('br'), document.createTextNode(`Geparkeerd sinds: ${time.format('DD-MM-YYYY HH:mm')}`));
       body.append(parked);
     }
+  }
+  const hubDistance = properties.hub_distance_m;
+  if (hubDistance !== null && hubDistance !== undefined && hubDistance !== '' && Number.isFinite(Number(hubDistance))) {
+    const meters = Number(hubDistance);
+    // The band comes from the unrounded distance
+    const band = PARKEERAFSTAND_BANDS[Number(properties.afstand_bin)] || PARKEERAFSTAND_BANDS[parkeerafstandBandFor(meters)];
+    let text = 'Staat in een parkeerhub';
+    if (meters > 0) {
+      text = `${meters.toLocaleString('nl-NL')} meter van de dichtstbijzijnde parkeerhub (`
+        + (band.outside ? band.name.toLowerCase() : `binnen de marge van ${HUB_MARGIN_M} m`) + ')';
+    }
+    body.append(popupElement('div', '', text));
   }
   const distance = properties.distance_in_meters;
   if (distance !== null && distance !== undefined && distance !== '' && Number.isFinite(Number(distance))) {

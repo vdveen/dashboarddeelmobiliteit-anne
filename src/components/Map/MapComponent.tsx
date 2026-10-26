@@ -52,7 +52,7 @@ import { removeServiceAreaDeltaFromMap } from './MapUtils/map.service_area_delta
 import './MapComponent.css';
 
 import {layers} from './layers';
-import {getVehicleMarkers, getVehicleMarkers_rentals} from './vehicle_marker.js';
+import {getVehicleMarkers, getVehicleMarkers_parkeerafstand, getVehicleMarkers_rentals} from './vehicle_marker.js';
 
 import IsochroneTools from '../IsochroneTools/IsochroneTools';
 import DdH3HexagonLayer from '../MapLayer/DdH3HexagonLayer';
@@ -761,9 +761,11 @@ const MapComponent = (props): JSX.Element => {
       const baselabel = aanbieder.system_id + (stateLayers.displaymode === 'displaymode-rentals' ? '-r' : '-p');
       const hasOperationalImages = map.current.hasImage(baselabel + ':0');
       const hasNonOperationalImages = map.current.hasImage(baselabel + '-n:0');
+      // Parkeernaleving markers only exist for logged-in users
+      const hasParkeerafstandImages = ! isLoggedIn || map.current.hasImage(baselabel + '-a:0');
       if (
         (stateLayers.displaymode === 'displaymode-rentals' && hasOperationalImages) ||
-        (stateLayers.displaymode !== 'displaymode-rentals' && hasOperationalImages && hasNonOperationalImages)
+        (stateLayers.displaymode !== 'displaymode-rentals' && hasOperationalImages && hasNonOperationalImages && hasParkeerafstandImages)
       ) {
         return;
       }
@@ -783,20 +785,22 @@ const MapComponent = (props): JSX.Element => {
         return;
       }
 
-      const [operationalMarkers, nonOperationalMarkers] = await Promise.all([
+      const [operationalMarkers, nonOperationalMarkers, parkeerafstandMarkers] = await Promise.all([
         getVehicleMarkers(operatorColor, false, useSimplifiedMarkers),
         getVehicleMarkers(operatorColor, true, useSimplifiedMarkers),
+        isLoggedIn ? getVehicleMarkers_parkeerafstand(operatorColor) : Promise.resolve([]),
       ]);
       if (cancelled || !map.current) {
         return;
       }
 
-      operationalMarkers.forEach((img, idx) => {
-        map.current.addImage(baselabel + `:` + idx, { width: 50, height: 50, data: img});
-      });
-      nonOperationalMarkers.forEach((img, idx) => {
-        map.current.addImage(baselabel + `-n:` + idx, { width: 50, height: 50, data: img});
-      });
+      // hasImage guards: a partly registered set is completed, not re-added
+      const addImage = (id, img) => {
+        if (! map.current.hasImage(id)) map.current.addImage(id, { width: 50, height: 50, data: img});
+      };
+      operationalMarkers.forEach((img, idx) => addImage(baselabel + `:` + idx, img));
+      nonOperationalMarkers.forEach((img, idx) => addImage(baselabel + `-n:` + idx, img));
+      parkeerafstandMarkers.forEach((img, idx) => addImage(baselabel + `-a:` + idx, img));
     };
 
     const loadProviderImages = async() => {

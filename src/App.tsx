@@ -57,6 +57,7 @@ import { updateZonesgeodata } from './poll-api/metadataZonesgeodata.js';
 
 import {setAclInRedux} from './actions/authentication.js';
 import { initUpdateParkingData } from './poll-api/pollParkingData.js';
+import { useParkingHubsForCompliance } from './customHooks/useParkingHubsForCompliance';
 import {
   initUpdateVerhuringenData
 } from './poll-api/pollVerhuringenData.js';
@@ -404,6 +405,10 @@ function App() {
     return state.metadata;
   });
 
+  // Hubs for the Parkeernaleving view; the vehicles are reprocessed once they arrive
+  useParkingHubsForCompliance();
+  const parkingHubsIndex = useSelector((state: StateType) => state.parking_hubs?.index || null);
+
   // Public map view default (not logged in): no municipality filter and
   // only operator Voi active. The gebied/zones part is applied once; the
   // operator part is reconciled every time the operator list changes, so an
@@ -559,6 +564,7 @@ function App() {
     metadata.zones_loaded,
     metadata.aclOperators,
     filter,
+    parkingHubsIndex,
     pathName,
     DELAY_TIMEOUT_IN_MS,
     displayMode,

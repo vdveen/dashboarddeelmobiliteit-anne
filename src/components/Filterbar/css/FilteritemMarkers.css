@@ -96,6 +96,11 @@
   min-height: 24px;/* 2 lines */
 }
 
+.filter-markers-itemsublabel {
+  color: #6B7280;
+  white-space: nowrap;
+}
+
 .filter-markers-bartrack {
   display: flex;
   flex-direction: column;

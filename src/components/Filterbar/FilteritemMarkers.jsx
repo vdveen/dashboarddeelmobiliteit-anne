@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import './css/FilteritemMarkers.css';
 
 import {StateType} from '../../types/StateType';
+import { PARKEERAFSTAND_BANDS } from '../../helpers/parkingCompliance';
 
 export function FilteritemMarkersParkeerduur() {
   // Number of vehicles per parkeerduur bin, as calculated in pollParkingData
@@ -30,6 +31,30 @@ export function FilteritemMarkersParkeerduur() {
     addmarker: 'ADD_TO_FILTER_MARKERS_EXCLUDE',
     removemarker: 'REMOVE_FROM_FILTER_MARKERS_EXCLUDE',
     clearmarkers: 'CLEAR_FILTER_MARKERS_EXCLUDE'
+  });
+}
+
+export function FilteritemMarkersParkeerafstand() {
+  // Number of measured vehicles per distance band, as calculated in pollParkingData
+  const parkeerafstandstats = useSelector((state: StateType) => {
+    return state.vehicles ? state.vehicles.parkeerafstandstats : null;
+  });
+
+  const markers = PARKEERAFSTAND_BANDS.map(band => {
+    const marker = { id: band.id, color: band.color, fillcolor: band.color, name: band.name, sublabel: band.short };
+    return parkeerafstandstats && parkeerafstandstats[band.id] !== undefined ?
+      Object.assign({}, marker, { count: parkeerafstandstats[band.id] })
+      :
+      marker;
+  });
+
+  return FilteritemMarkers({
+    label: 'Parkeerafstand',
+    filtername: 'parkeerafstandexclude',
+    markers,
+    addmarker: 'ADD_TO_FILTER_PARKEERAFSTAND_EXCLUDE',
+    removemarker: 'REMOVE_FROM_FILTER_PARKEERAFSTAND_EXCLUDE',
+    clearmarkers: 'CLEAR_FILTER_PARKEERAFSTAND_EXCLUDE'
   });
 }
 
@@ -179,6 +204,7 @@ function FilteritemMarkers({label, filtername, markers, addmarker, removemarker,
                 </div>
                 <div className="filter-markers-itemlabel">
                   { marker.name }
+                  {marker.sublabel && <div className="filter-markers-itemsublabel">{marker.sublabel}</div>}
                 </div>
                 {marker.count!==undefined && totalCount>0 &&
                   <MarkerBar

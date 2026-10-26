@@ -13,6 +13,7 @@ import statsreducer from './statsreducer';
 import policy_hubs from './policy-hubs';
 import search from './search';
 import service_areas from './service-areas';
+import parking_hubs from './parking-hubs';
 
 export default combineReducers({
   created,
@@ -28,5 +29,6 @@ export default combineReducers({
   statsreducer,
   policy_hubs,
   search,
-  service_areas
+  service_areas,
+  parking_hubs
 })
