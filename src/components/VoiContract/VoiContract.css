@@ -1,0 +1,151 @@
+.VoiContract {
+  max-width: 1100px;
+  padding: 3rem 1rem 6rem;
+  color: #17313b;
+}
+
+.VoiContract h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.VoiContract h2 {
+  margin-top: 2rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.VoiContract h3 {
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.VoiContract-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.VoiContract-muted {
+  color: #5f6f75;
+  font-size: 0.875rem;
+}
+
+.VoiContract-weekNav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.VoiContract-weekLabel {
+  font-weight: 600;
+  min-width: 13rem;
+  text-align: center;
+}
+
+.VoiContract-error {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 1rem 0;
+  color: #dc2626;
+}
+
+.VoiContract-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.VoiContract-summaryCard {
+  flex: 1 1 280px;
+  border: 1px solid #e2e8eb;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+}
+
+.VoiContract-summaryLine {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.VoiContract-summaryLine strong {
+  font-size: 1.25rem;
+}
+
+.VoiContract-tableWrap {
+  overflow-x: auto;
+  margin-top: 0.5rem;
+}
+
+.VoiContract-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.VoiContract-table th,
+.VoiContract-table td {
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid #e2e8eb;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.VoiContract-table th:first-child,
+.VoiContract-table td:first-child {
+  text-align: left;
+  white-space: normal;
+}
+
+.VoiContract-table a {
+  color: #009fe3;
+  font-size: 0.75rem;
+}
+
+.VoiContract-regionRow td {
+  background: #f3f6f7;
+  font-weight: 700;
+}
+
+.VoiContract-zoneRow {
+  cursor: pointer;
+}
+
+.VoiContract-zoneRow:hover,
+.VoiContract-zoneRow.is-open {
+  background: #f0f8fd;
+}
+
+.VoiContract-chartRow td {
+  text-align: left;
+}
+
+.VoiContract-chart {
+  height: 260px;
+  width: 100%;
+}
+
+.VoiContract-empty {
+  padding: 1rem 0;
+  color: #5f6f75;
+}
+
+.VoiContract-tooltip {
+  background: #fff;
+  border: 1px solid #d5dde0;
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8rem;
+}
+
+.VoiContract-tooltipTime {
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}

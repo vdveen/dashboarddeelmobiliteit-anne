@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams, useLocation, Navigate } from 'react-router-dom';
-import DashboardPrestatiesAanbieders from './DashboardPrestatiesAanbieders';
+import VoiContractMonitor from '../../components/VoiContract/VoiContractMonitor';
 import DashboardBeleidszones from './DashboardBeleidszones';
 import StatsPage from '../StatsPage';
 
@@ -14,8 +14,10 @@ function DashboardPage(props: DashboardPageProps) {
     return <StatsPage />;
   }
 
+  // This fork shows the Voi contract monitor here instead of the permit
+  // overview, which does not work for operator or regional accounts
   if (dashboard === 'prestaties-aanbieders') {
-    return <DashboardPrestatiesAanbieders />;
+    return <VoiContractMonitor />;
   }
 
   if (dashboard === 'beleidszones') {

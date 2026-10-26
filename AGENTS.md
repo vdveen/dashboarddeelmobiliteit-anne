@@ -35,6 +35,13 @@
 - The Aanbod filterbar switches between Parkeerduur (with Defecte voertuigen) and Parkeernaleving (`filter.parkeerweergave`). Parkeernaleving copies the bands of Groningen's "Buiten hubs geparkeerd" tool (thijsoost.nl/deelmobiliteit/parkeren.html): within 20 m of a hub counts as in it, then 20-50, 50-200 and over 200 m.
 - Distances go to the hubs of the Parkeerhubs layer, which come from each operator's own service area, so a bike is compared only with its own operator's hubs. Only `bicycle` and `cargo_bicycle` are measured. The logic is in `src/helpers/parkingCompliance.ts`; the hubs load in `src/customHooks/useParkingHubsForCompliance.ts`.
 
+## Contractnaleving Voi
+
+- `/stats/prestaties-aanbieders` shows `src/components/VoiContract/VoiContractMonitor.tsx` instead of upstream's permit overview, which fails for operator and regional accounts. The route switch is in `src/pages/dashboard/DashboardPage.tsx`; the upstream components stay unused to keep merges simple.
+- The zones and norms live in `src/config/voiContractZones.ts`. Bedrijventerreinen and Regio Amersfoort knooppunten come from the province's My Maps map "Deelfietslocaties Regio Amersfoort"; points marked `unverified` are Voi hubs standing in for a stop location that still needs checking.
+- A knooppunt is a 300 m circle, minus the part closer to another knooppunt, so the two sides of Amersfoort Centraal, Hilversum and P+R Eemnes count separate bikes. Eis 36 is met when at least 2 non-defect bikes are there in 80% of the 06:00-24:00 snapshots. Eis 39 checks weekdays at 12:00 against Tabel 4 and at least 3 dropzones: current Voi hubs inside the terrein with a non-defect bike within 20 m. Eis 2 averages every snapshot of the calendar week.
+- The page reads `POST /zone-counts` on `voi-snapshot-api` (validation in `scripts/voi_zone_counts.py`), which returns non-defect counts and occupied hubs per snapshot for every zone in one query.
+
 ## Hilversum viewer
 
 - `apps/hilversum/` is a separate public map app for Hilversum and Wijdemeren, served at `/hilversum/`. `npm run build` builds it into `build/hilversum/` after the dashboard. See `apps/hilversum/README.md`.

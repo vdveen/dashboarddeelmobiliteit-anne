@@ -200,7 +200,7 @@ export function tickStepFor(spanMs: number): number {
  * Axis ticks at round Amsterdam wall-clock times (whole hours, or midnight for
  * day steps) between the first and last row, plus the step used.
  */
-export function chartTicks(rows: VoiChartRow[]): { ticks: number[]; stepMs: number } {
+export function chartTicks(rows: { time: number }[]): { ticks: number[]; stepMs: number } {
   if (rows.length === 0) return { ticks: [], stepMs: DAY_MS };
   const start = rows[0].time;
   const end = rows[rows.length - 1].time;

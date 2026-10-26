@@ -18,7 +18,7 @@ from scripts.voi_availability import (
     ValidationError, parse_window, validate_polygon,
 )
 from scripts.voi_database import connect
-from scripts import voi_operational_counts, voi_trips_access
+from scripts import voi_operational_counts, voi_trips_access, voi_zone_counts
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
@@ -276,6 +276,81 @@ def availability():
         "series": [{"captured_at": iso_timestamp(row[0]), "operational": row[1],
                     "non_operational": row[2], "unknown": row[3], "total": row[4]}
                    for row in rows],
+    })
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@app.route("/zone-counts", methods=["POST", "OPTIONS"])
+def zone_counts():
+    """Non-defect vehicles per snapshot in each of several zones.
+
+    For a zone with hub positions it also counts the hubs that hold at least
+    one non-defect vehicle within HUB_RADIUS_M, the contract's dropzones.
+    """
+    if request.method == "OPTIONS":
+        return ("", 204)
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        raise ValidationError("The request body must be a JSON object")
+    zones = voi_zone_counts.parse_zones(body.get("zones"))
+    start, end = parse_window(body.get("from"), body.get("to"))
+    ids = [zone["id"] for zone in zones]
+    geojsons = [zone["geojson"] for zone in zones]
+    hub_zone_ids, hub_indexes, hub_lons, hub_lats = voi_zone_counts.hub_rows(zones)
+    with connect(readonly=True) as connection:
+        try:
+            invalid = connection.execute(
+                """SELECT id FROM unnest(%s::text[], %s::text[]) AS z(id, geojson)
+                   WHERE NOT ST_IsValid(ST_SetSRID(ST_GeomFromGeoJSON(geojson), 4326))""",
+                (ids, geojsons),
+            ).fetchall()
+        except psycopg.errors.DataException:
+            raise ValidationError("A zone polygon is not a readable GeoJSON geometry") from None
+        if invalid:
+            raise ValidationError(f"Zone {invalid[0][0]} is not a valid geometry")
+        moments = [row[0] for row in connection.execute(
+            "SELECT captured_at FROM voi_snapshots WHERE captured_at BETWEEN %s AND %s"
+            " ORDER BY captured_at",
+            (start, end),
+        ).fetchall()]
+        counts = connection.execute(
+            """WITH zones AS (
+                   SELECT id, ST_SetSRID(ST_GeomFromGeoJSON(geojson), 4326) AS geom
+                   FROM unnest(%s::text[], %s::text[]) AS z(id, geojson))
+               SELECT z.id, p.captured_at, count(*)
+               FROM zones z
+               JOIN voi_positions p
+                 ON p.captured_at BETWEEN %s AND %s
+                AND p.is_non_operational IS FALSE
+                AND ST_Intersects(p.geom, z.geom)
+               GROUP BY z.id, p.captured_at""",
+            (ids, geojsons, start, end),
+        ).fetchall()
+        occupied = []
+        if hub_zone_ids:
+            # The degree box (at least 34 m at Dutch latitudes) lets the
+            # geometry index find candidates; the geography test is exact.
+            occupied = connection.execute(
+                """WITH hubs AS (
+                       SELECT zone_id, hub, ST_SetSRID(ST_MakePoint(lon, lat), 4326) AS geom
+                       FROM unnest(%s::text[], %s::int[], %s::float8[], %s::float8[])
+                            AS h(zone_id, hub, lon, lat))
+                   SELECT h.zone_id, p.captured_at, count(DISTINCT h.hub)
+                   FROM hubs h
+                   JOIN voi_positions p
+                     ON p.captured_at BETWEEN %s AND %s
+                    AND p.is_non_operational IS FALSE
+                    AND ST_DWithin(p.geom, h.geom, 0.0005)
+                    AND ST_DWithin(p.geom::geography, h.geom::geography, %s)
+                   GROUP BY h.zone_id, p.captured_at""",
+                (hub_zone_ids, hub_indexes, hub_lons, hub_lats, start, end,
+                 voi_zone_counts.HUB_RADIUS_M),
+            ).fetchall()
+    response = jsonify(**{
+        "from": iso_timestamp(start), "to": iso_timestamp(end),
+        "captured_at": [iso_timestamp(moment) for moment in moments],
+        "zones": voi_zone_counts.build_series(zones, moments, counts, occupied),
     })
     response.headers["Cache-Control"] = "no-store"
     return response
