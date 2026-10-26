@@ -6,12 +6,16 @@ import {
   knooppuntPolygon,
   knooppuntResult,
   knooppuntWindows,
+  mergeResponses,
+  monthOf,
   noonMoments,
   requestWindow,
+  shiftMonth,
   shiftWeek,
   terreinResult,
   thresholdOffset,
   weekOf,
+  weekParts,
   weeklyAverage,
 } from './voiContract';
 
@@ -134,5 +138,41 @@ describe('chart', () => {
     const rows = [0, 4].map((count, index) => ({ time: index, count, occupiedHubs: null }));
     expect(thresholdOffset(rows, 2)).toBeCloseTo(2.5 / 4);
     expect(thresholdOffset(rows.slice(0, 1), 2)).toBeNull();
+  });
+});
+
+describe('months', () => {
+  const october = monthOf(Date.parse('2026-10-15T12:00:00Z'));
+
+  it('runs from the first to the first of the next month, Amsterdam time', () => {
+    expect(new Date(october.start).toISOString()).toBe('2026-09-30T22:00:00.000Z');
+    expect(new Date(october.end).toISOString()).toBe('2026-10-31T23:00:00.000Z');
+    expect(new Date(shiftMonth(october, 1).start).toISOString()).toBe('2026-10-31T23:00:00.000Z');
+    expect(new Date(shiftMonth(october, -10).start).toISOString()).toBe('2025-11-30T23:00:00.000Z');
+  });
+
+  it('splits into calendar weeks cut to the month and to now', () => {
+    const parts = weekParts(october, Date.parse('2027-01-01T00:00:00Z'));
+    expect(parts.map((part) => new Date(part.start).toISOString().slice(0, 13))).toEqual([
+      '2026-09-30T22', '2026-10-04T22', '2026-10-11T22', '2026-10-18T22', '2026-10-25T23',
+    ]);
+    expect(parts[parts.length - 1].end).toBe(october.end);
+    expect(weekParts(october, Date.parse('2026-10-14T12:00:00Z'))).toHaveLength(3);
+  });
+
+  it('marks every day and every weekday noon of the month', () => {
+    expect(knooppuntWindows(october)).toHaveLength(31);
+    expect(noonMoments(october)).toHaveLength(22);
+  });
+
+  it('merges consecutive responses', () => {
+    const merged = mergeResponses([
+      { from: 'a', to: 'b', captured_at: ['t0'], zones: { x: { operational: [1], occupied_hubs: [0] }, y: { operational: [2] } } },
+      { from: 'b', to: 'c', captured_at: ['t1', 't2'], zones: { x: { operational: [3, 4], occupied_hubs: [1, 1] }, y: { operational: [5, 6] } } },
+    ]);
+    expect(merged).toEqual({
+      from: 'a', to: 'c', captured_at: ['t0', 't1', 't2'],
+      zones: { x: { operational: [1, 3, 4], occupied_hubs: [0, 1, 1] }, y: { operational: [2, 5, 6] } },
+    });
   });
 });

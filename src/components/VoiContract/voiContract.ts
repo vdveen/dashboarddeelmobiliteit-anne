@@ -283,22 +283,80 @@ export function chartRows(response: ZoneCountsResponse, id: string): ContractCha
   return rows.sort((left, right) => left.time - right.time);
 }
 
-/** Each day's 06:00-24:00 window inside the week, for the chart's shading. */
-export function knooppuntWindows(week: ContractWeek): { start: number; end: number }[] {
-  const wallMonday = wallClock(week.start);
-  const mondayWall = Date.UTC(wallMonday.getUTCFullYear(), wallMonday.getUTCMonth(), wallMonday.getUTCDate());
-  return Array.from({ length: 7 }, (_, day) => ({
-    start: fromWallClock(mondayWall + day * DAY_MS + KNOOPPUNT_START_HOUR * 60 * 60 * 1000),
-    end: fromWallClock(mondayWall + day * DAY_MS + KNOOPPUNT_END_HOUR * 60 * 60 * 1000),
+/** Amsterdam midnights (as wall-clock UTC fields) of the days in a range. */
+function wallDays(range: ContractWeek): number[] {
+  const wall = wallClock(range.start);
+  const days: number[] = [];
+  let day = Date.UTC(wall.getUTCFullYear(), wall.getUTCMonth(), wall.getUTCDate());
+  while (fromWallClock(day) < range.end) {
+    days.push(day);
+    day += DAY_MS;
+  }
+  return days;
+}
+
+/** Each day's 06:00-24:00 window inside the range, for the chart's shading. */
+export function knooppuntWindows(range: ContractWeek): { start: number; end: number }[] {
+  return wallDays(range).map((day) => ({
+    start: fromWallClock(day + KNOOPPUNT_START_HOUR * 60 * 60 * 1000),
+    end: fromWallClock(day + KNOOPPUNT_END_HOUR * 60 * 60 * 1000),
   }));
 }
 
-/** 12:00 on Monday to Friday, the moments Eis 39 is measured. */
-export function noonMoments(week: ContractWeek): number[] {
-  const wallMonday = wallClock(week.start);
-  const mondayWall = Date.UTC(wallMonday.getUTCFullYear(), wallMonday.getUTCMonth(), wallMonday.getUTCDate());
-  return Array.from({ length: 5 }, (_, day) =>
-    fromWallClock(mondayWall + day * DAY_MS + BEDRIJVENTERREIN_HOUR * 60 * 60 * 1000));
+/** 12:00 on the weekdays inside the range, the moments Eis 39 is measured. */
+export function noonMoments(range: ContractWeek): number[] {
+  return wallDays(range)
+    .filter((day) => new Date(day).getUTCDay() % 6 !== 0)
+    .map((day) => fromWallClock(day + BEDRIJVENTERREIN_HOUR * 60 * 60 * 1000));
+}
+
+/** The calendar month (Amsterdam) that holds `epochMs`. */
+export function monthOf(epochMs: number): ContractWeek {
+  const wall = wallClock(epochMs);
+  return {
+    start: fromWallClock(Date.UTC(wall.getUTCFullYear(), wall.getUTCMonth(), 1)),
+    end: fromWallClock(Date.UTC(wall.getUTCFullYear(), wall.getUTCMonth() + 1, 1)),
+  };
+}
+
+export function shiftMonth(month: ContractWeek, months: number): ContractWeek {
+  const wall = wallClock(month.start);
+  return monthOf(fromWallClock(Date.UTC(wall.getUTCFullYear(), wall.getUTCMonth() + months, 15)));
+}
+
+/**
+ * The calendar weeks of a range, cut to the range and to now. A month starts
+ * and ends with partial weeks. Each part is one request and one column.
+ */
+export function weekParts(range: ContractWeek, now: number): ContractWeek[] {
+  const parts: ContractWeek[] = [];
+  let week = weekOf(range.start);
+  const last = Math.min(range.end, now);
+  while (week.start < last) {
+    parts.push({ start: Math.max(week.start, range.start), end: Math.min(week.end, range.end) });
+    week = shiftWeek(week, 1);
+  }
+  return parts;
+}
+
+/** One response for consecutive, non-overlapping requests. */
+export function mergeResponses(responses: ZoneCountsResponse[]): ZoneCountsResponse {
+  const zones: Record<string, ZoneSeries> = {};
+  responses.forEach((response) => {
+    Object.entries(response.zones).forEach(([id, series]) => {
+      const merged = zones[id] || (zones[id] = { operational: [] });
+      merged.operational.push(...series.operational);
+      if (series.occupied_hubs) {
+        merged.occupied_hubs = [...(merged.occupied_hubs || []), ...series.occupied_hubs];
+      }
+    });
+  });
+  return {
+    from: responses[0]?.from ?? '',
+    to: responses[responses.length - 1]?.to ?? '',
+    captured_at: responses.flatMap((response) => response.captured_at),
+    zones,
+  };
 }
 
 /**

@@ -46,6 +46,7 @@
 - `/stats/prestaties-aanbieders` shows `src/components/VoiContract/VoiContractMonitor.tsx` instead of upstream's permit overview, which fails for operator and regional accounts. The route switch is in `src/pages/dashboard/DashboardPage.tsx`; the upstream components stay unused to keep merges simple.
 - The zones and norms live in `src/config/voiContractZones.ts`. Bedrijventerreinen and Regio Amersfoort knooppunten come from the province's My Maps map "Deelfietslocaties Regio Amersfoort"; points marked `unverified` are Voi hubs standing in for a stop location that still needs checking.
 - A knooppunt is a 300 m circle, minus the part closer to another knooppunt, so the two sides of Amersfoort Centraal, Hilversum and P+R Eemnes count separate bikes. Eis 36 is met when at least 2 non-defect bikes are there in 80% of the 06:00-24:00 snapshots. Eis 39 checks weekdays at 12:00 against Tabel 4 and at least 3 dropzones: current Voi hubs inside the terrein with a non-defect bike within 20 m. Eis 2 averages every snapshot of the calendar week.
+- The page has a week view and a month view. The month view asks one calendar week per request (two at a time), because a month can exceed the API's 31-day window and a week stays far below the 30 s statement timeout.
 - The page reads `POST /zone-counts` on `voi-snapshot-api` (validation in `scripts/voi_zone_counts.py`), which returns non-defect counts and occupied hubs per snapshot for every zone in one query.
 
 ## Hilversum viewer
