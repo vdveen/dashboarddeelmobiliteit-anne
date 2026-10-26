@@ -67,6 +67,7 @@ const periodOf = (mode: PeriodMode, epochMs: number) =>
 
 // Week requests at once. voi-snapshot-api runs two workers, which also serve the Aanbod chart.
 const REQUEST_CONCURRENCY = 2;
+const MONTH_MISSING_MINUTES_THRESHOLD = 10;
 
 const formatAverage = (average: number | null) =>
   (average === null ? '-' : average.toLocaleString('nl-NL', { maximumFractionDigits: 1 }));
@@ -79,7 +80,9 @@ const statusColor = (met: boolean | null) => {
 const minuteCount = (minutes: number) => minutes.toLocaleString('nl-NL', { maximumFractionDigits: 1 });
 
 /** The same minute totals, coverage and verdict in day, week and month cells. */
-const MinuteShare: React.FC<{ result: ShareResult; strong?: boolean }> = ({ result, strong }) => {
+const MinuteShare: React.FC<{ result: ShareResult; strong?: boolean; showMissingMinutes?: boolean }> = ({
+  result, strong, showMissingMinutes = true,
+}) => {
   const status = knooppuntMetOf(result);
   const detail = result.totalMinutes === 0 ? 'Nog geen minuten in deze periode.' : [
     `${minuteCount(result.metMinutes)} van ${minuteCount(result.measuredMinutes)} minuten met meetgegevens hadden minstens ${KNOOPPUNT_MINIMUM} niet-defecte fietsen.`,
@@ -89,7 +92,7 @@ const MinuteShare: React.FC<{ result: ShareResult; strong?: boolean }> = ({ resu
   return (
     <td style={{ color: statusColor(status) }} title={detail}>
       {strong ? <strong>{formatShare(result)}</strong> : formatShare(result)}
-      {result.unknownMinutes > 0 && (
+      {showMissingMinutes && result.unknownMinutes > 0 && (
         <span className="VoiContract-coverage">{`${minuteCount(result.unknownMinutes)} min onbekend`}</span>
       )}
     </td>
@@ -454,6 +457,7 @@ const VoiContractMonitor: React.FC = () => {
                     {KNOOPPUNTEN.filter((knooppunt) => knooppunt.region === region).map((knooppunt) => {
                       const weeks = weekResponses.map((response, index) => knooppuntResult(response, knooppunt.id, parts[index]).week);
                       const month = sumShares(weeks);
+                      const showMissingMinutes = month.unknownMinutes >= MONTH_MISSING_MINUTES_THRESHOLD;
                       return (
                         <React.Fragment key={knooppunt.id}>
                           <tr
@@ -462,9 +466,9 @@ const VoiContractMonitor: React.FC = () => {
                           >
                             {knooppuntName(knooppunt)}
                             {weeks.map((week, index) => (
-                              <MinuteShare key={parts[index].start} result={week} />
+                              <MinuteShare key={parts[index].start} result={week} showMissingMinutes={showMissingMinutes} />
                             ))}
-                            <MinuteShare result={month} strong />
+                            <MinuteShare result={month} strong showMissingMinutes={showMissingMinutes} />
                           </tr>
                           {renderChartRow(knooppunt.id, columns + 1)}
                         </React.Fragment>
@@ -610,6 +614,8 @@ const KnooppuntExplanation = () => (
       </p>
       <p>
         Ontbrekende minuten tellen niet mee in het percentage en staan apart vermeld.
+        In de maandweergave verschijnt deze melding vanaf {MONTH_MISSING_MINUTES_THRESHOLD} ontbrekende minuten
+        in de hele maand. Kleinere tekorten zijn alleen zichtbaar in de tooltip.
         Groen betekent minstens 80% van de minuten met meetgegevens, rood minder dan 80%.
         Zonder meetgegevens staat er een streepje en is er geen oordeel. Percentages zijn naar beneden
         afgerond op één decimaal. Houd de aanwijzer boven een percentage voor de minuten.
