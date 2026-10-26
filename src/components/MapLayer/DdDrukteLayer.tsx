@@ -20,14 +20,22 @@ import { StateType } from '../../types/StateType';
 
 const SOURCE = 'drukte-spots';
 const TOO_FULL_COLOR = '#B0001C';
-const CIRCLES = 'drukte-spots-circle';
-const LABELS = 'drukte-spots-label';
+// Two stacks, each circles then numbers: faded spots below, highlighted ones
+// (too full, or a positive value) above them. The selected spot is a
+// highlight too, so it is never hidden.
+const STACKS = [
+  { circles: 'drukte-spots-circle-faded', labels: 'drukte-spots-label-faded', top: false },
+  { circles: 'drukte-spots-circle', labels: 'drukte-spots-label', top: true }
+];
+const CIRCLE_LAYERS = STACKS.map((stack) => stack.circles);
+// Within a stack the selected spot is drawn last, then smaller over larger
+const SORT_KEY = ['+', ['case', ['get', 'selected'], 10, 0], ['-', 1, ['get', 'rel']]];
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
 
 const removeLayers = (map: any) => {
   if (!map?.getStyle?.()) return;
-  [LABELS, CIRCLES].forEach((id) => { if (map.getLayer(id)) map.removeLayer(id); });
+  STACKS.flatMap((stack) => [stack.labels, stack.circles]).forEach((id) => { if (map.getLayer(id)) map.removeLayer(id); });
   if (map.getSource(SOURCE)) map.removeSource(SOURCE);
 };
 
@@ -87,30 +95,38 @@ const DdDrukteLayer = ({ map }: { map: any }): JSX.Element => {
         return;
       }
       map.addSource(SOURCE, { type: 'geojson', data: geojson });
-      map.addLayer({
-        id: CIRCLES,
-        type: 'circle',
-        source: SOURCE,
-        paint: {
-          'circle-color': ['get', 'color'],
-          'circle-radius': ['interpolate', ['linear'], ['get', 'rel'], 0, 7, 1, 30],
-          'circle-opacity': ['case', ['get', 'positive'], 0.85, 0.35],
-          'circle-stroke-color': ['case', ['get', 'selected'], '#111827', '#FFFFFF'],
-          'circle-stroke-width': ['case', ['get', 'selected'], 3, 1.5]
-        }
-      });
-      map.addLayer({
-        id: LABELS,
-        type: 'symbol',
-        source: SOURCE,
-        layout: {
-          'text-field': ['get', 'label'],
-          'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-          'text-size': ['interpolate', ['linear'], ['get', 'rel'], 0, 10, 1, 14],
-          'text-allow-overlap': true,
-          'symbol-sort-key': ['-', 1, ['get', 'rel']]
-        },
-        paint: { 'text-color': '#FFFFFF' }
+      STACKS.forEach(({ circles, labels, top }) => {
+        const filter = top
+          ? ['any', ['get', 'positive'], ['get', 'selected']]
+          : ['!', ['any', ['get', 'positive'], ['get', 'selected']]];
+        map.addLayer({
+          id: circles,
+          type: 'circle',
+          source: SOURCE,
+          filter,
+          layout: { 'circle-sort-key': SORT_KEY },
+          paint: {
+            'circle-color': ['get', 'color'],
+            'circle-radius': ['interpolate', ['linear'], ['get', 'rel'], 0, 7, 1, 30],
+            'circle-opacity': ['case', ['get', 'positive'], 0.85, 0.35],
+            'circle-stroke-color': ['case', ['get', 'selected'], '#111827', '#FFFFFF'],
+            'circle-stroke-width': ['case', ['get', 'selected'], 3, 1.5]
+          }
+        });
+        map.addLayer({
+          id: labels,
+          type: 'symbol',
+          source: SOURCE,
+          filter,
+          layout: {
+            'text-field': ['get', 'label'],
+            'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+            'text-size': ['interpolate', ['linear'], ['get', 'rel'], 0, 10, 1, 14],
+            'text-allow-overlap': true,
+            'symbol-sort-key': SORT_KEY
+          },
+          paint: { 'text-color': '#FFFFFF' }
+        });
       });
     });
     return () => { cancelled = true; };
@@ -125,7 +141,10 @@ const DdDrukteLayer = ({ map }: { map: any }): JSX.Element => {
   useEffect(() => {
     if (!map) return;
     const onClick = (e: any) => {
-      const id = e.features?.[0]?.properties?.id;
+      // The topmost circle under the click
+      const layers = CIRCLE_LAYERS.filter((id) => map.getLayer(id));
+      if (!layers.length) return;
+      const id = map.queryRenderedFeatures(e.point, { layers })[0]?.properties?.id;
       const { spots, settings: s, result: r } = spotsRef.current;
       const spot = spots.find((x) => x.id === id);
       if (!spot || !r) return;
@@ -153,13 +172,17 @@ const DdDrukteLayer = ({ map }: { map: any }): JSX.Element => {
     };
     const onEnter = () => { map.getCanvas().style.cursor = 'pointer'; };
     const onLeave = () => { map.getCanvas().style.cursor = ''; };
-    map.on('click', CIRCLES, onClick);
-    map.on('mouseenter', CIRCLES, onEnter);
-    map.on('mouseleave', CIRCLES, onLeave);
+    map.on('click', onClick);
+    CIRCLE_LAYERS.forEach((id) => {
+      map.on('mouseenter', id, onEnter);
+      map.on('mouseleave', id, onLeave);
+    });
     return () => {
-      map.off('click', CIRCLES, onClick);
-      map.off('mouseenter', CIRCLES, onEnter);
-      map.off('mouseleave', CIRCLES, onLeave);
+      map.off('click', onClick);
+      CIRCLE_LAYERS.forEach((id) => {
+        map.off('mouseenter', id, onEnter);
+        map.off('mouseleave', id, onLeave);
+      });
     };
   }, [map, dispatch]);
 
