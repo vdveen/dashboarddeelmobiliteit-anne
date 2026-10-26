@@ -179,18 +179,15 @@ export interface ShareResult {
   measuredMinutes: number;
   totalMinutes: number;
   unknownMinutes: number;
-  /** Lower bound: metMinutes / totalMinutes. Null when no daytime has elapsed. */
+  /** metMinutes / measuredMinutes. Null without measurement coverage. */
   share: number | null;
-  /** Upper bound if every unknown minute met the requirement. */
-  upperShare: number | null;
 }
 
 const shareOf = (metMinutes: number, measuredMinutes: number, totalMinutes: number): ShareResult => {
   const unknownMinutes = Math.max(0, totalMinutes - measuredMinutes);
   return {
     metMinutes, measuredMinutes, totalMinutes, unknownMinutes,
-    share: totalMinutes > 0 ? metMinutes / totalMinutes : null,
-    upperShare: totalMinutes > 0 ? (metMinutes + unknownMinutes) / totalMinutes : null,
+    share: measuredMinutes > 0 ? metMinutes / measuredMinutes : null,
   };
 };
 
@@ -203,25 +200,19 @@ export function sumShares(results: ShareResult[]): ShareResult {
   );
 }
 
-/** Unknown time can prevent a verdict, but is neither a pass nor a failure. */
+/** Judge only the minutes covered by measurements; no coverage means no verdict. */
 export function knooppuntMetOf(result: ShareResult): boolean | null {
-  if (result.share === null || result.upperShare === null) return null;
-  if (result.share >= KNOOPPUNT_TARGET_SHARE) return true;
-  if (result.upperShare < KNOOPPUNT_TARGET_SHARE) return false;
-  return null;
+  return result.share === null ? null : result.share >= KNOOPPUNT_TARGET_SHARE;
 }
 
-const percent = (share: number, upper = false) => {
-  // Round bounds outwards; a value just below 80% must never display as 80%.
-  const tenths = upper ? Math.ceil(share * 1000) : Math.floor(share * 1000);
+const percent = (share: number) => {
+  // Round down; a value just below 80% must never display as 80%.
+  const tenths = Math.floor(share * 1000);
   return (tenths / 10).toLocaleString('nl-NL', { maximumFractionDigits: 1 });
 };
 
 export function formatShare(result: ShareResult): string {
-  if (result.share === null || result.upperShare === null) return '-';
-  return result.unknownMinutes > 0
-    ? `${percent(result.share)}–${percent(result.upperShare, true)}%`
-    : `${percent(result.share)}%`;
+  return result.share === null ? '-' : `${percent(result.share)}%`;
 }
 
 export interface KnooppuntResult {
@@ -242,11 +233,12 @@ function snapshotEnd(time: number): number {
 }
 
 /**
- * Eis 36: minutes with at least two non-defect bikes / all minutes in the
- * elapsed 06:00-24:00 windows. A snapshot estimates the following interval,
+ * Eis 36: minutes with at least two non-defect bikes / minutes covered by
+ * measurements within 06:00-24:00. A snapshot estimates the following interval,
  * capped at the next snapshot, its scheduled duration, and the period end.
- * Missing intervals stay unknown. `range` is exclusive at the end and must
- * be clipped to the request time for a week or month that is still running.
+ * Missing intervals are reported but excluded from the share. `range` is
+ * exclusive at the end and must be clipped to the request time for a week
+ * or month that is still running.
  */
 export function knooppuntResult(response: ZoneCountsResponse, id: string, range: ContractWeek): KnooppuntResult {
   const counts = response.zones[id]?.operational || [];

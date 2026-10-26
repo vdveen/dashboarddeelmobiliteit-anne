@@ -111,7 +111,7 @@ describe('requirements', () => {
     // The snapshot exactly at the exclusive end represents no elapsed time.
     expect(result.days[0]).toEqual({
       metMinutes: 10, measuredMinutes: 20, totalMinutes: 360, unknownMinutes: 340,
-      share: 10 / 360, upperShare: 350 / 360,
+      share: 10 / 20,
     });
     expect(result.days[1].share).toBeNull();
     expect(result.week).toEqual(result.days[0]);
@@ -227,29 +227,29 @@ describe('Eis 36 minute denominator and threshold', () => {
   it('does not carry a passing reading across a missing interval', () => {
     const result = knooppuntResult(readings([start, start + 20 * minute], [2, 0]), 'x', range(30)).week;
     expect(result).toMatchObject({ metMinutes: 10, measuredMinutes: 20, totalMinutes: 30, unknownMinutes: 10 });
-    expect(formatShare(result)).toBe('33,3–66,7%');
+    expect(formatShare(result)).toBe('50%');
     expect(knooppuntMetOf(result)).toBe(false);
   });
 
-  it('shows an uncertain verdict when missing minutes could change compliance', () => {
+  it('excludes missing minutes from the percentage and verdict', () => {
     const result = knooppuntResult(readings([start], [2]), 'x', range(20)).week;
-    expect(formatShare(result)).toBe('50–100%');
-    expect(knooppuntMetOf(result)).toBeNull();
-  });
-
-  it('can establish a pass despite a gap when the known passing minutes already reach 80%', () => {
-    const result = knooppuntResult(regular(40, 4), 'x', range(50)).week;
-    expect(formatShare(result)).toBe('80–100%');
+    expect(formatShare(result)).toBe('100%');
     expect(knooppuntMetOf(result)).toBe(true);
   });
 
-  it('keeps empty days in the denominator without treating them as failures', () => {
+  it('passes at exactly 80% of covered minutes even when the period has gaps', () => {
+    const result = knooppuntResult(regular(50, 4), 'x', range(100)).week;
+    expect(result).toMatchObject({ metMinutes: 40, measuredMinutes: 50, totalMinutes: 100, unknownMinutes: 50 });
+    expect(formatShare(result)).toBe('80%');
+    expect(knooppuntMetOf(result)).toBe(true);
+  });
+
+  it('reports no percentage or verdict for an entirely unmeasured day', () => {
     const result = knooppuntResult(readings([], []), 'x', range(1080)).week;
     expect(result).toMatchObject({ totalMinutes: 1080, measuredMinutes: 0, unknownMinutes: 1080 });
-    expect(result.share).toBe(0);
-    expect(result.upperShare).toBe(1);
+    expect(result.share).toBeNull();
     expect(knooppuntMetOf(result)).toBeNull();
-    expect(formatShare(result)).toBe('0–100%');
+    expect(formatShare(result)).toBe('-');
   });
 
   it('treats absent or invalid zone counts as unknown; zero is a measured failure', () => {
@@ -291,13 +291,13 @@ describe('Eis 36 minute denominator and threshold', () => {
       .toMatchObject({ metMinutes: 60, measuredMinutes: 60, totalMinutes: 180, unknownMinutes: 120 });
   });
 
-  it('sums minutes for the month, including empty weeks, instead of averaging weekly percentages', () => {
+  it('sums covered minutes for the month, excluding empty weeks from the percentage', () => {
     const short = knooppuntResult(regular(20, 2), 'x', range(20)).week;
     const long = knooppuntResult(regular(80, 0), 'x', range(80)).week;
     const missing = knooppuntResult(readings([], []), 'x', range(100)).week;
     const month = sumShares([short, long, missing]);
-    expect(month).toMatchObject({ metMinutes: 20, measuredMinutes: 100, totalMinutes: 200, unknownMinutes: 100, share: 0.1, upperShare: 0.6 });
-    expect(formatShare(month)).toBe('10–60%');
+    expect(month).toMatchObject({ metMinutes: 20, measuredMinutes: 100, totalMinutes: 200, unknownMinutes: 100, share: 0.2 });
+    expect(formatShare(month)).toBe('20%');
   });
 
   it('gives the same month totals from week parts and from the full month, including partial weeks', () => {

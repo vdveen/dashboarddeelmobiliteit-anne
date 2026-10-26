@@ -82,8 +82,8 @@ const minuteCount = (minutes: number) => minutes.toLocaleString('nl-NL', { maxim
 const MinuteShare: React.FC<{ result: ShareResult; strong?: boolean }> = ({ result, strong }) => {
   const status = knooppuntMetOf(result);
   const detail = result.totalMinutes === 0 ? 'Nog geen minuten in deze periode.' : [
-    `${minuteCount(result.metMinutes)} van ${minuteCount(result.totalMinutes)} minuten met minstens ${KNOOPPUNT_MINIMUM} niet-defecte fietsen.`,
-    `${minuteCount(result.measuredMinutes)} minuten gemeten; ${minuteCount(result.unknownMinutes)} minuten onbekend.`,
+    `${minuteCount(result.metMinutes)} van ${minuteCount(result.measuredMinutes)} minuten met meetgegevens hadden minstens ${KNOOPPUNT_MINIMUM} niet-defecte fietsen.`,
+    `${minuteCount(result.measuredMinutes)} van ${minuteCount(result.totalMinutes)} minuten gedekt door metingen; ${minuteCount(result.unknownMinutes)} minuten onbekend en niet meegerekend.`,
     status === null ? 'Onvoldoende gegevens voor een oordeel.' : (status ? 'Norm gehaald.' : 'Norm niet gehaald.'),
   ].join(' ');
   return (
@@ -602,15 +602,17 @@ const KnooppuntExplanation = () => (
     <details className="VoiContract-method">
       <summary>Berekening en ontbrekende metingen</summary>
       <p>
-        Een volledige dag telt 1.080 minuten; de norm is 864 minuten. Het percentage is een schatting:
+        Het percentage is het aantal minuten met minstens twee niet-defecte fietsen gedeeld door de
+        minuten met meetgegevens. Bij een volledig gemeten dag is de norm 864 van 1.080 minuten.
+        Het percentage is een schatting:
         elke meting geldt tot de volgende meting, maximaal 10 minuten. Vóór 8 september 2026 om 12:50
-        gold maximaal 60 minuten. Week en maand tellen de minuten op.
+        gold maximaal 60 minuten. Week en maand tellen de minuten met meetgegevens op.
       </p>
       <p>
-        Ontbrekende minuten blijven onbekend; een bereik toont het laagste en hoogste mogelijke percentage.
-        Groen betekent dat ook de ondergrens de norm haalt, rood dat zelfs de bovengrens te laag is.
-        Zonder kleur is er onvoldoende informatie voor een oordeel. Percentages zijn naar buiten afgerond
-        op één decimaal. Houd de aanwijzer boven een percentage voor de minuten.
+        Ontbrekende minuten tellen niet mee in het percentage en staan apart vermeld.
+        Groen betekent minstens 80% van de minuten met meetgegevens, rood minder dan 80%.
+        Zonder meetgegevens staat er een streepje en is er geen oordeel. Percentages zijn naar beneden
+        afgerond op één decimaal. Houd de aanwijzer boven een percentage voor de minuten.
       </p>
       <p>{`Waar twee knooppunten binnen ${2 * KNOOPPUNT_RADIUS_M} m liggen, telt een fiets bij het dichtstbijzijnde.`}</p>
     </details>
