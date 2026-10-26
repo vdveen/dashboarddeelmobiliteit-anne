@@ -4,7 +4,7 @@ import json
 import unittest
 
 from scripts.voi_availability import ValidationError
-from scripts.voi_zone_counts import build_series, hub_rows, parse_zones
+from scripts.voi_zone_counts import bounds, build_series, hub_rows, parse_zones
 
 SQUARE = {"type": "Polygon", "coordinates": [[[5.0, 52.0], [5.1, 52.0], [5.1, 52.1], [5.0, 52.0]]]}
 
@@ -37,6 +37,16 @@ class SeriesTest(unittest.TestCase):
             {"id": "b", "polygon": SQUARE},
         ])
         self.assertEqual(hub_rows(zones), (["a", "a"], [0, 1], [5.01, 5.02], [52.01, 52.02]))
+
+    def test_bounds_cover_zones_and_hub_margins(self):
+        zones = parse_zones([
+            {"id": "a", "polygon": SQUARE},
+            {"id": "b", "polygon": {"type": "MultiPolygon", "coordinates": [SQUARE["coordinates"]]},
+             "hubs": [[5.2, 52.05]]},
+        ])
+        west, south, east, north = bounds(zones)
+        self.assertEqual((west, south, north), (5.0, 52.0, 52.1))
+        self.assertAlmostEqual(east, 5.201)
 
     def test_missing_pairs_are_zero(self):
         zones = parse_zones([

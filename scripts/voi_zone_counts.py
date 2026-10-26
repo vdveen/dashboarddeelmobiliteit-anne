@@ -70,6 +70,29 @@ def hub_rows(zones: list[dict[str, Any]]) -> tuple[list[str], list[int], list[fl
     return ids, indexes, lons, lats
 
 
+def bounds(zones: list[dict[str, Any]]) -> tuple[float, float, float, float]:
+    """West, south, east and north edge around every zone and hub.
+
+    Hubs get a margin of 0.001 degree (at least 68 m here), more than HUB_RADIUS_M.
+    """
+    lons, lats = [], []
+
+    def collect(value: Any) -> None:
+        if value and isinstance(value[0], (int, float)):
+            lons.append(value[0])
+            lats.append(value[1])
+        else:
+            for item in value:
+                collect(item)
+
+    for zone in zones:
+        collect(json.loads(zone["geojson"])["coordinates"])
+        for lon, lat in zone["hubs"]:
+            lons.extend((lon - 0.001, lon + 0.001))
+            lats.extend((lat - 0.001, lat + 0.001))
+    return min(lons), min(lats), max(lons), max(lats)
+
+
 def build_series(zones: list[dict[str, Any]], moments: list[Any],
                  counts: list[tuple[str, Any, int]],
                  occupied: list[tuple[str, Any, int]]) -> dict[str, dict[str, list[int]]]:

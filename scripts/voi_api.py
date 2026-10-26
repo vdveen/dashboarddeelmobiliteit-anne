@@ -314,37 +314,42 @@ def zone_counts():
             " ORDER BY captured_at",
             (start, end),
         ).fetchall()]
+        # Read the window's vehicles by time first. Planner estimates on
+        # voi_positions are far off, and it otherwise takes the geometry
+        # index across the whole archive (15 s for a week instead of 3 s).
+        # ST_X/ST_Y keep the bounding box from being used as an index condition.
+        west, south, east, north = voi_zone_counts.bounds(zones)
+        window = """window_positions AS MATERIALIZED (
+                   SELECT captured_at, geom FROM voi_positions
+                   WHERE captured_at BETWEEN %s AND %s AND is_non_operational IS FALSE
+                     AND ST_X(geom) BETWEEN %s AND %s AND ST_Y(geom) BETWEEN %s AND %s)"""
+        window_params = (start, end, west, east, south, north)
         counts = connection.execute(
-            """WITH zones AS (
-                   SELECT id, ST_SetSRID(ST_GeomFromGeoJSON(geojson), 4326) AS geom
-                   FROM unnest(%s::text[], %s::text[]) AS z(id, geojson))
-               SELECT z.id, p.captured_at, count(*)
-               FROM zones z
-               JOIN voi_positions p
-                 ON p.captured_at BETWEEN %s AND %s
-                AND p.is_non_operational IS FALSE
-                AND ST_Intersects(p.geom, z.geom)
-               GROUP BY z.id, p.captured_at""",
-            (ids, geojsons, start, end),
+            f"""WITH zones AS MATERIALIZED (
+                    SELECT id, ST_SetSRID(ST_GeomFromGeoJSON(geojson), 4326) AS geom
+                    FROM unnest(%s::text[], %s::text[]) AS z(id, geojson)),
+                {window}
+                SELECT z.id, p.captured_at, count(*)
+                FROM zones z JOIN window_positions p ON ST_Intersects(p.geom, z.geom)
+                GROUP BY z.id, p.captured_at""",
+            (ids, geojsons, *window_params),
         ).fetchall()
         occupied = []
         if hub_zone_ids:
-            # The degree box (at least 34 m at Dutch latitudes) lets the
-            # geometry index find candidates; the geography test is exact.
+            # The degree box (at least 34 m at Dutch latitudes) is a cheap
+            # first test; the geography test is exact.
             occupied = connection.execute(
-                """WITH hubs AS (
-                       SELECT zone_id, hub, ST_SetSRID(ST_MakePoint(lon, lat), 4326) AS geom
-                       FROM unnest(%s::text[], %s::int[], %s::float8[], %s::float8[])
-                            AS h(zone_id, hub, lon, lat))
-                   SELECT h.zone_id, p.captured_at, count(DISTINCT h.hub)
-                   FROM hubs h
-                   JOIN voi_positions p
-                     ON p.captured_at BETWEEN %s AND %s
-                    AND p.is_non_operational IS FALSE
-                    AND ST_DWithin(p.geom, h.geom, 0.0005)
-                    AND ST_DWithin(p.geom::geography, h.geom::geography, %s)
-                   GROUP BY h.zone_id, p.captured_at""",
-                (hub_zone_ids, hub_indexes, hub_lons, hub_lats, start, end,
+                f"""WITH hubs AS MATERIALIZED (
+                        SELECT zone_id, hub, ST_SetSRID(ST_MakePoint(lon, lat), 4326) AS geom
+                        FROM unnest(%s::text[], %s::int[], %s::float8[], %s::float8[])
+                             AS h(zone_id, hub, lon, lat)),
+                    {window}
+                    SELECT h.zone_id, p.captured_at, count(DISTINCT h.hub)
+                    FROM hubs h JOIN window_positions p
+                      ON ST_DWithin(p.geom, h.geom, 0.0005)
+                     AND ST_DWithin(p.geom::geography, h.geom::geography, %s)
+                    GROUP BY h.zone_id, p.captured_at""",
+                (hub_zone_ids, hub_indexes, hub_lons, hub_lats, *window_params,
                  voi_zone_counts.HUB_RADIUS_M),
             ).fetchall()
     response = jsonify(**{
