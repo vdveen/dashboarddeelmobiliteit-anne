@@ -5,8 +5,11 @@ import {
   DrukteMaatstaf,
   DrukteResult,
   DrukteSpot,
+  OCCUPANCY_OPERATOR,
   computeDrukte,
+  isOccupancyMaatstaf,
   kpiValue,
+  occupancySpots,
   sortSpots
 } from '../../helpers/rideEndPeaks';
 import { selectDrukteSettings } from '../../reducers/drukte.js';
@@ -32,6 +35,14 @@ export const MAATSTAF_LABELS: Record<DrukteMaatstaf, { name: string; uitleg: str
   netto: {
     name: 'Netto aankomst',
     uitleg: 'Ritten die hier eindigden min ritten die hier begonnen: waar voertuigen zich ophopen.'
+  },
+  max_voertuigen: {
+    name: 'Meeste voertuigen',
+    uitleg: 'Het hoogste aantal Voi-voertuigen dat tegelijk in de hub of plek stond.'
+  },
+  tijd_te_vol: {
+    name: 'Tijd te vol',
+    uitleg: 'Het deel van de metingen met meer dan het gekozen aantal Voi-voertuigen in de hub of plek.'
   }
 };
 
@@ -55,7 +66,7 @@ const signed = (n: number) => (n > 0 ? `+${nl(n)}` : n < 0 ? `−${nl(-n)}` : '0
 /** The measure as a short number for the map and the list. */
 export const formatKpi = (spot: DrukteSpot, maatstaf: DrukteMaatstaf, hours: number): string => {
   const value = kpiValue(spot, maatstaf, hours);
-  if (maatstaf === 'uren_druk') return `${nl(value * 100)}%`;
+  if (maatstaf === 'uren_druk' || maatstaf === 'tijd_te_vol') return value > 0 && value < 0.005 ? '<1%' : `${nl(value * 100)}%`;
   if (maatstaf === 'boven_normaal' || maatstaf === 'netto') return signed(Math.round(value));
   return nl(value);
 };
@@ -65,13 +76,46 @@ const hourFormat = new Intl.DateTimeFormat('nl-NL', {
 });
 const hourOnly = new Intl.DateTimeFormat('nl-NL', { timeZone: 'Europe/Amsterdam', hour: '2-digit', minute: '2-digit' });
 
+const dayTime = new Intl.DateTimeFormat('nl-NL', {
+  timeZone: 'Europe/Amsterdam', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+});
+const dayOnly = new Intl.DateTimeFormat('nl-NL', { timeZone: 'Europe/Amsterdam', day: 'numeric', month: 'short' });
+
+/** A period too full, e.g. "vr 23 okt 13:40-16:10 (max 16)". */
+export const formatInterval = (interval: { start: number; end: number; max: number }) => {
+  const sameDay = dayOnly.format(new Date(interval.start)) === dayOnly.format(new Date(interval.end - 1));
+  const end = sameDay ? hourOnly.format(new Date(interval.end)) : dayTime.format(new Date(interval.end));
+  return `${dayTime.format(new Date(interval.start))}-${end} (max ${interval.max})`;
+};
+
+/** The longest periods too full, longest first. */
+export const longestIntervals = (spot: DrukteSpot, count: number) =>
+  [...(spot.occupancy?.intervals || [])]
+    .sort((a, b) => (b.end - b.start) - (a.end - a.start) || b.max - a.max)
+    .slice(0, count);
+
 export const formatPeakHour = (spot: DrukteSpot) =>
   spot.peakHour
     ? `${hourFormat.format(new Date(spot.peakHour.start))}-${hourOnly.format(new Date(spot.peakHour.start + 3600 * 1000))}`
     : '';
 
 /** One line with the numbers behind the measure. */
-export const describeSpot = (spot: DrukteSpot, maatstaf: DrukteMaatstaf, hours: number, drukPerUur: number): string => {
+export const describeSpot = (
+  spot: DrukteSpot, maatstaf: DrukteMaatstaf, hours: number, drukPerUur: number, teVol = 10
+): string => {
+  const o = spot.occupancy;
+  if (o && isOccupancyMaatstaf(maatstaf)) {
+    const parts = [];
+    if (o.maxAt !== null) {
+      parts.push(`max ${nl(o.maxTotal)} op ${dayTime.format(new Date(o.maxAt))}`
+        + (o.maxOperational < o.maxTotal ? ` (${nl(o.maxTotal - o.maxOperational)} defect)` : ''));
+    }
+    parts.push(o.overSnapshots
+      ? `meer dan ${teVol} in ${nl(o.overShare * 100, o.overShare < 0.1 ? 1 : 0)}% van de metingen, ${o.intervals.length} keer`
+      : `nooit meer dan ${teVol}`);
+    parts.push(`${nl(spot.ends)} ${spot.ends === 1 ? 'rit' : 'ritten'} geëindigd`);
+    return parts.join(', ');
+  }
   const parts = [`${nl(spot.ends)} ${spot.ends === 1 ? 'rit' : 'ritten'}`];
   if (spot.peakHour) parts.push(`piek ${nl(spot.peakHour.count)} op ${formatPeakHour(spot)}`);
   if (maatstaf === 'uren_druk') parts.push(`${nl(spot.busyHours)} van ${nl(hours)} uur met ${drukPerUur} of meer`);
@@ -84,7 +128,8 @@ export const kindLabel = (spot: DrukteSpot) =>
   spot.kind === 'hub' ? 'Hub' : spot.kind === 'plek' ? `Plek, ${spot.hubCount} ${spot.hubCount === 1 ? 'hub' : 'hubs'}` : 'Buiten hubs';
 
 export interface DrukteView {
-  // 'no-gebied', 'loading', 'error', 'no-hubs' or 'ready'
+  // 'no-gebied', 'loading', 'error', 'no-hubs', 'occupancy-buiten',
+  // 'occupancy-no-voi' or 'ready'
   status: string;
   error: string | null;
   result: DrukteResult | null;
@@ -115,6 +160,9 @@ export const useDrukteView = (): DrukteView & { settings: ReturnType<typeof sele
   const hubIndex = useSelector((state: StateType) =>
     state.parking_hubs?.gebied === gebied ? state.parking_hubs?.index : null
   );
+  const occupancyStatus = useSelector((state: StateType) => state.drukte_data?.occupancy_status || null);
+  const occupancyError = useSelector((state: StateType) => state.drukte_data?.occupancy_error || null);
+  const occupancy = useSelector((state: StateType) => state.drukte_data?.occupancy || null);
 
   return useMemo(() => {
     const empty = { error: null, result: null, spots: [], maxValue: 0, settings };
@@ -124,7 +172,16 @@ export const useDrukteView = (): DrukteView & { settings: ReturnType<typeof sele
     if (hubsStatus !== 'ready' || data?.status !== 'ready' || !hubIndex) return { ...empty, status: 'loading' };
     if (hubIndex.operators.size === 0 && settings.eenheid !== 'buiten') return { ...empty, status: 'no-hubs' };
 
-    const { eenheid, minimaal, straal, druk_per_uur, maatstaf } = settings;
+    const { eenheid, straal, druk_per_uur, maatstaf, te_vol } = settings;
+    const isOccupancy = isOccupancyMaatstaf(maatstaf);
+    if (isOccupancy && eenheid === 'buiten') return { ...empty, status: 'occupancy-buiten' };
+    if (isOccupancy && (aanbiedersexclude.split(',').includes(OCCUPANCY_OPERATOR) || !hubIndex.operators.has(OCCUPANCY_OPERATOR))) {
+      return { ...empty, status: 'occupancy-no-voi' };
+    }
+    if (isOccupancy && occupancyStatus === 'error') return { ...empty, status: 'error', error: occupancyError };
+    if (isOccupancy && (occupancyStatus !== 'ready' || !occupancy)) return { ...empty, status: 'loading' };
+    // Every hub with vehicles keeps its trip ends, however few
+    const minimaal = isOccupancy ? 1 : settings.minimaal;
     const result = computeOnce(
       [hubIndex, data.ends, data.starts, data.baseline, data.window, eenheid, minimaal, straal, druk_per_uur, aanbiedersexclude],
       () => computeDrukte({
@@ -140,10 +197,14 @@ export const useDrukteView = (): DrukteView & { settings: ReturnType<typeof sele
         excludedOperators: aanbiedersexclude.split(',').filter(Boolean)
       })
     );
-    const spots = sortSpots(result.spots, maatstaf, result.hours);
+    const spots = sortSpots(
+      isOccupancy ? occupancySpots(hubIndex, eenheid, occupancy, te_vol, result.spots) : result.spots,
+      maatstaf,
+      result.hours
+    );
     const maxValue = spots.reduce((m, s) => Math.max(m, kpiValue(s, maatstaf, result.hours)), 0);
     return { status: 'ready', error: null, result, spots, maxValue, settings };
-  }, [settings, gebied, aanbiedersexclude, data, hubsStatus, hubIndex]);
+  }, [settings, gebied, aanbiedersexclude, data, hubsStatus, hubIndex, occupancyStatus, occupancyError, occupancy]);
 };
 
 // ---------- Street names (PDOK Locatieserver, reverse geocoding) ----------

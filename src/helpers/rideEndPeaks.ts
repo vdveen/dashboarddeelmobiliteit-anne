@@ -28,7 +28,13 @@ const HOUR_MS = 3600 * 1000;
 const METRES_PER_DEGREE = 111320;
 
 export type DrukteEenheid = 'hubs' | 'plekken' | 'buiten';
-export type DrukteMaatstaf = 'ritten' | 'piekuur' | 'uren_druk' | 'boven_normaal' | 'netto';
+export type DrukteMaatstaf =
+  'ritten' | 'piekuur' | 'uren_druk' | 'boven_normaal' | 'netto' | 'max_voertuigen' | 'tijd_te_vol';
+
+// Measures that count parked Voi vehicles from the snapshot archive instead
+// of trip ends; they exist for hubs and places only
+export const OCCUPANCY_MAATSTAVEN: DrukteMaatstaf[] = ['max_voertuigen', 'tijd_te_vol'];
+export const isOccupancyMaatstaf = (maatstaf: DrukteMaatstaf) => OCCUPANCY_MAATSTAVEN.includes(maatstaf);
 
 export interface RideEvent {
   // Operator system_id
@@ -60,6 +66,8 @@ export interface DrukteSpot {
   expected: number | null;
   // Trip starts, when they were loaded
   starts: number | null;
+  // Parked Voi vehicles, for the occupancy measures
+  occupancy?: HubOccupancy;
 }
 
 export interface DrukteInput {
@@ -510,9 +518,165 @@ export const kpiValue = (spot: DrukteSpot, maatstaf: DrukteMaatstaf, hours: numb
     case 'uren_druk': return hours > 0 ? spot.busyHours / hours : 0;
     case 'boven_normaal': return spot.ends - (spot.expected || 0);
     case 'netto': return spot.ends - (spot.starts || 0);
+    case 'max_voertuigen': return spot.occupancy?.maxTotal || 0;
+    case 'tijd_te_vol': return spot.occupancy?.overShare || 0;
     default: return spot.ends;
   }
 };
 
 export const sortSpots = (spots: DrukteSpot[], maatstaf: DrukteMaatstaf, hours: number): DrukteSpot[] =>
   [...spots].sort((a, b) => kpiValue(b, maatstaf, hours) - kpiValue(a, maatstaf, hours) || b.ends - a.ends);
+
+// ---------- Parked Voi vehicles per hub or place (snapshot archive) ----------
+
+export const OCCUPANCY_OPERATOR = 'voi';
+
+export interface OccupancyZone {
+  id: string;
+  polygon: GeoJSON.Polygon | GeoJSON.MultiPolygon;
+}
+
+export interface HubCountsResponse {
+  captured_at: string[];
+  // Only snapshots with vehicles: index into captured_at and the counts
+  zones: Record<string, { i: number[]; operational: number[]; total: number[] }>;
+}
+
+export interface OccupancyInterval {
+  start: number;
+  end: number;
+  max: number;
+}
+
+export interface HubOccupancy {
+  // Most vehicles at one snapshot, defect ones included, and when
+  maxTotal: number;
+  maxOperational: number;
+  maxAt: number | null;
+  // Snapshots with more than the threshold, of all snapshots
+  overSnapshots: number;
+  snapshots: number;
+  overShare: number;
+  // Consecutive snapshots over the threshold
+  intervals: OccupancyInterval[];
+  // Average vehicles per hour of the day (Dutch time)
+  hourOfDayAvg: number[];
+}
+
+const round6 = (value: unknown): unknown =>
+  Array.isArray(value) ? value.map(round6) : typeof value === 'number' ? Math.round(value * 1e6) / 1e6 : value;
+
+const asMultiPolygon = (geometries: (GeoJSON.Polygon | GeoJSON.MultiPolygon)[]): GeoJSON.MultiPolygon => ({
+  type: 'MultiPolygon',
+  coordinates: geometries.flatMap((g) => (g.type === 'Polygon' ? [g.coordinates] : g.coordinates))
+});
+
+/**
+ * The zones to ask the archive about: every Voi hub, or every place with
+ * Voi hubs (as one MultiPolygon of those hubs, so a bike near two of them
+ * counts once). The ids match the spots of computeDrukte.
+ */
+export const occupancyZones = (index: HubIndex, eenheid: DrukteEenheid): OccupancyZone[] => {
+  const voi = index.operators.get(OCCUPANCY_OPERATOR);
+  if (!voi || eenheid === 'buiten') return [];
+  const zone = (id: string, geometries: (GeoJSON.Polygon | GeoJSON.MultiPolygon)[]): OccupancyZone => {
+    const polygon = geometries.length === 1 ? geometries[0] : asMultiPolygon(geometries);
+    return { id, polygon: { ...polygon, coordinates: round6(polygon.coordinates) } as OccupancyZone['polygon'] };
+  };
+  if (eenheid === 'hubs') return voi.hubs.map((hub) => zone(hub.id, [hub.geometry]));
+  return placesForIndex(index).places
+    .map((place) => ({ place, hubs: place.hubs.filter((h) => h.operator === OCCUPANCY_OPERATOR) }))
+    .filter(({ hubs }) => hubs.length > 0)
+    .map(({ place, hubs }) => zone(place.id, hubs.map((h) => h.geometry)));
+};
+
+// A snapshot stands for the time until the next one, up to an hour (the
+// archive was hourly before ten-minute collection started)
+const SNAPSHOT_MS = 10 * 60 * 1000;
+const MAX_GAP_MS = 60 * 60 * 1000;
+
+/** Vehicle counts of one zone over the period, against a "more than" threshold. */
+export const occupancyFor = (
+  times: number[],
+  series: HubCountsResponse['zones'][string] | undefined,
+  threshold: number
+): HubOccupancy => {
+  const total = new Array(times.length).fill(0);
+  const operational = new Array(times.length).fill(0);
+  (series?.i || []).forEach((index, k) => {
+    total[index] = series!.total[k];
+    operational[index] = series!.operational[k];
+  });
+
+  const sums = new Array(24).fill(0);
+  const counts = new Array(24).fill(0);
+  const result: HubOccupancy = {
+    maxTotal: 0, maxOperational: 0, maxAt: null,
+    overSnapshots: 0, snapshots: times.length, overShare: 0, intervals: [], hourOfDayAvg: []
+  };
+  let open: OccupancyInterval | null = null;
+  const close = (k: number) => {
+    if (!open) return;
+    const last = times[k - 1];
+    const next = times[k];
+    open.end = next !== undefined && next - last <= MAX_GAP_MS ? next : last + SNAPSHOT_MS;
+    result.intervals.push(open);
+    open = null;
+  };
+  times.forEach((time, k) => {
+    const n = total[k];
+    const hour = localHour(hourStart(time)).hourOfDay;
+    sums[hour] += n;
+    counts[hour] += 1;
+    if (n > result.maxTotal) {
+      result.maxTotal = n;
+      result.maxOperational = operational[k];
+      result.maxAt = time;
+    }
+    if (n > threshold) {
+      result.overSnapshots += 1;
+      if (open && time - times[k - 1] > MAX_GAP_MS) close(k);
+      if (!open) open = { start: time, end: time, max: n };
+      else open.max = Math.max(open.max, n);
+    } else {
+      close(k);
+    }
+  });
+  close(times.length);
+  result.overShare = times.length ? result.overSnapshots / times.length : 0;
+  result.hourOfDayAvg = sums.map((sum, h) => (counts[h] ? sum / counts[h] : 0));
+  return result;
+};
+
+/**
+ * Spots for the occupancy measures: every hub or place that held a Voi
+ * vehicle in the period, with its trip-end numbers when it had trip ends.
+ */
+export const occupancySpots = (
+  index: HubIndex,
+  eenheid: DrukteEenheid,
+  response: HubCountsResponse,
+  threshold: number,
+  rideSpots: DrukteSpot[]
+): DrukteSpot[] => {
+  const times = response.captured_at.map((t) => Date.parse(t));
+  const rides = new Map(rideSpots.map((s) => [s.id, s]));
+  const hubById = new Map(allHubs(index).map((h) => [h.id, h]));
+  const placeById = new Map(placesForIndex(index).places.map((p) => [p.id, p]));
+
+  return Object.keys(response.zones).flatMap((id): DrukteSpot[] => {
+    const occupancy = occupancyFor(times, response.zones[id], threshold);
+    if (occupancy.maxTotal === 0) return [];
+    const ride = rides.get(id);
+    if (ride) return [{ ...ride, occupancy }];
+    const place = placeById.get(id);
+    const hub = hubById.get(id);
+    if (!place && !hub) return [];
+    const hubs = place ? place.hubs : [hub as PreparedHub];
+    const center = place ? place.center : (hub as PreparedHub).center;
+    return [{
+      ...newSpot(id, place ? 'plek' : 'hub', center, hubs, false, false).spot,
+      occupancy
+    }];
+  });
+};

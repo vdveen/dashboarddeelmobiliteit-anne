@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import maplibregl from 'maplibre-gl';
 
-import { kpiValue } from '../../helpers/rideEndPeaks';
+import { isOccupancyMaatstaf, kpiValue } from '../../helpers/rideEndPeaks';
 import { whenMapLayersMutable } from '../Map/MapUtils/mapGuards';
 import {
   KIND_COLORS,
   MAATSTAF_LABELS,
   describeSpot,
+  formatInterval,
   formatKpi,
   kindLabel,
   spotName,
@@ -18,6 +19,7 @@ import { getPrettyProviderName } from '../../helpers/providers.js';
 import { StateType } from '../../types/StateType';
 
 const SOURCE = 'drukte-spots';
+const TOO_FULL_COLOR = '#B0001C';
 const CIRCLES = 'drukte-spots-circle';
 const LABELS = 'drukte-spots-label';
 
@@ -32,7 +34,8 @@ const removeLayers = (map: any) => {
 /**
  * The Drukte view of the Aanbod map: a circle per hub, place or spot outside
  * the hubs, sized by the chosen measure. Spots with no positive value (for
- * Boven normaal or Netto aankomst) are small and faded.
+ * Boven normaal or Netto aankomst) are small and faded; for the vehicle
+ * measures, hubs that were too full are red and the others faded.
  */
 const DdDrukteLayer = ({ map }: { map: any }): JSX.Element => {
   const dispatch = useDispatch();
@@ -48,14 +51,17 @@ const DdDrukteLayer = ({ map }: { map: any }): JSX.Element => {
       type: 'FeatureCollection',
       features: view.spots.map((spot) => {
         const value = kpiValue(spot, settings.maatstaf, hours);
+        // For the vehicle measures only the hubs that were too full stand out
+        const tooFull = isOccupancyMaatstaf(settings.maatstaf) && (spot.occupancy?.overSnapshots || 0) > 0;
+        const highlighted = isOccupancyMaatstaf(settings.maatstaf) ? tooFull : value > 0;
         return {
           type: 'Feature',
           geometry: { type: 'Point', coordinates: [spot.lon, spot.lat] },
           properties: {
             id: spot.id,
-            color: KIND_COLORS[spot.kind],
+            color: tooFull ? TOO_FULL_COLOR : KIND_COLORS[spot.kind],
             rel: view.maxValue > 0 && value > 0 ? Math.sqrt(value / view.maxValue) : 0,
-            positive: value > 0,
+            positive: highlighted,
             label: formatKpi(spot, settings.maatstaf, hours),
             selected: settings.selected === spot.id
           }
@@ -135,7 +141,12 @@ const DdDrukteLayer = ({ map }: { map: any }): JSX.Element => {
           `<div class="text-sm font-bold">${esc(spotName(spot, namesRef.current) || 'Drukke plek')}</div>`
           + `<div class="text-xs text-gray-600">${esc(kindLabel(spot))}</div>`
           + `<div class="text-sm mt-1">${esc(MAATSTAF_LABELS[s.maatstaf].name)}: <b>${esc(formatKpi(spot, s.maatstaf, r.hours))}</b></div>`
-          + `<div class="text-xs mt-1">${esc(describeSpot(spot, s.maatstaf, r.hours, s.druk_per_uur))}</div>`
+          + `<div class="text-xs mt-1">${esc(describeSpot(spot, s.maatstaf, r.hours, s.druk_per_uur, s.te_vol))}</div>`
+          + (spot.occupancy && spot.occupancy.intervals.length
+            ? `<div class="text-xs mt-1 font-bold">Meer dan ${s.te_vol} voertuigen</div>`
+              + `<ul class="text-xs" style="max-height:140px;overflow-y:auto">${spot.occupancy.intervals
+                .map((x) => `<li>${esc(formatInterval(x))}</li>`).join('')}</ul>`
+            : '')
           + `<ul class="text-xs mt-1">${operators}</ul>`
         )
         .addTo(map);

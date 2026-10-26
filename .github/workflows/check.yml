@@ -30,4 +30,4 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python3 -m unittest scripts.test_voi_availability scripts.test_collect_voi_vehicles scripts.test_voi_trips_access
+      - run: python3 -m unittest scripts.test_voi_availability scripts.test_collect_voi_vehicles scripts.test_voi_trips_access scripts.test_voi_hub_counts

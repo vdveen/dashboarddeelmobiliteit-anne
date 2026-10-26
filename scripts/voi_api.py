@@ -18,7 +18,7 @@ from scripts.voi_availability import (
     ValidationError, parse_window, validate_polygon,
 )
 from scripts.voi_database import connect
-from scripts import voi_operational_counts, voi_trips_access, voi_zone_counts
+from scripts import voi_hub_counts, voi_operational_counts, voi_trips_access, voi_zone_counts
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
@@ -359,3 +359,78 @@ def zone_counts():
     })
     response.headers["Cache-Control"] = "no-store"
     return response
+
+
+@app.route("/hub-counts", methods=["POST", "OPTIONS"])
+def hub_counts():
+    """Voi vehicles per snapshot standing in each of many hubs or places.
+
+    A vehicle within HUB_RADIUS_M of a zone stands in it. Vehicles and zones
+    meet on a grid (see voi_hub_counts.py), and the exact distance is tested
+    only for the zones in a vehicle's grid cell.
+    """
+    if request.method == "OPTIONS":
+        return ("", 204)
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        raise ValidationError("The request body must be a JSON object")
+    zones = voi_hub_counts.parse_zones(body.get("zones"))
+    start, end = parse_window(body.get("from"), body.get("to"))
+    ids = [zone["id"] for zone in zones]
+    geojsons = [zone["geojson"] for zone in zones]
+    west, south, east, north = voi_hub_counts.bounds(zones)
+    with connect(readonly=True) as connection:
+        # A place is the hubs it groups, and hubs may overlap, which makes
+        # their MultiPolygon invalid. Repair and merge each zone instead.
+        try:
+            connection.execute(
+                "SELECT count(ST_GeomFromGeoJSON(geojson)) FROM unnest(%s::text[]) AS z(geojson)",
+                (geojsons,),
+            ).fetchone()
+        except psycopg.errors.DataException:
+            raise ValidationError("A zone polygon is not a readable GeoJSON geometry") from None
+        moments = [row[0] for row in connection.execute(
+            "SELECT captured_at FROM voi_snapshots WHERE captured_at BETWEEN %s AND %s"
+            " ORDER BY captured_at",
+            (start, end),
+        ).fetchall()]
+        # Positions are read by time first, as in zone_counts; ST_X/ST_Y keep
+        # the bounding box from being used as an index condition.
+        rows = connection.execute(
+            """WITH zones AS MATERIALIZED (
+                   SELECT id, ST_UnaryUnion(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(geojson), 4326))) AS geom
+                   FROM unnest(%(ids)s::text[], %(geojsons)s::text[]) AS z(id, geojson)),
+               zone_cells AS MATERIALIZED (
+                   SELECT z.id, z.geom::geography AS geog, cx, cy FROM zones z,
+                     generate_series(floor((ST_XMin(z.geom) - %(margin)s) / %(cell)s)::int,
+                                     floor((ST_XMax(z.geom) + %(margin)s) / %(cell)s)::int) AS cx,
+                     generate_series(floor((ST_YMin(z.geom) - %(margin)s) / %(cell)s)::int,
+                                     floor((ST_YMax(z.geom) + %(margin)s) / %(cell)s)::int) AS cy),
+               window_positions AS MATERIALIZED (
+                   SELECT captured_at, geom, is_non_operational,
+                          floor(ST_X(geom) / %(cell)s)::int AS cx, floor(ST_Y(geom) / %(cell)s)::int AS cy
+                   FROM voi_positions
+                   WHERE captured_at BETWEEN %(start)s AND %(end)s
+                     AND ST_X(geom) BETWEEN %(west)s AND %(east)s AND ST_Y(geom) BETWEEN %(south)s AND %(north)s)
+               SELECT c.id, p.captured_at,
+                      count(*) FILTER (WHERE p.is_non_operational IS FALSE), count(*)
+               FROM window_positions p
+               JOIN zone_cells c ON c.cx = p.cx AND c.cy = p.cy
+               WHERE ST_DWithin(p.geom::geography, c.geog, %(radius)s)
+               GROUP BY c.id, p.captured_at""",
+            {"ids": ids, "geojsons": geojsons, "margin": voi_hub_counts.MARGIN_DEGREES,
+             "cell": voi_hub_counts.CELL_DEGREES, "start": start, "end": end,
+             "west": west, "east": east, "south": south, "north": north,
+             "radius": voi_hub_counts.HUB_RADIUS_M},
+        ).fetchall()
+    payload = json.dumps({
+        "from": iso_timestamp(start), "to": iso_timestamp(end),
+        "radius_m": voi_hub_counts.HUB_RADIUS_M,
+        "captured_at": [iso_timestamp(moment) for moment in moments],
+        "zones": voi_hub_counts.build_series(moments, rows),
+    }, separators=(",", ":")).encode()
+    headers = {"Cache-Control": "no-store", "Vary": "Accept-Encoding"}
+    if "gzip" in request.headers.get("Accept-Encoding", ""):
+        return Response(gzip.compress(payload, 6), mimetype="application/json",
+                        headers={**headers, "Content-Encoding": "gzip"})
+    return Response(payload, mimetype="application/json", headers=headers)

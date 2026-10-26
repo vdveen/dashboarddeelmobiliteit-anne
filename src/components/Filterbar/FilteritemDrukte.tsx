@@ -1,22 +1,25 @@
 import { useDispatch } from 'react-redux';
 import './css/FilteritemHerkomstBestemming.css';
 
-import { DrukteEenheid, DrukteMaatstaf, DrukteSpot, kpiValue } from '../../helpers/rideEndPeaks';
+import { DrukteEenheid, DrukteMaatstaf, DrukteSpot, isOccupancyMaatstaf, kpiValue } from '../../helpers/rideEndPeaks';
 import {
   DRUKTE_DRUK_PER_UUR,
   DRUKTE_EENHEDEN,
   DRUKTE_MAATSTAVEN,
   DRUKTE_MINIMAAL,
   DRUKTE_PERIODES,
-  DRUKTE_STRALEN
+  DRUKTE_STRALEN,
+  DRUKTE_TE_VOL
 } from '../../reducers/drukte.js';
 import {
   EENHEID_LABELS,
   KIND_COLORS,
   MAATSTAF_LABELS,
   describeSpot,
+  formatInterval,
   formatKpi,
   formatPeakHour,
+  longestIntervals,
   kindLabel,
   spotName,
   useDrukteView,
@@ -65,12 +68,13 @@ const flyTo = (spot: DrukteSpot) => {
   map.flyTo({ center: [spot.lon, spot.lat], zoom: Math.max(map.getZoom(), 16), duration: 600 });
 };
 
-const HourBars = ({ spot }: { spot: DrukteSpot }) => {
-  const max = Math.max(...spot.hourOfDay) || 1;
+// Trip ends per hour of the day, or the average parked vehicles
+const HourBars = ({ values }: { values: number[] }) => {
+  const max = Math.max(...values) || 1;
   return (
     <div aria-hidden="true" className="mt-1">
       <div className="flex items-end gap-px" style={{ height: 18 }}>
-        {spot.hourOfDay.map((x, h) => (
+        {values.map((x, h) => (
           <i key={h} className="flex-1 block" style={{ height: `${Math.round((x / max) * 100)}%`, background: '#9CA3AF', minHeight: x ? 1 : 0 }} />
         ))}
       </div>
@@ -84,7 +88,8 @@ const HourBars = ({ spot }: { spot: DrukteSpot }) => {
 const exportCsv = (spots: DrukteSpot[], names: Record<string, string>, maatstaf: DrukteMaatstaf, hours: number) => {
   const header: (string | number)[] = [
     'plek', 'soort', 'lat', 'lon', MAATSTAF_LABELS[maatstaf].name.toLowerCase(), 'ritten geëindigd',
-    'piekuur', 'ritten in piekuur', 'uren druk', 'normaal', 'ritten begonnen', 'per aanbieder'
+    'piekuur', 'ritten in piekuur', 'uren druk', 'normaal', 'ritten begonnen', 'per aanbieder',
+    'meeste voertuigen', 'moment meeste voertuigen', 'tijd te vol (%)', 'perioden te vol'
   ];
   const rows: (string | number)[][] = [header].concat(spots.map((s): (string | number)[] => [
     spotName(s, names),
@@ -98,7 +103,11 @@ const exportCsv = (spots: DrukteSpot[], names: Record<string, string>, maatstaf:
     s.busyHours,
     s.expected === null ? '' : s.expected.toFixed(1).replace('.', ','),
     s.starts === null ? '' : s.starts,
-    Object.entries(s.perOperator).map(([op, n]) => `${getPrettyProviderName(op) || op} ${n}`).join(', ')
+    Object.entries(s.perOperator).map(([op, n]) => `${getPrettyProviderName(op) || op} ${n}`).join(', '),
+    s.occupancy ? s.occupancy.maxTotal : '',
+    s.occupancy?.maxAt ? new Date(s.occupancy.maxAt).toISOString() : '',
+    s.occupancy ? String(Math.round(s.occupancy.overShare * 1000) / 10).replace('.', ',') : '',
+    s.occupancy ? s.occupancy.intervals.map(formatInterval).join(' | ') : ''
   ]));
   const csv = '﻿' + rows.map((r) => r.map((c) => {
     const v = String(c);
@@ -127,6 +136,7 @@ export default function FilteritemDrukte() {
   const set = (payload: object) => dispatch({ type: 'SET_DRUKTE_SETTING', payload });
 
   const unitNoun = eenheid === 'hubs' ? 'hubs' : eenheid === 'plekken' ? 'plekken' : 'plekken buiten de hubs';
+  const isOccupancy = isOccupancyMaatstaf(maatstaf);
 
   return (
     <div>
@@ -136,7 +146,11 @@ export default function FilteritemDrukte() {
         value={settings.periode}
         onChange={(periode) => set({ periode })}
       />
-      <p className="text-xs text-gray-500 mb-3">Ritten die eindigden in de periode tot de gekozen datum en tijd.</p>
+      <p className="text-xs text-gray-500 mb-3">
+        {isOccupancyMaatstaf(maatstaf)
+          ? 'Metingen in de periode tot de gekozen datum en tijd.'
+          : 'Ritten die eindigden in de periode tot de gekozen datum en tijd.'}
+      </p>
 
       <Segmented
         label="Eenheid"
@@ -153,7 +167,16 @@ export default function FilteritemDrukte() {
       </label>
       <p className="text-xs text-gray-500 mt-1">{MAATSTAF_LABELS[maatstaf].uitleg}</p>
 
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm mt-2">
+      {isOccupancy && (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm mt-2">
+          <span>Te vol bij meer dan</span>
+          <select className={selectClass} value={settings.te_vol} onChange={(e) => set({ te_vol: Number(e.target.value) })}>
+            {DRUKTE_TE_VOL.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+          <span>voertuigen</span>
+        </div>
+      )}
+      {!isOccupancy && <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm mt-2">
         <span>Minimaal</span>
         <select className={selectClass} value={settings.minimaal} onChange={(e) => set({ minimaal: Number(e.target.value) })}>
           {DRUKTE_MINIMAAL.map((n) => <option key={n} value={n}>{n}</option>)}
@@ -168,7 +191,7 @@ export default function FilteritemDrukte() {
             {' '}m
           </span>
         )}
-      </div>
+      </div>}
       {maatstaf === 'uren_druk' && (
         <div className="flex items-center gap-2 text-sm mt-2">
           <span>Druk vanaf</span>
@@ -183,10 +206,27 @@ export default function FilteritemDrukte() {
         {view.status === 'no-gebied' && <p className="text-xs text-gray-500">Kies een plaats om de drukte te zien.</p>}
         {view.status === 'loading' && <p className="text-xs text-gray-500">Ritten en parkeerhubs laden…</p>}
         {view.status === 'error' && <p className="text-xs text-red-700">{view.error}</p>}
+        {view.status === 'occupancy-buiten' && (
+          <p className="text-xs text-gray-500">Voertuigen tellen kan alleen per hub of plek. Kies Hubs of Plekken.</p>
+        )}
+        {view.status === 'occupancy-no-voi' && (
+          <p className="text-xs text-gray-500">Voertuigen tellen kan alleen voor Voi, en Voi heeft hier geen parkeerhubs of staat uit bij Aanbieders.</p>
+        )}
         {view.status === 'no-hubs' && (
           <p className="text-xs text-gray-500">Geen aanbieder publiceert parkeerhubs in dit gebied. Kies Buiten hubs.</p>
         )}
-        {view.status === 'ready' && result && <>
+        {view.status === 'ready' && result && isOccupancy && <>
+          <p className="text-sm">
+            <b>{nl(view.spots.length)}</b> {unitNoun} met Voi-voertuigen,
+            {' '}<b>{nl(view.spots.filter((x) => (x.occupancy?.overSnapshots || 0) > 0).length)}</b> daarvan
+            {' '}waren soms te vol.
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            Geparkeerde Voi-voertuigen, ook defecte, binnen 20 m van een Voi-hub{eenheid === 'plekken' ? ' van de plek' : ''},
+            {' '}uit de eigen metingen van elke tien minuten. Alleen Voi.
+          </p>
+        </>}
+        {view.status === 'ready' && result && !isOccupancy && <>
           <p className="text-sm">
             <b>{nl(view.spots.length)}</b> {unitNoun}. Van de <b>{nl(result.totalEnds)}</b> ritten
             {' '}eindigden er <b>{nl(result.assignedEnds)}</b> in {eenheid === 'hubs' ? 'een hub' : eenheid === 'plekken' ? 'een plek' : 'zo\'n plek'}.
@@ -197,7 +237,8 @@ export default function FilteritemDrukte() {
             {eenheid === 'buiten' && `Ritten verder dan 20 m van een hub van de eigen aanbieder, gegroepeerd zoals in de Groningse drukte-kaart: minstens ${settings.minimaal} binnen ${settings.straal} m.`}
             {eenheid !== 'buiten' && result.endsWithoutHubs > 0 && ` ${nl(result.endsWithoutHubs)} ritten zijn van aanbieders zonder parkeerhubs hier; die staan onder Buiten hubs.`}
           </p>
-
+        </>}
+        {view.status === 'ready' && result && <>
           <ol className="mt-3 flex flex-col gap-1">
             {shown.map((spot, i) => (
               <li key={spot.id}>
@@ -218,9 +259,15 @@ export default function FilteritemDrukte() {
                       {spotName(spot, names) || `Plek ${i + 1}`}
                     </span>
                     <small className="block text-xs text-gray-600">
-                      {kindLabel(spot)}. {describeSpot(spot, maatstaf, result.hours, settings.druk_per_uur)}
+                      {kindLabel(spot)}. {describeSpot(spot, maatstaf, result.hours, settings.druk_per_uur, settings.te_vol)}
                     </small>
-                    <HourBars spot={spot} />
+                    {isOccupancy && (spot.occupancy?.intervals.length || 0) > 0 && (
+                      <small className="block text-xs text-red-800 mt-0.5">
+                        Te vol: {longestIntervals(spot, 3).map(formatInterval).join('; ')}
+                        {(spot.occupancy?.intervals.length || 0) > 3 && ` en ${(spot.occupancy?.intervals.length || 0) - 3} keer meer`}
+                      </small>
+                    )}
+                    <HourBars values={isOccupancy && spot.occupancy ? spot.occupancy.hourOfDayAvg : spot.hourOfDay} />
                   </span>
                 </button>
               </li>

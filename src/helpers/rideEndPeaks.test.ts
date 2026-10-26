@@ -4,6 +4,9 @@ import {
   computeDrukte,
   groupHubsIntoPlaces,
   kpiValue,
+  occupancyFor,
+  occupancySpots,
+  occupancyZones,
   placesForIndex,
   sortSpots,
   RideEvent
@@ -149,5 +152,56 @@ describe('clusterPoints', () => {
     const groups = clusterPoints(pts, 20, 3);
     expect(groups).toHaveLength(1);
     expect(groups[0]).toHaveLength(8);
+  });
+});
+
+describe('occupancy', () => {
+  const M = 10 * 60 * 1000;
+  const times = [0, 1, 2, 3, 4, 5].map((k) => T0 + k * M);
+
+  it('asks for every Voi hub, or every place with Voi hubs as one MultiPolygon', () => {
+    expect(occupancyZones(index, 'hubs').map((z) => z.id)).toEqual(['voi:0', 'voi:1', 'voi:2']);
+    const places = occupancyZones(index, 'plekken');
+    expect(places).toHaveLength(2);
+    const big = places.find((z) => z.polygon.type === 'MultiPolygon')!;
+    expect((big.polygon as GeoJSON.MultiPolygon).coordinates).toHaveLength(2);
+    expect(occupancyZones(index, 'buiten')).toEqual([]);
+  });
+
+  it('finds the maximum, the share over the threshold and the intervals', () => {
+    const series = { i: [0, 1, 2, 4, 5], operational: [3, 6, 4, 9, 2], total: [4, 7, 6, 11, 3] };
+    const o = occupancyFor(times, series, 5);
+    expect(o.maxTotal).toBe(11);
+    expect(o.maxOperational).toBe(9);
+    expect(o.maxAt).toBe(times[4]);
+    expect(o.overSnapshots).toBe(3);
+    expect(o.overShare).toBeCloseTo(0.5);
+    expect(o.intervals).toEqual([
+      { start: times[1], end: times[3], max: 7 },
+      { start: times[4], end: times[5], max: 11 }
+    ]);
+    expect(o.hourOfDayAvg[8]).toBeCloseTo(31 / 6);
+  });
+
+  it('ends an interval at a long gap between snapshots', () => {
+    const gapped = [T0, T0 + M, T0 + 3 * 60 * M];
+    const o = occupancyFor(gapped, { i: [0, 1, 2], operational: [6, 6, 6], total: [6, 6, 6] }, 5);
+    expect(o.intervals).toEqual([
+      { start: gapped[0], end: gapped[1] + M, max: 6 },
+      { start: gapped[2], end: gapped[2] + M, max: 6 }
+    ]);
+  });
+
+  it('builds spots for zones that held a vehicle and keeps their trip ends', () => {
+    const response = {
+      captured_at: times.map((t) => new Date(t).toISOString()),
+      zones: { 'voi:0': { i: [0], operational: [2], total: [2] }, 'voi:1': { i: [1], operational: [1], total: [1] } }
+    };
+    const rides = computeDrukte({ ...base, ends: [at('voi', 5, 5, T0)], eenheid: 'hubs' }).spots;
+    const spots = occupancySpots(index, 'hubs', response, 5, rides);
+    const byId = Object.fromEntries(spots.map((s) => [s.id, s]));
+    expect(byId['voi:0'].ends).toBe(1);
+    expect(byId['voi:1'].ends).toBe(0);
+    expect(kpiValue(byId['voi:0'], 'max_voertuigen', 24)).toBe(2);
   });
 });

@@ -50,6 +50,8 @@ export interface PreparedHub {
   operator: string;
   // Centre in [lon, lat], for labels and for grouping hubs into places
   center: [number, number];
+  // The hub's own polygon, for asking the snapshot archive about it
+  geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon;
   rings: Ring[];
   bbox: [number, number, number, number];
 }
@@ -130,6 +132,7 @@ export const buildHubIndex = (features: GeoJSON.Feature[]): HubIndex => {
       id: `${key}:${hubIndex}`,
       operator: key,
       center: unproject((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2, lonScale),
+      geometry: feature.geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon,
       rings,
       bbox
     });

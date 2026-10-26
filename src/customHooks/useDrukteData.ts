@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { createFilterparameters } from '../poll-api/pollTools.js';
 import { getAclOrganisationType } from '../helpers/authentication.js';
-import { BASELINE_WEEKS, RideEvent } from '../helpers/rideEndPeaks';
+import { BASELINE_WEEKS, RideEvent, isOccupancyMaatstaf, occupancyZones } from '../helpers/rideEndPeaks';
+import { fetchHubCounts } from '../api/voiHubCounts';
 import { DISPLAYMODE_OTHER, DISPLAYMODE_PARK } from '../reducers/layers.js';
 import { PARKEERWEERGAVE_DRUKTE } from '../reducers/filter.js';
 import { selectDrukteSettings } from '../reducers/drukte.js';
@@ -97,4 +98,52 @@ export const useDrukteData = () => {
     return () => controller.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, key, token]);
+};
+
+/**
+ * Loads the parked Voi vehicles per hub or place from the snapshot archive,
+ * for the occupancy measures of the Drukte view (Meeste voertuigen, Tijd te
+ * vol), over the same period as the trips.
+ */
+export const useDrukteOccupancyData = () => {
+  const dispatch = useDispatch();
+  const { periode, maatstaf, eenheid } = useSelector(selectDrukteSettings);
+  const isActive = useSelector((state: StateType) =>
+    state.layers?.displaymode === DISPLAYMODE_PARK
+    && state.filter?.parkeerweergave === PARKEERWEERGAVE_DRUKTE
+    && !!state.authentication?.user_data?.token
+  ) && isOccupancyMaatstaf(maatstaf) && eenheid !== 'buiten';
+  const gebied = useSelector((state: StateType) => state.filter?.gebied || '');
+  const datum = useSelector((state: StateType) => state.filter?.datum || '');
+  const hubIndex = useSelector((state: StateType) =>
+    state.parking_hubs?.gebied === gebied && state.parking_hubs?.status === 'ready' ? state.parking_hubs.index : null
+  );
+  const loadedKey = useSelector((state: StateType) => state.drukte_data?.occupancy_key || null);
+
+  const end = Math.floor((datum ? Date.parse(datum) : Date.now()) / 60000) * 60000;
+  const start = end - periode * HOUR_MS;
+  const key = isActive && hubIndex ? JSON.stringify([gebied, eenheid, start, end]) : null;
+  // The hubs belong to the gebied in the key, so the effect follows the key alone
+  const hubIndexRef = useRef(hubIndex);
+  hubIndexRef.current = hubIndex;
+
+  useEffect(() => {
+    if (!key || !hubIndexRef.current || key === loadedKey) return;
+    const zones = occupancyZones(hubIndexRef.current, eenheid);
+    dispatch({ type: 'SET_DRUKTE_OCCUPANCY_LOADING', payload: key });
+    if (zones.length === 0) {
+      dispatch({ type: 'SET_DRUKTE_OCCUPANCY', payload: { key, data: { captured_at: [], zones: {} } } });
+      return;
+    }
+    const controller = new AbortController();
+    fetchHubCounts(zones, start, end, controller.signal)
+      .then((data) => dispatch({ type: 'SET_DRUKTE_OCCUPANCY', payload: { key, data } }))
+      .catch((error) => {
+        if (error?.name === 'AbortError') return;
+        console.error('Unable to load hub counts', error);
+        dispatch({ type: 'SET_DRUKTE_OCCUPANCY_ERROR', payload: { key, error: error?.message || String(error) } });
+      });
+    return () => controller.abort();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, key]);
 };
