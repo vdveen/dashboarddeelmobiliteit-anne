@@ -21,6 +21,7 @@ import {
 
 import {StateType} from '../types/StateType';
 import { selectActiveDataLayers } from '../helpers/layerSelectors';
+import { PARKEERWEERGAVE_DRUKTE } from '../reducers/filter.js';
 
 
 import './MapPage.css';
@@ -70,8 +71,13 @@ function Map({mapContainer}) {
   // `map.U.showSource('luchtfoto-pdok')` even when the user selected the base
   // map, which made MapLibre start fetching satellite tiles for nothing.
 
+  // The Drukte view draws trip ends instead of vehicles (DdDrukteLayer)
+  const isDrukte = useSelector((state: StateType) =>
+    state.filter?.parkeerweergave === PARKEERWEERGAVE_DRUKTE && !!state.authentication?.user_data
+  );
+
   // Active layers for vehicles page
-  if(displayMode===DISPLAYMODE_PARK) {
+  if(displayMode===DISPLAYMODE_PARK && !isDrukte) {
     const parkLayers = activeDataLayers['displaymode-park'] || [];
     parkLayers.forEach(layerName => {
       switch(layerName) {

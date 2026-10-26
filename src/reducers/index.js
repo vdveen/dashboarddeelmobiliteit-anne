@@ -14,6 +14,8 @@ import policy_hubs from './policy-hubs';
 import search from './search';
 import service_areas from './service-areas';
 import parking_hubs from './parking-hubs';
+import drukte from './drukte';
+import drukte_data from './drukte-data';
 
 export default combineReducers({
   created,
@@ -30,5 +32,7 @@ export default combineReducers({
   policy_hubs,
   search,
   service_areas,
-  parking_hubs
+  parking_hubs,
+  drukte,
+  drukte_data
 })

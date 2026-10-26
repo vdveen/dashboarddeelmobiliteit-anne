@@ -16,7 +16,8 @@ import {
 import FilteritemNonOperationalVehicles from './FilteritemNonOperationalVehicles';
 import FilteritemParkeerweergave from './FilteritemParkeerweergave';
 import FilteritemParkeernaleving from './FilteritemParkeernaleving';
-import { PARKEERWEERGAVE_NALEVING } from '../../reducers/filter.js';
+import FilteritemDrukte from './FilteritemDrukte';
+import { PARKEERWEERGAVE_DRUKTE, PARKEERWEERGAVE_NALEVING } from '../../reducers/filter.js';
 import FilteritemHerkomstBestemming from './FilteritemHerkomstBestemming';
 import FilteritemVoertuigTypes from './FilteritemVoertuigTypes';
 import LogoDashboardDeelmobiliteit from '../Logo/LogoDashboardDeelmobiliteit';
@@ -101,6 +102,7 @@ function Filterbar({
   const showduur = isrentals;
   const showparkeerduur = ispark;
   const isParkeernaleving = filter?.parkeerweergave === PARKEERWEERGAVE_NALEVING;
+  const isDrukte = filter?.parkeerweergave === PARKEERWEERGAVE_DRUKTE;
   const showafstand = isrentals;
   const showherkomstbestemming = isrentals;
   const showvantot = isontwikkeling;
@@ -267,13 +269,13 @@ function Filterbar({
             </Fieldset>
           )}
 
-          {isLoggedIn && showparkeerduur && ! isParkeernaleving && (
+          {isLoggedIn && showparkeerduur && ! isParkeernaleving && ! isDrukte && (
             <Fieldset title="Parkeerduur">
               <FilteritemMarkersParkeerduur />
             </Fieldset>
           )}
 
-          {isLoggedIn && showparkeerduur && ! isParkeernaleving && (
+          {isLoggedIn && showparkeerduur && ! isParkeernaleving && ! isDrukte && (
             <Fieldset title="Defecte voertuigen">
               <FilteritemNonOperationalVehicles />
             </Fieldset>
@@ -282,6 +284,12 @@ function Filterbar({
           {isLoggedIn && showparkeerduur && isParkeernaleving && (
             <Fieldset title="Parkeerafstand">
               <FilteritemParkeernaleving />
+            </Fieldset>
+          )}
+
+          {isLoggedIn && showparkeerduur && isDrukte && (
+            <Fieldset title="Drukte">
+              <FilteritemDrukte />
             </Fieldset>
           )}
 

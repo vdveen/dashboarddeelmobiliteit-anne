@@ -44,7 +44,12 @@ export const isMeasuredFormFactor = (formFactor: string | null | undefined): boo
 type Point = [number, number];
 type Ring = Point[];
 
-interface PreparedHub {
+export interface PreparedHub {
+  // Operator key and position in that operator's list, e.g. 'voi:12'
+  id: string;
+  operator: string;
+  // Centre in [lon, lat], for labels and for grouping hubs into places
+  center: [number, number];
   rings: Ring[];
   bbox: [number, number, number, number];
 }
@@ -77,6 +82,11 @@ const project = (lon: number, lat: number, lonScale: number): Point => [
   lat * METRES_PER_DEGREE
 ];
 
+const unproject = (x: number, y: number, lonScale: number): [number, number] => [
+  x / (METRES_PER_DEGREE * lonScale),
+  y / METRES_PER_DEGREE
+];
+
 const cellKey = (cx: number, cy: number) => `${cx}:${cy}`;
 
 const polygonsOf = (geometry: GeoJSON.Geometry | null | undefined): GeoJSON.Position[][][] => {
@@ -86,7 +96,7 @@ const polygonsOf = (geometry: GeoJSON.Geometry | null | undefined): GeoJSON.Posi
   return [];
 };
 
-const operatorKey = (operator: string | null | undefined) =>
+export const operatorKey = (operator: string | null | undefined) =>
   (operator || '').toLowerCase().replace(/\s/g, '');
 
 /**
@@ -116,7 +126,13 @@ export const buildHubIndex = (features: GeoJSON.Feature[]): HubIndex => {
     const ys = rings.flatMap((ring) => ring.map((p) => p[1]));
     const bbox: PreparedHub['bbox'] = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
     const hubIndex = entry.hubs.length;
-    entry.hubs.push({ rings, bbox });
+    entry.hubs.push({
+      id: `${key}:${hubIndex}`,
+      operator: key,
+      center: unproject((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2, lonScale),
+      rings,
+      bbox
+    });
 
     for (let cx = Math.floor(bbox[0] / CELL_M); cx <= Math.floor(bbox[2] / CELL_M); cx++) {
       for (let cy = Math.floor(bbox[1] / CELL_M); cy <= Math.floor(bbox[3] / CELL_M); cy++) {
@@ -159,6 +175,52 @@ const hubDistance = (x: number, y: number, hub: PreparedHub): number => {
     if (inRing(x, y, ring)) return 0;
     for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
       best = Math.min(best, segmentDistance(x, y, ring[j][0], ring[j][1], ring[i][0], ring[i][1]));
+    }
+  }
+  return best;
+};
+
+export interface NearestHub {
+  hub: PreparedHub;
+  distance: number;
+}
+
+/**
+ * The nearest hub of an operator within maxDistance metres of a point, or
+ * null when there is none (or the operator has no hubs in the index).
+ * Every hub within maxDistance has its nearest point, and so part of its
+ * bounding box, in the cells searched, so the answer is exact.
+ */
+export const nearestHubWithin = (
+  index: HubIndex,
+  operator: string,
+  lon: number,
+  lat: number,
+  maxDistance: number
+): NearestHub | null => {
+  const entry = index.operators.get(operatorKey(operator));
+  if (!entry) return null;
+
+  const [x, y] = project(lon, lat, Math.cos((index.lat0 * Math.PI) / 180));
+  const cx = Math.floor(x / CELL_M);
+  const cy = Math.floor(y / CELL_M);
+  const cells = Math.ceil(maxDistance / CELL_M);
+
+  let best: NearestHub | null = null;
+  const seen = new Set<number>();
+  for (let dx = -cells; dx <= cells; dx++) {
+    for (let dy = -cells; dy <= cells; dy++) {
+      const cell = entry.grid.get(cellKey(cx + dx, cy + dy));
+      if (!cell) continue;
+      for (const i of cell) {
+        if (seen.has(i)) continue;
+        seen.add(i);
+        const distance = hubDistance(x, y, entry.hubs[i]);
+        if (distance <= maxDistance && (!best || distance < best.distance)) {
+          best = { hub: entry.hubs[i], distance };
+          if (distance === 0) return best;
+        }
+      }
     }
   }
   return best;

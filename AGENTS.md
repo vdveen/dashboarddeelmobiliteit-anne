@@ -35,6 +35,12 @@
 - The Aanbod filterbar switches between Parkeerduur (with Defecte voertuigen) and Parkeernaleving (`filter.parkeerweergave`). Parkeernaleving copies the bands of Groningen's "Buiten hubs geparkeerd" tool (thijsoost.nl/deelmobiliteit/parkeren.html): within 20 m of a hub counts as in it, then 20-50, 50-200 and over 200 m.
 - Distances go to the hubs of the Parkeerhubs layer, which come from each operator's own service area, so a bike is compared only with its own operator's hubs. Only `bicycle` and `cargo_bicycle` are measured. The logic is in `src/helpers/parkingCompliance.ts`; the hubs load in `src/customHooks/useParkingHubsForCompliance.ts`.
 
+## Drukte
+
+- The third value of the Aanbod toggle (`filter.parkeerweergave` `drukte`) replaces the vehicles with where trips ended (`v2/trips/destinations`) in a period (1 hour to 30 days) before the Aanbod date. It is modelled on Groningen's "Drukke plekken" tool (thijsoost.nl/deelmobiliteit/drukte.html), which does the same for parked vehicles.
+- The units are Hubs (own-operator hub within 20 m), Plekken (hubs of all operators grouped by complete linkage within 500 m, as `places.py` of the Voi trips analysis; a trip end counts for the place of its nearest own-operator hub within 500 m) and Buiten hubs (the remaining ends, including operators without hubs, clustered with Groningen's method). The measures are Ritten geëindigd, Piekuur, Uren druk, Boven normaal (against the same weekday hours of the four weeks before, an extra request) and Netto aankomst (needs `v2/trips/origins`, an extra request).
+- The logic is in `src/helpers/rideEndPeaks.ts`, the trips load in `src/customHooks/useDrukteData.ts`, and the settings (`state.drukte`) are persisted and read through `selectDrukteSettings`. Spot names come from PDOK reverse geocoding.
+
 ## Contractnaleving Voi
 
 - `/stats/prestaties-aanbieders` shows `src/components/VoiContract/VoiContractMonitor.tsx` instead of upstream's permit overview, which fails for operator and regional accounts. The route switch is in `src/pages/dashboard/DashboardPage.tsx`; the upstream components stay unused to keep merges simple.

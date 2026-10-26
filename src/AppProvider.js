@@ -121,7 +121,8 @@ store.subscribe(() => {
     layers: storeState.layers,
     ui: storeState.ui,
     policy_hubs: storeState.policy_hubs,
-    service_areas: storeState.service_areas
+    service_areas: storeState.service_areas,
+    drukte: storeState.drukte
   }
   localStorage.setItem('CROWDD_reduxState', JSON.stringify(storeStateToSaveInLocalStorage))
 })

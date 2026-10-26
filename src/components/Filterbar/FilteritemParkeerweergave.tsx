@@ -2,18 +2,21 @@ import { useDispatch, useSelector } from 'react-redux';
 import './css/FilteritemHerkomstBestemming.css';
 
 import { StateType } from '../../types/StateType';
-import { PARKEERWEERGAVE_DUUR, PARKEERWEERGAVE_NALEVING } from '../../reducers/filter.js';
+import { PARKEERWEERGAVE_DRUKTE, PARKEERWEERGAVE_DUUR, PARKEERWEERGAVE_NALEVING, PARKEERWEERGAVES } from '../../reducers/filter.js';
 
 const VIEWS = [
-  { value: PARKEERWEERGAVE_DUUR, name: 'Parkeerduur' },
-  { value: PARKEERWEERGAVE_NALEVING, name: 'Parkeernaleving' }
+  // Soft hyphens let the names break over two lines in three buttons
+  { value: PARKEERWEERGAVE_DUUR, name: 'Parkeer\u00ADduur' },
+  { value: PARKEERWEERGAVE_NALEVING, name: 'Parkeer\u00ADnaleving' },
+  { value: PARKEERWEERGAVE_DRUKTE, name: 'Drukte' }
 ];
 
-// Switches the Aanbod map between parking duration and parking compliance
+// Switches the Aanbod map between parking duration, parking compliance and
+// drukte (where trips ended)
 export default function FilteritemParkeerweergave() {
   const dispatch = useDispatch();
   const parkeerweergave = useSelector((state: StateType) =>
-    state.filter?.parkeerweergave === PARKEERWEERGAVE_NALEVING ? PARKEERWEERGAVE_NALEVING : PARKEERWEERGAVE_DUUR
+    PARKEERWEERGAVES.includes(state.filter?.parkeerweergave) ? state.filter.parkeerweergave : PARKEERWEERGAVE_DUUR
   );
 
   return (
@@ -24,6 +27,7 @@ export default function FilteritemParkeerweergave() {
             key={view.value}
             type="button"
             aria-pressed={view.value === parkeerweergave}
+            style={{ width: `${100 / VIEWS.length}%`, fontSize: 13, lineHeight: '15px', padding: '2px 4px', hyphens: 'manual' }}
             className={'filter-herkomst-bestemming-button' + (view.value === parkeerweergave ? ' filter-herkomst-bestemming-button-active' : '')}
             onClick={() => dispatch({ type: 'SET_FILTER_PARKEERWEERGAVE', payload: view.value })}
           >

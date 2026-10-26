@@ -10,11 +10,13 @@ export const OPERATIONAL_STATUSES = [
   OPERATIONAL_STATUS_OPERATIONAL
 ];
 
-// View of the Aanbod map: parking duration (with the defect filter) or
-// parking compliance (distance to the nearest parking hub)
+// View of the Aanbod map: parking duration (with the defect filter),
+// parking compliance (distance to the nearest parking hub) or drukte (where
+// trips ended, see helpers/rideEndPeaks.ts)
 export const PARKEERWEERGAVE_DUUR = 'parkeerduur';
 export const PARKEERWEERGAVE_NALEVING = 'parkeernaleving';
-export const PARKEERWEERGAVES = [PARKEERWEERGAVE_DUUR, PARKEERWEERGAVE_NALEVING];
+export const PARKEERWEERGAVE_DRUKTE = 'drukte';
+export const PARKEERWEERGAVES = [PARKEERWEERGAVE_DUUR, PARKEERWEERGAVE_NALEVING, PARKEERWEERGAVE_DRUKTE];
 
 // Logged in users start with an initial municipality
 // This prevents a slow website on initial load

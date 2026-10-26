@@ -12,4 +12,6 @@ export type StateType = {
   search?: any;
   service_areas?: any;
   parking_hubs?: any;
+  drukte?: any;
+  drukte_data?: any;
 }

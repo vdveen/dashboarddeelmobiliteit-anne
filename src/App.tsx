@@ -58,6 +58,7 @@ import { updateZonesgeodata } from './poll-api/metadataZonesgeodata.js';
 import {setAclInRedux} from './actions/authentication.js';
 import { initUpdateParkingData } from './poll-api/pollParkingData.js';
 import { useParkingHubsForCompliance } from './customHooks/useParkingHubsForCompliance';
+import { useDrukteData } from './customHooks/useDrukteData';
 import {
   initUpdateVerhuringenData
 } from './poll-api/pollVerhuringenData.js';
@@ -407,6 +408,8 @@ function App() {
 
   // Hubs for the Parkeernaleving view; the vehicles are reprocessed once they arrive
   useParkingHubsForCompliance();
+  // Trips for the Drukte view of the Aanbod map
+  useDrukteData();
   const parkingHubsIndex = useSelector((state: StateType) => state.parking_hubs?.index || null);
 
   // Public map view default (not logged in): no municipality filter and

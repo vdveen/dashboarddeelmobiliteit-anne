@@ -61,6 +61,8 @@ import DdPolicyHubsLayer from '../MapLayer/DdPolicyHubsLayer';
 import DdParkEventsLayer from '../MapLayer/DdParkEventsLayer';
 import DdRentalsLayer from '../MapLayer/DdRentalsLayer';
 import DdServiceAreasOverlay from '../MapLayer/DdServiceAreasOverlay';
+import DdDrukteLayer from '../MapLayer/DdDrukteLayer';
+import { PARKEERWEERGAVE_DRUKTE } from '../../reducers/filter.js';
 import DdPolicyHubsOverlay from '../MapLayer/DdPolicyHubsOverlay';
 import { WidthIcon } from '@radix-ui/react-icons';
 import { useBackgroundLayer } from './MapUtils/useBackgroundLayer';
@@ -108,6 +110,7 @@ const MapComponent = (props): JSX.Element => {
   const rentals = useSelector((state: StateType) => state.rentals || null);
   const stateLayers = useSelector((state: StateType) => state.layers || null);
   const isLoggedIn = useSelector((state: StateType) => state.authentication.user_data ? true : false);
+  const isDrukte = useSelector((state: StateType) => state.filter?.parkeerweergave === PARKEERWEERGAVE_DRUKTE);
   const providers = useSelector((state: StateType) => (state.metadata && state.metadata.aanbieders) ? state.metadata.aanbieders : []);
   const organisationType = useSelector((state: StateType) =>
     getAclOrganisationType(state.authentication?.user_data?.acl)
@@ -858,6 +861,7 @@ const MapComponent = (props): JSX.Element => {
     <MapAttribution map={map.current} />
     {/* Service areas layer */}
     {stateLayers.displaymode === 'displaymode-park' && <DdParkEventsLayer map={map.current} />}
+    {stateLayers.displaymode === 'displaymode-park' && isLoggedIn && isDrukte && <DdDrukteLayer map={map.current} />}
     
     {stateLayers.displaymode === 'displaymode-rentals' && <DdRentalsLayer map={map.current} />}
     {/* H3 layer */}{stateLayers.displaymode === 'displaymode-rentals' && <DdH3HexagonLayer map={map.current} />}

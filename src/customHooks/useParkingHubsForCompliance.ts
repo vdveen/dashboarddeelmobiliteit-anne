@@ -6,12 +6,12 @@ import { loadServiceAreas, splitServiceAreasForMap } from '../helpers/service-ar
 import { getMunicipalityCodes } from '../helpers/regions';
 import { buildHubIndex } from '../helpers/parkingCompliance';
 import { DISPLAYMODE_PARK } from '../reducers/layers.js';
-import { PARKEERWEERGAVE_NALEVING } from '../reducers/filter.js';
+import { PARKEERWEERGAVE_DRUKTE, PARKEERWEERGAVE_NALEVING } from '../reducers/filter.js';
 import { StateType } from '../types/StateType';
 
 /**
  * Loads the hubs of the Parkeerhubs layer for the selected place while the
- * Aanbod map shows Parkeernaleving. It loads every operator's hubs, also
+ * Aanbod map shows Parkeernaleving or Drukte. It loads every operator's hubs, also
  * those excluded in the Aanbieders filter, so switching operators needs no
  * new request.
  */
@@ -19,7 +19,7 @@ export const useParkingHubsForCompliance = () => {
   const dispatch = useDispatch();
   const isActive = useSelector((state: StateType) =>
     state.layers?.displaymode === DISPLAYMODE_PARK
-    && state.filter?.parkeerweergave === PARKEERWEERGAVE_NALEVING
+    && [PARKEERWEERGAVE_NALEVING, PARKEERWEERGAVE_DRUKTE].includes(state.filter?.parkeerweergave)
     && !!state.authentication?.user_data
   );
   const gebied = useSelector((state: StateType) => state.filter?.gebied || '');
