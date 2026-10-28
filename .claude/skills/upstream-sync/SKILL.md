@@ -38,6 +38,9 @@ made. Never push to `stichting-crow` or open a pull request there.
      The owner keeps the fork's multi-operator overlay. Upstream's single-operator
      dropdown has merged into `DataLayerList.tsx` cleanly before, so check that
      file by hand.
+   - Two lasso buttons on Aanbod: upstream's `LassoTool` (from this fork's PR
+     #253) and the fork's `ParkSelectionTool`. `MapComponent.tsx` mounts both
+     without a conflict. Ask the owner which one to keep.
    - The region presets and the place-list order (the ten region municipalities
      and three regions come first).
    - Caps and limits. The owner removed defensive caps (CSV size and row limits,
