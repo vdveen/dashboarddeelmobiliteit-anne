@@ -109,7 +109,8 @@ mode. The October entries there show the format.
 
 When a scheduled task runs this skill and step 1 shows healthy collection with
 no gaps in the last 24 hours, reply in a single line with the latest capture and
-database size. Do not dig further. When something is wrong, go through every
+database size, then settle the thread with the t3-code tool `t3_thread_organize`
+(action `settle`, no threadId). Do not dig further. When something is wrong, go through every
 step. You may commit code fixes, redeploy, and apply a config plan that touches
 only the Voi services. Leave key changes, pausing the service, and deleting
-data to the owner.
+data to the owner. Do not settle the thread when something was wrong.

@@ -20,7 +20,9 @@ made. Never push to `stichting-crow` or open a pull request there.
 1. Run `git fetch stichting-crow` and `git fetch origin`. List what is new:
    `git log --oneline --no-merges main..stichting-crow/main`. If nothing is new,
    report that in one line with the date of the last upstream merge
-   (`git log --merges --first-parent --grep stichting -1 main`) and stop.
+   (`git log --merges --first-parent --grep stichting -1 main`) and stop. In a
+   scheduled run, also settle the thread with the t3-code tool
+   `t3_thread_organize` (action `settle`, no threadId).
 2. Read each commit's diff, not only its message. Group the commits by the
    behaviour they change, not by commit.
 3. Do a trial merge in a scratch worktree so the main checkout stays clean:
