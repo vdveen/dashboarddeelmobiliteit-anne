@@ -31,7 +31,9 @@ export default defineRailway(() => {
     },
   });
   // Encrypt external GIS connections. The certificate is regenerated at startup.
-  storage.deploy = { ...storage.deploy, startCommand: `sh -c 'openssl req -new -x509 -days 3650 -nodes -subj /CN=voi-postgis -out /tmp/server.crt -keyout /tmp/server.key 2>/dev/null && chmod 600 /tmp/server.key && chown postgres:postgres /tmp/server.key /tmp/server.crt && exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/tmp/server.crt -c ssl_key_file=/tmp/server.key'` };
+  // A small shared_buffers keeps idle memory low; queries lean on the OS page
+  // cache, which grows while the charts are used and is released afterwards.
+  storage.deploy = { ...storage.deploy, startCommand: `sh -c 'openssl req -new -x509 -days 3650 -nodes -subj /CN=voi-postgis -out /tmp/server.crt -keyout /tmp/server.key 2>/dev/null && chmod 600 /tmp/server.key && chown postgres:postgres /tmp/server.key /tmp/server.crt && exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/tmp/server.crt -c ssl_key_file=/tmp/server.key -c shared_buffers=16MB'` };
   const build = {
     builder: "DOCKERFILE" as const,
     dockerfilePath: "Dockerfile.voi-monitor",
@@ -43,6 +45,8 @@ export default defineRailway(() => {
     deploy: {
       startCommand: "gunicorn --bind [::]:8080 --workers 2 --timeout 60 scripts.voi_api:app",
       healthcheckPath: "/health",
+      // Sleeps after 10 minutes without outbound traffic; the next request wakes it.
+      sleepApplication: true,
       multiRegionConfig: { "europe-west4-drams3a": { numReplicas: 1 } },
     },
     env: {
