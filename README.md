@@ -16,6 +16,10 @@ Dashboard Deelmobiliteit is a project by non profit organisation [CROW](https://
 - [docs/VOI-VEHICLE-MONITOR.md](docs/VOI-VEHICLE-MONITOR.md) - the Voi snapshot archive and its viewer.
 - [docs/audits/README.md](docs/audits/README.md) - index of audits, bug reports and performance reports.
 
+## Want to help?
+
+Found a bug, have an idea, or want to contribute code? Read [CONTRIBUTING.md](CONTRIBUTING.md). It explains, also for non-developers, how to report bugs, suggest features and how a Pull Request goes from idea to the live website.
+
 ## Quickstart
 
 - `git clone git@github.com:Stichting-CROW/dashboarddeelmobiliteit-app.git`

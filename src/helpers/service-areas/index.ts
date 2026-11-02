@@ -8,6 +8,20 @@ import { getMdsPublicUrl } from '../mdsUrl';
 export { splitServiceAreasForMap } from './mapData';
 export type { ServiceAreaMapData } from './mapData';
 
+/** Normalize operator names for comparison (e.g. 'GO Sharing' <-> 'gosharing'). */
+export const normalizeOperatorName = (operator: string | null | undefined): string => {
+  if (!operator) return '';
+  return operator.toLowerCase().replace(/\s+/g, '');
+};
+
+export const doesServiceAreaMatchOperator = (
+  serviceArea: Pick<ServiceArea, 'operator'> | null | undefined,
+  operator: string | null | undefined
+): boolean => {
+  if (!serviceArea || !operator) return false;
+  return normalizeOperatorName(serviceArea.operator) === normalizeOperatorName(operator);
+};
+
 export const loadServiceAreas = async (
   gebied: string,
   visible_operators: string[]
@@ -41,7 +55,7 @@ const operatorsQueryParam = (visible_operators: string[] | null | undefined): st
     return null;
   }
   return visible_operators
-    .map((x) => `operators=${encodeURIComponent(x.toLowerCase().replace(' ', ''))}`)
+    .map((x) => `operators=${encodeURIComponent(normalizeOperatorName(x))}`)
     .join('&');
 };
 
